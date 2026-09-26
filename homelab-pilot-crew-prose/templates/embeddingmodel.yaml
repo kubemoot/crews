@@ -1,0 +1,11 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: EmbeddingModel
+metadata:
+  name: {{ .Values.embeddingModel.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    app.kubernetes.io/managed-by-resource: kubemoot
+spec:
+  model: {{ .Values.embeddingModel.modelId }}
+  providerRef: {{ .Values.embeddingModel.providerRef }}

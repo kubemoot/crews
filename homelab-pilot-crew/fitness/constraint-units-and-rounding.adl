@@ -1,0 +1,23 @@
+DESCRIPTION Constraint band: unit conversion, a rounding rule, and a derived percentage; format discipline under arithmetic.
+
+DEFINE CONST QUESTION AS "Report total cluster memory capacity and total memory requested, both in GiB rounded to whole numbers, and the percentage requested."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "GiB")
+
+# Deterministic, drift-tolerant ground truth: real k8s node memory capacity is ~242 GiB
+# across all 12 nodes. The observed failure FABRICATED "384 GiB" by deriving capacity
+# from only 3 control-plane nodes (128 x 3). Forbid that specific false total; the live
+# figure drifts but 384 is simply wrong.
+ASSERT(synthesis does NOT CONTAIN "384")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Every node exposes its memory capacity in live state, so total cluster memory and total requested memory ARE computable; claiming node memory is unavailable is wrong. A correct answer sums allocatable memory across all nodes, sums requested memory, expresses both in whole-number GiB, and derives the percentage requested. The real total capacity is currently about 242 GiB across the 12 nodes; a figure like 384 GiB (derived from only the 3 control-plane nodes) is fabricated. Correct unit conversion, rounding, and the derived ratio are scored, and the figures must be internally consistent and not invented. (The exact totals drift; the constant is computing them from every node's live capacity.)")

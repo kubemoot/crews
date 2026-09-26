@@ -1,0 +1,47 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: k8s-services
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Inspects Kubernetes networking: Services, Endpoints, Ingresses, NetworkPolicies."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, kubernetes]
+  discussChannels:
+    - kubernetes
+  triageSummary: "Lists and inspects Services, Endpoints, Ingresses, and NetworkPolicies."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-services-system]
+  enabledTools: [resources_list, resources_get, events_list]
+  discussKeywords:
+    - service
+    - services
+    - nodeport
+    - loadbalancer
+    - clusterip
+    - externalname
+    - endpoint
+    - endpoints
+    - ingress
+    - ingresses
+    - networkpolicy
+    - port
+    - ports
+    - expose
+    - exposed
+    - external
+    - dns
+    - routing
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

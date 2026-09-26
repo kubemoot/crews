@@ -1,0 +1,66 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: advisory-prompt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  order: 5
+  content: |
+    DEFINE DOMAIN fitness-advisory
+    DESCRIPTION Brief framing the coordinator emits before the judging discussion
+
+    WHEN asked for an advisory THEN state in one sentence that this is a reference-grounded judging task and the fitness-judge will score the answer against the provided ground truth
+    NEVER attempt to judge or score in the advisory — that is the fitness-judge's job
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: triage-selection
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  order: 8
+  content: |
+    DEFINE DOMAIN fitness-triage
+    DESCRIPTION Subcommittee selection for the fitness crew
+
+    ASSERT the only specialist is fitness-judge
+    WHEN selecting the subcommittee THEN always select fitness-judge
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: coordinator-decision-logic
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  order: 45
+  content: |
+    DEFINE DOMAIN fitness-decision
+    DESCRIPTION When the coordinator settles the judging discussion
+
+    ASSERT the fitness-judge is the sole authority — a single verdict settles the discussion
+    WHEN the fitness-judge has contributed its verdict THEN settle immediately
+    NEVER wait for additional contributions — there is only one judge
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: synthesis-prompt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  order: 50
+  content: |
+    DEFINE DOMAIN fitness-synthesis
+    DESCRIPTION How the coordinator returns the verdict
+
+    WHEN synthesizing THEN return the fitness-judge's JSON verdict VERBATIM as the answer
+    ASSERT the verdict is the batch shape {"scores":[{"index":<i>,"score":<0.0-1.0>,"fabrication":<bool>,"reason":"<terse>"}],"total":<n>} — relay it unchanged
+    NEVER add commentary, markdown, re-scoring, or restructuring, and NEVER collapse it to a single {"score":...} object — relay the judge's batch JSON exactly
+    WHEN no verdict was produced THEN return {"scores":[],"total":0}

@@ -1,0 +1,18 @@
+DESCRIPTION Judgment band: reason about PodDisruptionBudget semantics vs maintenance, weighing safety, not just listing.
+
+DEFINE CONST QUESTION AS "If I wanted to drain a worker node for maintenance, which PodDisruptionBudgets might block it, and is that safe?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator-answerable / correct stand-aside: do NOT assert specialist
+# agreement (it would gate a correct answer to 0). Synthesis quality is
+# judged by DEFER REFLECTS below.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Currently 4 PodDisruptionBudgets exist: keda-admission-webhooks, keda-operator and keda-operator-metrics-apiserver in the keda namespace, and nats in the nats namespace, each with maxUnavailable=1 (1 allowed disruption). The exact set may drift; the constant is to enumerate ALL live PDBs and omit none. A drain is blocked or delayed only when the drained node hosts 2 or more pods governed by the same PDB (so evicting one would breach its budget); a single pod per node does not block. A sound answer lists every PDB, reasons about which could actually block based on pod placement vs the budget, and gives a balanced safety judgment rather than a bare list; if a real eviction would be blocked, kubectl drain --disable-eviction or --force are the escapes (there is no --ignore-pdb flag).")

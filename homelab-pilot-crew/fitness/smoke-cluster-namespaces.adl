@@ -1,0 +1,26 @@
+DESCRIPTION Smoke/discovery band, basic namespace enumeration; gateway reachable, discovery works, real names.
+
+DEFINE CONST QUESTION AS "What namespaces exist in the Kubernetes cluster?"
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+# Discussion gateway is reachable and accepts requests
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+
+# SSE lifecycle markers fire promptly
+ASSERT(SSE stream emits "connected" event)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+
+# Discussion completes within the configured window
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# At least one specialist must engage, namespaces is a k8s-config query
+ASSERT(at least 1 specialist contributes with signal=agree)
+
+# Coordinator produces a non-empty synthesis that mentions the answer's domain
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "namespace")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "The cluster currently has about 28 namespaces, discovered via kubectl get ns and not assumed. They include the standard Kubernetes namespaces (kube-system, kube-public, kube-node-lease, default), the platform namespaces (flux-system, cert-manager, cilium-secrets, cloudflared, gpu-operator, democratic-csi, keda, harbor, sonarqube, observability, nats, kubemoot, headlamp, arc-runners, arc-systems, ollama-rig0, ollama-rig1), and the application and crew namespaces (homelab-pilot, crew-forge, plus transient fitness and crew namespaces). A correct answer lists real namespace names with the printed list internally consistent with any stated count - it does not claim 28 then enumerate only 25, and it does not omit the two GPU ollama namespaces or sonarqube. (the exact set may drift; the constant is live discovery and a self-consistent enumeration.)")

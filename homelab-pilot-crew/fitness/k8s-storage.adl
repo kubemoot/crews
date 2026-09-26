@@ -1,0 +1,20 @@
+DESCRIPTION Discovery band, list PersistentVolumes with status/capacity; real PVs, accurate status, no fabricated volumes.
+
+DEFINE CONST QUESTION AS "List all PersistentVolumes in the cluster with their current status and
+  capacity."
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Response should mention storage concepts
+ASSERT(synthesis CONTAINS "PersistentVolume")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Lists PersistentVolumes with current status and capacity, discovered from the cluster, and the question asks for ALL of them. The cluster currently has about 17 PVs on the truenas-nvme StorageClass, most Bound (including a 100Gi harbor-registry volume and the 50Gi ollama, 50Gi prometheus, and other stateful-workload volumes) with a couple Released (may drift; the constant is enumerating every PV with its status and capacity, not a partial subset). A correct answer covers essentially all PVs; a list omitting the majority is incomplete. Real PVs, accurate status, no fabricated volumes.")

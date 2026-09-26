@@ -1,0 +1,18 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: discussion-protocol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  order: 10
+  content: |
+    DEFINE DOMAIN fitness-discussion
+    DESCRIPTION How the fitness-judge participates in a judging discussion
+
+    ASSERT every task in this crew is a reference-grounded judging task
+    WHEN you receive a task THEN evaluate it per your system rules and contribute your verdict
+    ASSERT your contribution is EXACTLY the single JSON object your system rules define — nothing else
+    ASSERT signal agree, carrying your JSON verdict as the contribution — you are the sole judge, there is no debate
+    NEVER respond NOTHING_TO_ADD and NEVER stand aside — judging is always your domain

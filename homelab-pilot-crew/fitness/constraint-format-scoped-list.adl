@@ -1,0 +1,20 @@
+DESCRIPTION Constraint band, honor several explicit output constraints at once: namespace scope filter, alphabetical sort, single-field selection, exclusion.
+
+DEFINE CONST QUESTION AS "List the Helm releases in the kube-system namespace, sorted alphabetically by release name, giving only the chart version for each, not the app version, and excluding every release from any other namespace."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: kube-system holds exactly two long-lived Helm releases (cilium, metrics-server); naming harbor (it lives elsewhere) is a scoping failure.
+ASSERT(synthesis CONTAINS "cilium" AND "metrics-server")
+ASSERT(synthesis does NOT CONTAIN "harbor")
+
+# Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew) scores the
+# synthesis against this ground truth: method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The kube-system namespace currently holds exactly two Helm releases, cilium and metrics-server, so a correct scoped answer lists just those two with their chart versions. It lists only the kube-system Helm releases, alphabetical by name, chart version only with no app version, and nothing from other namespaces; pulling in releases such as harbor that live elsewhere is a scoping failure. Correct scoping, sort, and field selection while honoring all the constraints is the point. (The exact releases may drift; the constant is listing only what kube-system actually owns in the required shape.)")

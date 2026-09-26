@@ -1,0 +1,41 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: k8s-helm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot-prose
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Manages Helm releases: list, status, values."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, kubernetes]
+  discussChannels:
+    - kubernetes
+  triageSummary: "Lists, installs, and uninstalls Helm chart releases and inspects Flux HelmRelease/HelmRepository CRDs."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
+  enabledTools: [helm_list, helm_install, helm_uninstall, resources_list, resources_get]
+  discussKeywords:
+    - helm
+    - chart
+    - charts
+    - release
+    - releases
+    - install
+    - upgrade
+    - uninstall
+    - values
+    - repository
+    - flux
+    - helmrelease
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

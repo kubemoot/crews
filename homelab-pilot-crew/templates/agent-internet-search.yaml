@@ -1,0 +1,31 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: internet-search
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Searches the web for documentation, tool recommendations, best practices, and comparisons. Has search and fetch_content tools. Cannot access the cluster or any internal systems."
+  discussRole: researcher
+  capabilities: [tool-calling]
+  discussChannels:
+    - kubernetes
+    - observability
+    - proxmox
+    - general
+  triageSummary: "Searches the internet for external documentation, MCP server recommendations, CLI tool discovery, and best practices for technologies not managed by other agents."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, internet-search-system]
+  enabledTools: [search, fetch_content]
+  discussKeywords: ["*"]
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

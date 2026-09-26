@@ -1,0 +1,20 @@
+DESCRIPTION Discovery band, discover which DCGM metrics are actually exposed to Prometheus and verify scrape targets are up; discovery + liveness, no invented metrics.
+
+DEFINE CONST QUESTION AS "What DCGM GPU metrics are available from Prometheus, and are the GPU
+  exporter scrape targets currently up?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# DCGM metric names are the natural noun here
+ASSERT(synthesis CONTAINS "DCGM")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "This cluster has NVIDIA GPUs but no dcgm-exporter is currently deployed, so Prometheus exposes zero DCGM GPU metrics and the GPU exporter scrape targets are not up. A correct answer queries Prometheus for DCGM metric names and target health and reports plainly that none are present, rather than listing fabricated metric names as if available. (the exporter state may drift; the constant is checking what is actually exposed and reporting the absence honestly instead of inventing metrics.)")

@@ -1,0 +1,16 @@
+DESCRIPTION Cross-domain band: join DCGM GPU telemetry to the hypervisor host that owns the GPU.
+
+DEFINE CONST QUESTION AS "Correlate each GPU's current temperature with the Proxmox host it is passed through to, so I know which physical host is running hot."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The GPUs are passed through to physical Proxmox hosts (rig0, rig1, rig2), and per-GPU temperature comes from DCGM. A correct answer joins live per-GPU temperature to the Proxmox host each GPU is passed through to and reports temperature by physical host. DCGM per-GPU temperature can be unavailable in a given run; when it is, honestly stating that the temperatures could not be retrieved - rather than fabricating host-and-temperature pairs - is correct, even though GPU temperature is a standard metric and an empty result reflects an infrastructure gap rather than a true impossibility. (host topology may drift; the constant is the GPU-to-host correlation method plus honesty about a real data gap.)")

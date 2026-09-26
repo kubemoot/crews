@@ -1,0 +1,20 @@
+DESCRIPTION Multi-tool band: reconcile node-condition flags against live usage metrics across two tool sources.
+
+DEFINE CONST QUESTION AS "Across nodes, are we under any resource pressure (memory, disk, or PID), and does node-condition status agree with current usage metrics?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: all 12 nodes report every pressure condition False; forbidding the affirmative condition strings catches a fabricated pressure event.
+ASSERT(synthesis does NOT CONTAIN "DiskPressure")
+ASSERT(synthesis does NOT CONTAIN "MemoryPressure")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Reads node conditions (MemoryPressure, DiskPressure, PIDPressure) and reconciles them against live usage metrics, reporting whether the two sources agree and surfacing any pressure. The verified live state is all 12 nodes Ready with every pressure condition False, so the correct answer is no pressure and conditions agree with healthy usage (may drift; the constant is reconciling conditions against metrics and reporting the real state). The data is sufficient to answer; claiming incomplete data or could-not-determine when the conditions are present is an evasion that contradicts reality. No invented pressure.")

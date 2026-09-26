@@ -1,0 +1,18 @@
+DESCRIPTION Selectivity band: GPU power may be exposed via DCGM but host wall-power usually is not; split the answer honestly.
+
+DEFINE CONST QUESTION AS "What is the current wattage draw of each GPU and of each hypervisor host? If a figure isn't measurable, say so."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator-answerable / correct stand-aside: do NOT assert specialist
+# agreement (it would gate a correct answer to 0). Synthesis quality is
+# judged by DEFER REFLECTS below.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Both per-GPU power draw and whole-host wall power are GENUINE gaps on this cluster. No DCGM exporter is deployed, so DCGM_FI_DEV_POWER_USAGE is not scraped (may drift if one is added; the constant is that GPU power metrics require a DCGM exporter that is currently absent), and the Proxmox API exposes no host wattage with no IPMI integration present. A correct answer states both are not measurable from the available tools and names the method to obtain them (a DCGM exporter for GPU power, IPMI or a PDU for host power) rather than estimating; any fabricated wattage misses.")

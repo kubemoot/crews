@@ -1,0 +1,19 @@
+DESCRIPTION Discovery band: a new Proxmox surface, storage-pool inventory distinct from node and VM lists.
+
+DEFINE CONST QUESTION AS "List the Proxmox storage pools with their type, total capacity, and current usage."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: pool inventory needs the Proxmox API and is not verifiable here, so only guard against an empty answer; real pool names, types, and capacities are left to the judge.
+ASSERT(synthesis matches "[A-Za-z0-9_-]+" at least 2 times)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Enumerates the Proxmox storage pools with their type, discovered via the Proxmox API. Pools currently include local, local-lvm, and passthrough or NFS pools such as windows-storage (disabled), rig1-storage, and storage-nfs (may drift; the constant is real pool names and types from the API). Per-pool capacity and usage are NOT exposed by that listing tool, so honestly stating the metric gap and naming pvesm status or the storage status API as the fix is correct; fabricating capacities or usage figures misses.")

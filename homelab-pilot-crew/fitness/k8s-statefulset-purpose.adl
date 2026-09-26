@@ -1,0 +1,19 @@
+DESCRIPTION Discovery + interpretation band, enumerate StatefulSets and explain each one's purpose; discovered, accurate, no fabrication.
+
+DEFINE CONST QUESTION AS "Describe the purpose of each StatefulSet found in the cluster. For each,
+  note its namespace, replica count, and what workload it backs."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "StatefulSet")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Describes each StatefulSet found (namespace, replica count, what workload it backs), discovered not assumed. The cluster currently runs about 8 single-replica StatefulSets across harbor (database, redis, trivy), nats, observability (prometheus, tempo), and sonarqube (postgresql, sonarqube) (may drift; the constant is enumerating the live StatefulSets and attributing each to its real backing workload). Real ones, accurate purpose, no fabrication. Count not scored.")

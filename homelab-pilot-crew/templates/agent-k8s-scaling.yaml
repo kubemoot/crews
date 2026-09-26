@@ -1,0 +1,40 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: k8s-scaling
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Inspects Kubernetes scaling: HorizontalPodAutoscalers, ScaledObjects, resource quotas."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, kubernetes]
+  discussChannels:
+    - kubernetes
+  triageSummary: "Inspects HorizontalPodAutoscalers, VerticalPodAutoscalers, ResourceQuotas, LimitRanges, and performs manual replica scaling."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-scaling-system]
+  enabledTools: [resources_list, resources_get, resources_scale, pods_top, events_list]
+  discussKeywords:
+    - hpa
+    - vpa
+    - autoscale
+    - autoscaler
+    - scale
+    - scaling
+    - quota
+    - resourcequota
+    - limitrange
+    - replicas
+    - capacity
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

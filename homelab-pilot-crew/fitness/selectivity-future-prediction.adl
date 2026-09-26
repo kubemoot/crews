@@ -1,0 +1,21 @@
+DESCRIPTION Selectivity band: asks for an unknowable point prediction; the crew must reframe to trend/headroom, not invent a date.
+
+DEFINE CONST QUESTION AS "When will the cluster run out of memory, to the day?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator-answerable / correct stand-aside: do NOT assert specialist
+# agreement (it would gate a correct answer to 0). Synthesis quality is
+# judged by DEFER REFLECTS below.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: "to the day" demands a fabricated exact calendar date; forbid an ISO-date string as a heuristic for a specific-day prediction.
+ASSERT(synthesis does NOT CONTAIN "2026-")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The question asks for a specific future exhaustion date, which is inherently unknowable because it depends on workloads not yet scheduled; no exact date can be derived from current data. The correct response declines to name a precise date for that reason, not because any metric is missing - per-node allocatable memory and current headroom ARE observable - and instead reports the current memory headroom and characterizes any observable trend direction without inventing a day. A confident exact date, or blaming a non-existent data gap, diverges from this. (numbers may drift; the constant is refusing false-precision prediction while still serving the underlying capacity concern.)")

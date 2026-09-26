@@ -1,0 +1,89 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: proxmox-pve
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Queries Proxmox VE hypervisor: nodes, storage, network, cluster status."
+  discussRole: tooler
+  capabilities: [tool-calling]
+  discussChannels:
+    - proxmox
+  triageSummary: "Queries Proxmox VE node health, storage backends (ZFS, NFS, Ceph, LVM), LXC containers, network bridges, and task history."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-pve-system]
+  enabledTools: [proxmox-list-nodes, proxmox-node-status, proxmox-list-storage, proxmox-list-bridges, proxmox-list-tasks]
+  discussKeywords:
+    - proxmox
+    - pve
+    - node
+    - storage
+    - zfs
+    - ceph
+    - nfs
+    - lvm
+    - lxc
+    - bridge
+    - task
+    - cluster
+  temperature: "0.3"
+  maxTokens: 4096
+  think: false
+  deployment:
+    replicas: 1
+    port: 8080
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: proxmox-qm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Observes Proxmox QEMU/KVM virtual machines: listing, config, performance, snapshots, firewall."
+  discussRole: tooler
+  capabilities: [tool-calling]
+  # MUST be set or DiscussionSubscriber logs "No discussion channels configured
+  # → subscriber inactive" and proxmox-qm never receives any thread message.
+  # Discovered during Step 2 tuning sweep — proxmox-vm-list scenario hit 0/3
+  # because proxmox-qm was silent (sibling proxmox-pve had ["proxmox"]).
+  discussChannels:
+    - proxmox
+  triageSummary: "Observes Proxmox QEMU/KVM virtual machines: listing, configuration (CPU, memory, disks, PCIe passthrough), performance metrics, snapshots, and firewall rules."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-qm-system]
+  enabledTools: [proxmox-list-vms, proxmox-vm-info, proxmox-vm-metrics, proxmox-list-snapshots, proxmox-vm-firewall-get]
+  discussKeywords:
+    - proxmox
+    - qemu
+    - vm
+    - vms
+    - virtual
+    - machine
+    - machines
+    - passthrough
+    - hypervisor
+    - snapshot
+    - vfio
+    - pcie
+    - gpu
+    - hardware
+  temperature: "0.3"
+  maxTokens: 4096
+  think: false
+  deployment:
+    replicas: 1
+    port: 8080

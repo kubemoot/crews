@@ -1,0 +1,55 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: homelab-coordinator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot-prose
+    kubemoot.ai/role: coordinator
+spec:
+  type: chat
+  description: "Homelab coordinator — orchestrates the crew's agents via async NATS discussions with vector-based triage pre-filtering"
+  discussRole: coordinator
+  capabilities:
+    - tool-calling
+    - reasoning
+  discussChannels:
+    - kubernetes
+    - observability
+    - proxmox
+    - general
+  promptRefs:
+    - coordinator-system
+  temperature: "0.1"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      # Coordinator has ZERO MCP tools: A2A delegation only. Its LLM calls are tool-free
+      # (simpleLlmCallWithTokens for advisory/triage/synthesis), so it cannot call tools -
+      # gateway stays OFF (read-ops belong on the toolers/analysts/compute, not here).
+      - name: KUBEMOOT_GATEWAY_ENABLED
+        value: "false"
+      # Coordinator is a facilitator, not a tooler: disable DiscussionSubscriber.
+      - name: KUBEMOOT_DISCUSS_TOOLER
+        value: "false"
+      # compute is domain-agnostic, so the domain RAG pre-filter buries it under the
+      # domain toolers and it never reaches reasoning-select. Always union it into the
+      # candidate set so the reasoning LLM can pick it for a counting/sorting/inventory
+      # question. See B0 in the Crew Evasion note.
+      - name: KUBEMOOT_DISCUSS_ALWAYS_CANDIDATE_AGENTS
+        value: "compute"
+      # Inventory answers ("list X, describe each") truncate partway on the 32B; the
+      # runtime counts the entities the gathered data holds and re-prompts naming the
+      # omitted ones until the list is complete. Opt-in per coordinator (default 0);
+      # see B2 in the Crew Evasion note.
+      - name: KUBEMOOT_DISCUSS_SYNTHESIS_COMPLETENESS_RETRIES
+        value: "2"
+      # Synthesis on qwen3:32b takes 90-150s with multiple contributions.
+      - name: KUBEMOOT_DISCUSS_SYNTHESIS_TIMEOUT_SECONDS
+        value: "180"
+      # Tolerate model swaps + GPU queue.
+      - name: QUARKUS_LANGCHAIN4J_OLLAMA_TIMEOUT
+        value: "300s"

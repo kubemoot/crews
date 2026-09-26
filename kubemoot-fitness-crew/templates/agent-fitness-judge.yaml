@@ -1,0 +1,36 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: fitness-judge
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  type: chat
+  description: "Fitness judge: scores a scenario's answers against the ground-truth reference (REFLECTS) from the comparison document provided in the task message, returning a JSON array of verdicts"
+  capabilities:
+    - reasoning
+  # Thinking OFF: scoring against a reference does not need an extended reasoning
+  # chain, and the chain is stripped from the verdict anyway. On a 32b this is the
+  # dominant cost, so disabling it cuts judge latency from minutes to seconds.
+  # See [[Lean Judge Direct Context No Tool Round-Trip]].
+  think: false
+  discussChannels:
+    - general
+  # No tools / no gateway: the operator hands the judge the full comparison
+  # document (question + reference + answers with evidence) IN the task message,
+  # so the judge scores directly with no tool round-trip.
+  promptRefs:
+    - discussion-protocol
+    - fitness-judge-system
+  temperature: "0.1"
+  # Batched: one verdict per iteration (~10) plus the JSON envelope.
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      - name: KUBEMOOT_DISCUSS_SPECIALIST
+        value: "true"
+      - name: QUARKUS_LANGCHAIN4J_OLLAMA_TIMEOUT
+        value: "300s"

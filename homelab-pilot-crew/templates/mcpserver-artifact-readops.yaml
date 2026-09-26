@@ -1,0 +1,53 @@
+{{- if .Values.mcpServers.artifactReadOps.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: artifact-readops-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  # Shared artifact read-ops service. Network-capable agents (analyst, RAG,
+  # coordinator) call head/tail/grep/select/count/rows/jq over a referenced artifact
+  # KEY to sip a slice near the data, so a bulk object never enters an LLM context -
+  # the non-code counterpart to the no-network sandbox's materializer. Same binary as
+  # the sandbox sidecar (kubemoot/artifact-access), run in mcp mode. Pure stdio ->
+  # operator adds the bridge sidecar (port below is the bridge's TCP port).
+  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
+  transport: stdio
+  # FROM scratch image, ENTRYPOINT ["/artifact-access"]; the bridge runs exec mode so
+  # the start command must be explicit.
+  command:
+    - "/artifact-access"
+  port: 3000
+  replicas: 1
+  # Unlike the sandbox, this server IS network-capable: it reads the artifacts bucket
+  # directly from NATS, so it needs NATS egress (and no other credentials).
+  env:
+    - name: ARTIFACT_MODE
+      value: "mcp"
+    - name: NATS_URL
+      value: "nats://nats.nats.svc.cluster.local:4222"
+    - name: ARTIFACT_BUCKET
+      value: "kubemoot_discussion_artifacts"
+  capabilities:
+    - data-access
+    - data-analysis
+  securityContext:
+    # FROM scratch (uid 0); our trusted binary, still contained by read-only rootfs +
+    # drop-ALL caps + no-privilege-escalation. Non-root image is a hardening follow-up.
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+{{- end }}

@@ -1,0 +1,56 @@
+{{- if .Values.mcpServers.kubernetes.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: {{ .Release.Name }}-kubernetes-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  image: {{ .Values.mcpServers.kubernetes.image }}
+  transport: stdio
+  port: 8080
+  replicas: 1
+  serviceAccountName: {{ .Release.Name }}-kubernetes-mcp
+  securityMode: relaxed
+  command:
+    - "/app/kubernetes-mcp-server"
+  capabilities:
+    - kubernetes
+    - pods
+    - helm
+    - resources
+    - events
+    - nodes
+  resources:
+    {{- toYaml .Values.mcpServers.kubernetes.resources | nindent 4 }}
+{{- end }}
+---
+{{- if .Values.mcpServers.kubernetesLegacy.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: {{ .Release.Name }}-kubernetes-legacy-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  image: {{ .Values.mcpServers.kubernetesLegacy.image }}
+  transport: stdio
+  port: 3000
+  replicas: 1
+  serviceAccountName: {{ .Release.Name }}-kubernetes-mcp
+  securityMode: relaxed
+  command:
+    - "node"
+    - "dist/index.js"
+  capabilities:
+    - kubernetes
+    - kubectl
+    - api-resources
+  env:
+    - name: SPAWN_MAX_BUFFER
+      value: "10485760"
+  resources:
+    {{- toYaml .Values.mcpServers.kubernetesLegacy.resources | nindent 4 }}
+{{- end }}

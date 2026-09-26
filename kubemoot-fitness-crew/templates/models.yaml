@@ -1,0 +1,28 @@
+{{/*
+Model CRs for the fitness crew. Labeled with capability/family/params so the
+CrewSchedulingPolicy can select per phase. ProviderRef points at ModelProvider
+CRs in the kubemoot namespace (cluster-shared).
+*/}}
+{{- range .Values.models }}
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: Model
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" $ | nindent 4 }}
+    family: {{ .family | quote }}
+    params: {{ .params | quote }}
+    contextWindow: {{ .contextWindow | default "8192" | quote }}
+    latencyClass: {{ .latencyClass | default "high" | quote }}
+    {{- range $cap := .capabilities }}
+    capability/{{ $cap }}: "true"
+    {{- end }}
+spec:
+  model: {{ .model | quote }}
+  providerRef: {{ .providerRef | quote }}
+  {{- if .vramMib }}
+  vramMib: {{ .vramMib }}
+  {{- end }}
+{{- end }}

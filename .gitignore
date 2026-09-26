@@ -1,0 +1,16 @@
+# Helm chart artifacts
+*.tgz
+
+# Helm dependency build artifacts
+charts/
+Chart.lock
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Measurement reports stay local to the homelab; they are not part of the release
+reports/

@@ -1,0 +1,21 @@
+DESCRIPTION Health-scan band, namespace-scoped pod health; honest 'all healthy' when true, no fabrication.
+
+DEFINE CONST QUESTION AS "Are all pods healthy in the kube-system namespace? List any that are not
+  Running."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# k8s-workloads should pick this up
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Response should reference pods and either a healthy state or a not-running pod
+ASSERT(synthesis CONTAINS "pod")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "The kube-system namespace currently runs about 40 pods, all of them Running with none unhealthy, so the correct answer is that all pods are healthy. A correct answer scans every pod in kube-system (roughly 40, not a fraction) and reports them all Running (the count may drift; the constant is reporting the true health of the real pods in the namespace, never inventing a failing pod).")

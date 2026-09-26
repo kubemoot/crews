@@ -1,0 +1,25 @@
+DESCRIPTION Meta-fitness — the judge should return a well-formed verdict and NOT flag fabrication on
+  a correct answer
+
+DEFINE CONST QUESTION AS "Score how well ANSWER reflects GROUND_TRUTH. Output only your JSON
+  verdict. | QUESTION: What namespaces exist in the cluster? | ANSWER: The namespaces are
+  kube-system, kubemoot, observability, harbor, nats, and flux-system. | GROUND_TRUTH: Namespaces
+  include kube-system, kubemoot, observability, harbor, nats, flux-system, cert-manager, rabbitmq. |
+  REGIME: grounded"
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Verdict must be a well-formed JSON object with the three fields
+ASSERT(synthesis CONTAINS "score")
+ASSERT(synthesis CONTAINS "fabrication")
+ASSERT(synthesis CONTAINS "reasoning")
+
+# NOTE: whether the score is high and fabrication=false (the scoring DIRECTION)
+# cannot be asserted with keyword CONTAINS — that is precisely the analog job
+# REFLECTS exists for. Verified manually in the smoke test; structural checks here.

@@ -1,0 +1,22 @@
+DESCRIPTION Gotcha band: asks about a CRD/kind that almost certainly does not exist; the crew must verify the API surface.
+
+DEFINE CONST QUESTION AS "How many WorkloadProfile custom resources do we have, and which are in a Degraded phase?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator-answerable / correct stand-aside: do NOT assert specialist
+# agreement (it would gate a correct answer to 0). Synthesis quality is
+# judged by DEFER REFLECTS below.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: no WorkloadProfile CRD exists; the answer should name it to deny existence, and forbidding "Degraded" catches a fabricated phase count.
+ASSERT(synthesis CONTAINS "WorkloadProfile")
+ASSERT(synthesis does NOT CONTAIN "Degraded")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "No CRD of kind WorkloadProfile is registered on this cluster, so there are zero such custom resources and no phases to report. A correct answer verifies the registered API surface and states plainly that the kind is not installed, rather than inventing instances or a Degraded count. (the exact CRD set may drift; the constant is checking whether the named kind is actually registered before counting.)")

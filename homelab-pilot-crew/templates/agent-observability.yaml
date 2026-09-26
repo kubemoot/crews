@@ -1,0 +1,55 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: obs-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Queries Prometheus metrics and Grafana dashboards for cluster observability."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, observability]
+  discussChannels:
+    - observability
+  triageSummary: "Inspects monitoring stack health (Prometheus, Grafana, Alertmanager, Loki, OpenTelemetry pods) and executes PromQL queries for alerting and stack diagnostics."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, obs-metrics-system]
+  enabledTools: [pods_list_in_namespace, pods_get, pods_log, resources_list, execute_query, execute_range_query, list_metrics]
+  discussKeywords:
+    - prometheus
+    - grafana
+    - alert
+    - alerts
+    - metric
+    - metrics
+    - monitoring
+    - dashboard
+    - promql
+    - trace
+    - tracing
+    - opentelemetry
+    - cpu
+    - memory
+    - disk
+    - network
+    - usage
+    - utilization
+    - load
+    - latency
+    - error
+    - rate
+    - throughput
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      - name: KUBEMOOT_MODEL_MAX_TOOL_ITERATIONS
+        value: "15"

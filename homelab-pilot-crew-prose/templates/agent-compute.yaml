@@ -1,0 +1,65 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: compute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot-prose
+    kubemoot.ai/role: analyst
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Computes exact answers (count, sort, filter, top-N, math) over data the toolers gathered, by writing and running small code via execute_code. Domain-agnostic."
+  # Analyst role so it runs AFTER the toolers and receives their forwarded data,
+  # but - unlike the reasoning-only analysts - it has ONE tool (execute_code) to
+  # compute deterministically instead of tallying in its head.
+  discussRole: analyst
+  think: true
+  capabilities: [reasoning, tool-calling]
+  discussChannels:
+    - kubernetes
+    - observability
+    - general
+  triageSummary: "Computes deterministic results over data other toolers gathered: counts, sums, averages, sorts, top-N, group-by, dedup, min/max, alphabetical order - for ANY domain (Kubernetes, GPU/metrics, Proxmox). Relevant whenever a question asks how many, which is largest or most, to sort, top N, per-something, or any exact tally."
+  promptRefs: [discussion-protocol, response-style, analyst-review-protocol, compute-system]
+  # execute_code/validate_code for math; the artifact read-ops tools to read spilled
+  # findings server-side by key (passing a key to the readops server is far more reliable
+  # for a 32B than authoring open('/artifacts/<key>') in sandbox code, which it flakily skips).
+  enabledTools: [execute_code, validate_code, artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
+  discussKeywords:
+    - count
+    - number
+    - total
+    - sum
+    - average
+    - sort
+    - sorted
+    - order
+    - alphabetical
+    - top
+    - largest
+    - smallest
+    - most
+    - fewest
+    - tally
+    - group
+  temperature: "0.2"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      # Compute analyst: gateway ON (unlike the reasoning-only analysts, which run
+      # gateway OFF) but scoped via enabledTools to exactly execute_code/validate_code,
+      # so triage sees 1-2 tools, not the full catalog - the reason analysts were
+      # tool-free does not apply at this scope.
+      - name: KUBEMOOT_GATEWAY_ENABLED
+        value: "true"
+      # Mandatory-execute_code contract: the runtime rejects + re-prompts a
+      # no-tool-call answer and fails rather than letting this agent count the
+      # inline preview in its head. Forces deterministic compute via execute_code.
+      - name: KUBEMOOT_DISCUSS_COMPUTE_CONTRACT
+        value: "true"

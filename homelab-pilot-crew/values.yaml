@@ -1,0 +1,326 @@
+global:
+  # Registry and namespace prefixed to the Kubemoot-built images below (artifact-access,
+  # scheduling-mcp). Releases are published to GHCR; a private mirror sets its own
+  # registry, e.g. harbor.example.com/kubemoot. Image values that already contain a "/"
+  # are used as-is.
+  imageRegistry: ghcr.io/kubemoot
+
+crew:
+  name: homelab-pilot
+  description: AI-powered homelab infrastructure consultation crew
+  discussion:
+    enabled: true
+
+# Baseline fitness-scenario CRs deployed alongside the crew.
+# Default OFF: the operator unconditionally fires a Job on CrewFitness
+# create, so deploying a baseline suite via the chart triggers all
+# scenarios simultaneously — a thundering herd against the crew. Until
+# the operator supports a manual-trigger annotation (see kanban card
+# [[Baseline Fitness Scenarios — Visible Without Auto-Run]]), keep this
+# off and rely on the CrewForge runner to create per-run CRs on demand.
+fitness:
+  deployBaselineScenarios: false
+
+# Scheduler v2 model fixture for this cluster.
+# Each entry creates a Model CR in the crew namespace labeled with capability /
+# family / params so that CrewSchedulingPolicy.rules can select per-phase via
+# label selectors. ProviderRef points at ModelProvider CRs in the kubemoot ns.
+#
+# Per-cluster override: dev clusters can use phi3-mini / llama3.2; prod uses
+# the qwen3 family. CrewSchedulingPolicy rules stay the same in both.
+models:
+  - name: qwen3-32b-rig0
+    model: "qwen3:32b"
+    providerRef: ollama-gpu
+    family: qwen3
+    params: "32B"
+    contextWindow: "32768"
+    latencyClass: high
+    vramMib: 20480
+    capabilities: [tool-calling, reasoning]
+  - name: qwen3-14b-rig0
+    model: "qwen3:14b"
+    providerRef: ollama-gpu
+    family: qwen3
+    params: "14B"
+    contextWindow: "32768"
+    latencyClass: medium
+    vramMib: 9216
+    capabilities: [tool-calling]
+  - name: qwen3-8b-rig0
+    model: "qwen3:8b"
+    providerRef: ollama-gpu
+    family: qwen3
+    params: "8B"
+    contextWindow: "32768"
+    latencyClass: low
+    vramMib: 5120
+    capabilities: [tool-calling]
+  - name: qwen3-32b-rig1
+    model: "qwen3:32b"
+    providerRef: ollama-rig1
+    family: qwen3
+    params: "32B"
+    contextWindow: "32768"
+    latencyClass: high
+    vramMib: 20480
+    capabilities: [tool-calling, reasoning]
+  - name: qwen3-8b-rig1
+    model: "qwen3:8b"
+    providerRef: ollama-rig1
+    family: qwen3
+    params: "8B"
+    contextWindow: "32768"
+    latencyClass: low
+    vramMib: 5120
+    capabilities: [tool-calling]
+  - name: qwen3-14b-rig1
+    model: "qwen3:14b"
+    providerRef: ollama-rig1
+    family: qwen3
+    params: "14B"
+    contextWindow: "32768"
+    latencyClass: medium
+    vramMib: 9216
+    capabilities: [tool-calling]
+
+# Embedding model configuration
+embeddingModel:
+  name: nomic-embed
+  modelId: nomic-embed-text
+  providerRef: ollama-gpu
+
+# Vector store configuration (required for RAG sources)
+vectorStore:
+  type: pgvector
+  host: homelab-pilot-db.homelab-pilot.svc.cluster.local
+  port: 5432
+  database: homelab_pilot
+  # Credentials from database secret (created by chart)
+  # Secret contains: username, password, database, host, port, DATABASE_URL
+  existingSecret: ""  # Leave empty to use chart-created secret
+
+# RAG sources configuration
+ragSources:
+  enabled: true
+  sources:
+    # homelab-docs disabled - private repo requires git credentials
+    # - name: homelab-docs
+    #   gitUrl: https://github.com/javajon/homelab-pilot
+    #   branch: main
+    #   paths:
+    #     - "src/**"
+    #     - "README.md"
+    #   secretRef: github-credentials  # TODO: add when credentials available
+
+    - name: kubectl-reference
+      gitUrl: https://github.com/kubernetes/website
+      branch: main
+      collection: kubectl_reference
+      paths:
+        - "content/en/docs/reference/kubectl"
+
+    - name: helm-reference
+      gitUrl: https://github.com/helm/helm-www
+      branch: main
+      collection: helm_reference
+      paths:
+        - "docs"
+
+    - name: talos-reference
+      gitUrl: https://github.com/siderolabs/talos
+      branch: main
+      collection: talos_reference
+      paths:
+        - "website/content"
+
+    - name: proxmox-api-reference
+      gitUrl: https://github.com/0xlynett/proxmox-api-docs
+      branch: main
+      collection: proxmox_api_reference
+      paths:
+        - "."
+
+    - name: proxmox-pve-docs
+      gitUrl: https://github.com/proxmox/pve-docs
+      branch: master
+      collection: proxmox_pve_docs
+      paths:
+        - "."
+
+    - name: kubernetes-concepts
+      gitUrl: https://github.com/kubernetes/website
+      branch: main
+      collection: kubernetes_concepts
+      paths:
+        - "content/en/docs/concepts/services-networking"
+        - "content/en/docs/concepts/workloads/pods"
+        - "content/en/docs/concepts/workloads/controllers"
+        - "content/en/docs/concepts/storage"
+        - "content/en/docs/concepts/configuration"
+        - "content/en/docs/concepts/cluster-administration"
+
+    - name: kubernetes-mcp-tools
+      gitUrl: https://github.com/containers/kubernetes-mcp-server
+      branch: main
+      collection: kubernetes_mcp_tools
+      paths:
+        - "."
+
+    - name: nvidia-gpu-reference
+      gitUrl: https://github.com/NVIDIA/cloud-native-docs
+      branch: main
+      collection: nvidia_gpu_reference
+      paths:
+        - "gpu-operator"
+        - "gpu-telemetry"
+
+    - name: prometheus-reference
+      gitUrl: https://github.com/prometheus/docs
+      branch: main
+      collection: prometheus_reference
+      paths:
+        - "docs"
+
+# MCP Gateway configuration
+# Note: MCPServers are managed by Kubemoot, not by this chart.
+# The Gateway discovers available MCPServers via its selector.
+mcpGateway:
+  # Enable to provide a unified gateway for all MCP servers
+  enabled: true
+  name: homelab-pilot-gateway
+  # Valid implementations: kubemoot, contextforge, microsoft, docker
+  # Note: 'kubemoot' uses the Kubemoot MCP Gateway with /admin/servers API for MCPServer registration
+  implementation: kubemoot
+  port: 8080
+  replicas: 1
+  # Select MCPServers to register with this gateway
+  mcpServerSelector:
+    matchLabels: {}  # Empty = select all MCPServers in namespace
+  # Gateway requires ~608MB for JVM, set to 768Mi for headroom
+  resources:
+    requests:
+      cpu: 100m
+      memory: 768Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  # Tool index for semantic search
+  toolIndex:
+    vectorStore:
+      type: pgvector
+      host: homelab-pilot-db.homelab-pilot.svc.cluster.local
+      port: 5432
+      database: homelab_pilot
+      secretRef: homelab-pilot-db-credentials
+    embeddingModel:
+      provider: ollama
+      endpoint: http://ollama.ollama-rig0:11434
+      model: nomic-embed-text
+  # Meta-tools for agent discovery
+  metaTools:
+    enabled: true
+    maxResultsPerSearch: 10
+    # Dynamic tool discovery via Kubemoot's mcp-catalog-discovery agent
+    # Disabled: auto-deploys community MCP servers that crash (wrong images, missing configs)
+    discovery:
+      enabled: false
+      agentEndpoint: http://mcp-catalog-discovery.kubemoot:8080
+  # Credential policies for dynamically provisioned MCPs
+  credentialPolicies:
+    - categories: ["kubernetes", "k8s"]
+      serviceAccountName: homelab-pilot-kubernetes-mcp
+
+# MCP Catalog for intelligent tool discovery
+# Disabled: auto-deploys community MCP servers that crash (wrong images, missing configs)
+mcpCatalog:
+  enabled: false
+  type: official-registry
+  url: https://registry.modelcontextprotocol.io/v0/servers
+  syncInterval: "24h"
+  maxServers: 100
+  queries:
+    - kubernetes
+    - infrastructure
+    - devops
+    - helm
+
+# Quality policy for filtering discovered servers
+mcpQualityPolicy:
+  enabled: true
+  allowing:
+    - author: "Anthropic"
+    - author: "kubernetes"
+    - author: "modelcontextprotocol"
+  blocking:
+    - name:
+        type: regex
+        value: ".*feiskyer.*"
+      reason: "Authentication bug - doesn't pass BearerToken auth"
+    - name:
+        type: regex
+        value: ".*crypto.*"
+      reason: "Not needed for homelab"
+  considering:
+    enabled: true
+    confidenceThreshold: "0.7"
+    timeoutSeconds: 30
+    fallbackAction: deny
+
+# Direct MCPServer deployment via Helm template
+mcpServers:
+  kubernetes:
+    enabled: true
+    # v0.0.58-0.63 return failed k8s API calls via the MCP isError flag (the agent
+    # runtime already maps that to a failure signal); v0.0.57 returned them as
+    # successful content, which got laundered into the discussion as fake data.
+    image: "quay.io/containers/kubernetes_mcp_server:v0.0.63"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  kubernetesLegacy:
+    enabled: true
+    image: "mcp/kubernetes@sha256:0de7c3ea2dacf13bba03579a6911a899f8c213c8b86c7ca2bd216359efb79e3a"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  prometheus:
+    enabled: true
+    endpoint: "http://kube-prometheus-stack-prometheus.observability:9090"
+  proxmox:
+    enabled: true
+    # Built by the private homelab-pilot repo, not part of the Kubemoot release; a
+    # public deployment must supply its own Proxmox MCP image or disable this server.
+    image: harbor-homelab.dijure.com/homelab-pilot/proxmox-mcp:0.71.4
+    secretRef: proxmox-secret
+  k8sgpt:
+    enabled: true
+    image: "ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26"
+  scheduling:
+    enabled: true
+    image: scheduling-mcp@sha256:3f4cd2480931f327c00937ba717b43cc16a487d58e0538be5dc2fdbad5d8af5f
+  codeSandbox:
+    enabled: true
+    # Sandboxed code executor; the pod itself is the sandbox (no Docker socket).
+    # Option A posture (no creds). Digest-pinned per gitops rule (never :latest).
+    image: "ghcr.io/timlikesai/code-sandbox-mcp@sha256:edbb021773fad2b9325f84eafd82e3b8c048b4759c9bee19abb4b867a38f255f"
+  artifactAccess:
+    # Materializer sidecar for the code sandbox AND the read-ops server (one image,
+    # two modes). Released by the kubemoot artifact-access pipeline. Version tag
+    # (immutable per semantic-version); not :latest. 0.311.4 is the first version
+    # that ships ARTIFACT_MODE=mcp; 0.311.19 is the first non-root (USER 1000) image.
+    image: "artifact-access:0.320.5"
+  artifactReadOps:
+    # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
+    # network-capable agents call head/tail/grep/select/count/rows/jq over a
+    # referenced artifact key to sip a slice near the data. Enabled (no measurement
+    # freeze in effect). See [[Agent Collaborative Artifact Store]].
+    enabled: true

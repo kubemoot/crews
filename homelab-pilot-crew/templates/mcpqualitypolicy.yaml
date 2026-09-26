@@ -1,0 +1,24 @@
+{{- if .Values.mcpQualityPolicy.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPQualityPolicy
+metadata:
+  name: {{ .Release.Name }}-quality-policy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.mcpQualityPolicy.allowing }}
+  allowing:
+    {{- toYaml .Values.mcpQualityPolicy.allowing | nindent 4 }}
+  {{- end }}
+  {{- if .Values.mcpQualityPolicy.blocking }}
+  blocking:
+    {{- toYaml .Values.mcpQualityPolicy.blocking | nindent 4 }}
+  {{- end }}
+  considering:
+    enabled: {{ .Values.mcpQualityPolicy.considering.enabled | default true }}
+    agentRef: mcp-quality-evaluator
+    confidenceThreshold: {{ .Values.mcpQualityPolicy.considering.confidenceThreshold | default "0.7" | quote }}
+    timeoutSeconds: {{ .Values.mcpQualityPolicy.considering.timeoutSeconds | default 30 }}
+    fallbackAction: {{ .Values.mcpQualityPolicy.considering.fallbackAction | default "deny" }}
+{{- end }}

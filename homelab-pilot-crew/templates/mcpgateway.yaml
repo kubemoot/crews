@@ -1,0 +1,101 @@
+{{- if and .Values.mcpGateway .Values.mcpGateway.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPGateway
+metadata:
+  name: {{ .Values.mcpGateway.name | default (printf "%s-gateway" .Release.Name) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    app.kubernetes.io/managed-by-resource: kubemoot
+spec:
+  implementation: {{ .Values.mcpGateway.implementation | default "docker" }}
+  port: {{ .Values.mcpGateway.port | default 8080 }}
+  {{- if .Values.mcpGateway.replicas }}
+  replicas: {{ .Values.mcpGateway.replicas }}
+  {{- end }}
+  {{- if .Values.mcpGateway.mcpServerSelector }}
+  mcpServerSelector:
+    {{- if .Values.mcpGateway.mcpServerSelector.matchLabels }}
+    matchLabels:
+      {{- toYaml .Values.mcpGateway.mcpServerSelector.matchLabels | nindent 6 }}
+    {{- else }}
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- end }}
+    {{- if .Values.mcpGateway.mcpServerSelector.matchExpressions }}
+    matchExpressions:
+      {{- toYaml .Values.mcpGateway.mcpServerSelector.matchExpressions | nindent 6 }}
+    {{- end }}
+  {{- else }}
+  # Select all MCPServers from this Helm release
+  mcpServerSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- end }}
+  {{- if .Values.mcpGateway.adminUI }}
+  adminUI: {{ .Values.mcpGateway.adminUI }}
+  {{- else }}
+  adminUI: true
+  {{- end }}
+  {{- if .Values.mcpGateway.auth }}
+  auth:
+    enabled: {{ .Values.mcpGateway.auth.enabled | default false }}
+    type: {{ .Values.mcpGateway.auth.type | default "none" }}
+    {{- if .Values.mcpGateway.auth.jwtSecretRef }}
+    jwtSecretRef: {{ .Values.mcpGateway.auth.jwtSecretRef }}
+    {{- end }}
+    {{- if .Values.mcpGateway.auth.basicAuth }}
+    basicAuth:
+      {{- toYaml .Values.mcpGateway.auth.basicAuth | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.mcpGateway.resources }}
+  resources:
+    {{- toYaml .Values.mcpGateway.resources | nindent 4 }}
+  {{- end }}
+  {{- if .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml .Values.imagePullSecrets | nindent 4 }}
+  {{- end }}
+  {{- if .Values.mcpCatalog.enabled }}
+  # Reference MCPCatalog for server discovery
+  catalogRefs:
+    - {{ .Release.Name }}-catalog
+  {{- end }}
+  {{- if .Values.mcpQualityPolicy.enabled }}
+  # Quality policy for filtering discovered servers
+  qualityPolicyRef: {{ .Release.Name }}-quality-policy
+  {{- end }}
+  {{- if .Values.mcpGateway.toolIndex }}
+  # Tool index for semantic search
+  toolIndex:
+    vectorStore:
+      type: {{ .Values.mcpGateway.toolIndex.vectorStore.type | default "pgvector" }}
+      host: {{ .Values.mcpGateway.toolIndex.vectorStore.host }}
+      port: {{ .Values.mcpGateway.toolIndex.vectorStore.port | default 5432 }}
+      database: {{ .Values.mcpGateway.toolIndex.vectorStore.database }}
+      secretRef: {{ .Values.mcpGateway.toolIndex.vectorStore.secretRef }}
+    embeddingModel:
+      provider: {{ .Values.mcpGateway.toolIndex.embeddingModel.provider | default "ollama" }}
+      endpoint: {{ .Values.mcpGateway.toolIndex.embeddingModel.endpoint }}
+      model: {{ .Values.mcpGateway.toolIndex.embeddingModel.model | default "nomic-embed-text" }}
+  {{- end }}
+  {{- if .Values.mcpGateway.metaTools }}
+  # Enable meta-tools for agent discovery
+  metaTools:
+    enabled: {{ .Values.mcpGateway.metaTools.enabled | default true }}
+    maxResultsPerSearch: {{ .Values.mcpGateway.metaTools.maxResultsPerSearch | default 10 }}
+    {{- if .Values.mcpGateway.metaTools.discovery }}
+    discovery:
+      enabled: {{ .Values.mcpGateway.metaTools.discovery.enabled | default false }}
+      {{- if .Values.mcpGateway.metaTools.discovery.agentEndpoint }}
+      agentEndpoint: {{ .Values.mcpGateway.metaTools.discovery.agentEndpoint }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.mcpGateway.credentialPolicies }}
+  # Credential policies for dynamically provisioned MCPs
+  credentialPolicies:
+    {{- toYaml .Values.mcpGateway.credentialPolicies | nindent 4 }}
+  {{- end }}
+{{- end }}

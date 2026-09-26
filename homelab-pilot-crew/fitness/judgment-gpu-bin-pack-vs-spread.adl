@@ -1,0 +1,16 @@
+DESCRIPTION Judgment band: GPU scheduling judgment (utilization, VRAM headroom, contention) over live state.
+
+DEFINE CONST QUESTION AS "I have one more GPU job to place. Should I bin-pack it onto the busiest GPU or spread it to an idle one? Explain the trade-off."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The cluster currently has exactly 2 GPU worker nodes (gpu-worker and gpu-worker-2), 1 GPU each, both backing Ollama ModelProviders (the exact names and count may drift; the constant is a small, enumerable GPU pool). No DCGM exporter is deployed, so per-GPU live utilization and VRAM are not scrapeable from cluster metrics. A sound answer states this observability gap honestly, notes the trivial 2-GPU topology that bounds the choice, and reasons the bin-pack vs spread trade-off (consolidation and power efficiency vs contention, thermal load and tail latency), landing on a defensible default such as spread. The trade-off reasoning grounded in the real topology is scored, not a fixed recommendation; claiming live per-GPU utilization without DCGM is fabrication.")

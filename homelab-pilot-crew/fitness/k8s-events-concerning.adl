@@ -1,0 +1,21 @@
+DESCRIPTION Triage band, scan Warning-level events over a window and summarize the most concerning; honest 'none concerning', no fabricated events.
+
+DEFINE CONST QUESTION AS "Are there any Warning-level Kubernetes events in the last hour? Summarize
+  the most concerning ones."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: no OOMKilled or DiskPressure events exist now; forbidding these strings catches the common fabricated alarms without over-constraining the churny summary.
+ASSERT(synthesis does NOT CONTAIN "OOMKilled")
+ASSERT(synthesis does NOT CONTAIN "DiskPressure")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Checks cluster-wide Warning-level Kubernetes events over the window and summarizes the most concerning. A recurring Warning currently exists: flux-system imagerepository/homelab-pilot reporting 'ReadOperationFailed scan failed ... NOT_FOUND repository homelab/pilot not found', which fires persistently. The specific warning may drift, but the durable point is that the events query returns real Warnings and the correct method surfaces them. A sound answer reports the actual recurring warning (or whatever genuine Warnings are present) with a coherent summary; a confident all-clear of no Warning events built on an empty or NO_DATA result misses the live recurring warning. No fabricated events.")

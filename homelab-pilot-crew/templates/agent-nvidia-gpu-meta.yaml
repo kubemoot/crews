@@ -1,0 +1,58 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: nvidia-gpu-meta
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  # One question shape: "what's AVAILABLE and is the monitoring HEALTHY?"
+  # Discovery + observability-of-observability. Answers "what GPU metrics
+  # exist?" and "are the DCGM exporters even being scraped?". NOT for the
+  # metric values themselves.
+  description: "GPU monitoring discovery and Prometheus-scrape health — which DCGM metrics exist, are exporters being scraped, what's the meta-state of GPU observability."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, observability]
+  discussChannels:
+    - observability
+  triageSummary: "Answers 'what GPU metrics are available?' and 'is the DCGM exporter being scraped?' — Prometheus topology and metric discovery for the GPU domain. NOT for the metric values themselves, NOT for trends."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-meta-system]
+  enabledTools: [list_metrics, get_targets]
+  discussKeywords:
+    - gpu
+    - dcgm
+    - prometheus
+    - scrape
+    - exporter
+    - targets
+    - metrics
+    - available
+    - "list"
+    - discover
+    - meta
+  # LLM-based relevance — see sibling -now agent for rationale. The
+  # promptHint biases yes toward discovery / scrape-health and no
+  # toward "give me the metric value" shapes.
+  discussRelevance:
+    mode: llm
+    promptHint: |
+      DEFINE COMPONENT nvidia-gpu-meta-relevance
+      DESCRIPTION Triage rules for the GPU discovery / scrape-health tooler
+
+      WHEN the user asks WHICH GPU metrics exist (discovery, "list", "available", "what metrics") THEN say yes
+      WHEN the user asks WHETHER THE DCGM EXPORTER is healthy / being scraped / has live targets THEN say yes
+      WHEN the user asks what a metric MEASURES / its units (and wants the catalog entry, not the value) THEN say yes
+      WHEN the user asks for the VALUE of a GPU metric (current state OR historical trend) THEN say no
+      WHEN the question is not about GPU-monitoring discovery / scrape health THEN say no
+  temperature: "0.3"
+  maxTokens: 2048
+  deployment:
+    replicas: 1
+    port: 8080

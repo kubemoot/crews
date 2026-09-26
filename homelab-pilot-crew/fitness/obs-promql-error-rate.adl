@@ -1,0 +1,19 @@
+DESCRIPTION Observability band: a correct rate() over a window with a calibrated 'elevated or not' judgment, no invented number.
+
+DEFINE CONST QUESTION AS "Using PromQL, what is the cluster's HTTP 5xx error rate over the last hour, and is it elevated?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: the actual 5xx rate is highly time-variable and not reliably queryable here, so anchor only that the answer addresses 5xx; the magnitude and "elevated" verdict are left to the judge.
+ASSERT(synthesis CONTAINS "5xx")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Builds a correct PromQL rate query for 5xx responses over the window and gives a calibrated elevated-or-not judgment. The homelab has no guaranteed app-level HTTP status instrumentation (a http_requests_total series with a status label), so if that series is absent the correct answer states the instrumentation gap and how to close it (add a ServiceMonitor or expose status-labeled request counters) rather than inventing a number; if the series exists, report a plausible magnitude (may drift; the constant is a correct method plus an honest magnitude or an honest gap). 'Error rate is negligible or zero' is correct when true; no fabricated number.")

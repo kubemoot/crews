@@ -1,0 +1,47 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: k8s-nodes
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Inspects Kubernetes node status: conditions, labels, taints, capacity, allocatable resources."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, kubernetes]
+  discussChannels:
+    - kubernetes
+  triageSummary: "Inspects Kubernetes Nodes (conditions, taints, labels, capacity, kubelet version), CustomResourceDefinitions, and API resource schemas."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-nodes-system]
+  enabledTools: [list_api_resources, explain_resource, resources_list, resources_get, events_list]
+  discussKeywords:
+    - node
+    - nodes
+    - crd
+    - crds
+    - operator
+    - operators
+    - apigroup
+    - apiresource
+    - api
+    - schema
+    - explain
+    - cluster
+    - taint
+    - capacity
+    - condition
+    - cordon
+    - drain
+    - talos
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

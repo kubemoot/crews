@@ -1,0 +1,47 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: k8s-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Lists and inspects Kubernetes configuration objects: Namespaces, ConfigMaps, ServiceAccounts, Roles, ClusterRoles, RoleBindings."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, kubernetes]
+  discussChannels:
+    - kubernetes
+  triageSummary: "Lists and inspects ConfigMaps, Namespaces, ServiceAccounts, Roles, ClusterRoles, RoleBindings, ClusterRoleBindings. Uses resources_list and resources_get for RBAC and configuration resources only."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-config-system]
+  enabledTools: [resources_list, resources_get, events_list]
+  discussKeywords:
+    - configmap
+    - configmaps
+    - namespace
+    - namespaces
+    - serviceaccount
+    - serviceaccounts
+    - rbac
+    - role
+    - roles
+    - clusterrole
+    - rolebinding
+    - clusterrolebinding
+    - label
+    - labels
+    - annotation
+    - annotations
+    - permission
+    - permissions
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

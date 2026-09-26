@@ -1,0 +1,47 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: k8s-storage
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  description: "Inspects Kubernetes storage: PersistentVolumes, PersistentVolumeClaims, StorageClasses, VolumeSnapshots."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, kubernetes]
+  discussChannels:
+    - kubernetes
+  triageSummary: "Lists and inspects PersistentVolumes, PersistentVolumeClaims, and StorageClasses including capacity, access modes, reclaim policies, and provisioners."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-storage-system]
+  enabledTools: [resources_list, resources_get, events_list]
+  discussKeywords:
+    - pv
+    - pvc
+    - pvcs
+    - volume
+    - volumes
+    - storage
+    - storageclass
+    - persistent
+    - claim
+    - claims
+    - nfs
+    - csi
+    - disk
+    - capacity
+    - bound
+    - provisioner
+    - reclaim
+    - access
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080

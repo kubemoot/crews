@@ -1,0 +1,19 @@
+DESCRIPTION Concept/RAG band, conceptual accuracy on Deployment vs StatefulSet incl. storage/networking implications; coordinator-answerable, no fabrication.
+
+DEFINE CONST QUESTION AS "Explain the differences between a Kubernetes Deployment and a StatefulSet.
+  Include when to use each and the implications for storage and networking."
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# RAG quality, both terms must appear, plus a key differentiator
+ASSERT(synthesis CONTAINS "Deployment" AND "StatefulSet")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Explains Deployment (stateless, interchangeable pods, rolling updates, shared/ephemeral storage) versus StatefulSet (stable network identity via headless service + ordinal pods, ordered lifecycle, per-pod persistent storage via volumeClaimTemplates), when to use each, and the storage/networking implications. Accurate, no fabrication.")

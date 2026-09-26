@@ -1,0 +1,61 @@
+{{/*
+Fitness scenario CRs — one CrewFitness per ADL script under fitness/.
+
+DEFAULT OFF.
+
+Today the operator unconditionally runs a Job the moment a CrewFitness
+CR exists, so deploying a baseline suite via the chart fires the whole
+suite at once — a thundering herd against the crew that was never
+intended. Until the operator supports a "visible-without-auto-run"
+annotation (see [[Baseline Fitness Scenarios — Visible Without Auto-Run]]),
+this template stays gated and the dashboard's /dashboard/crewfitnesses
+page populates only via the upcoming CrewForge runner (per-run CRs
+created on demand with stable cleanup).
+
+Enable via values when the operator-side guard is in place:
+
+  fitness:
+    deployBaselineScenarios: true
+
+That will re-create the per-scenario CrewFitness CRs from fitness/*.adl
+with a stable name (scenario-{filename}) and an annotation telling the
+operator not to start a Job automatically.
+*/}}
+{{/*
+Emit one CrewFitness CR. Shared by the .adl and .md ranges below so a scenario
+declared in ADL or in prose Markdown renders identically — only the file form
+differs, never the resulting CR. dict: name, bytes, root. This crew ships its
+fitness in prose Markdown (.md), the prose-form twin of the ADL crew's .adl.
+*/}}
+{{- define "homelab-pilot-crew-prose.fitnessScenario" -}}
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: CrewFitness
+metadata:
+  name: scenario-{{ .name }}
+  namespace: {{ .root.Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" .root | nindent 4 }}
+    kubemoot.ai/crew: {{ .root.Values.crew.name }}
+    kubemoot.ai/fitness-kind: baseline-scenario
+  annotations:
+    # Requires the operator-side guard from
+    # [[Baseline Fitness Scenarios — Visible Without Auto-Run]]
+    # to actually be honored; without it the operator still runs the Job.
+    kubemoot.ai/fitness-trigger: manual
+spec:
+  crewRef: {{ .root.Values.crew.name | quote }}
+  testRef: {{ .name | quote }}
+  testContent: |
+{{ .bytes | toString | indent 4 }}
+{{- end }}
+{{- if .Values.fitness.deployBaselineScenarios }}
+{{- range $path, $bytes := .Files.Glob "fitness/*.adl" }}
+{{- include "homelab-pilot-crew-prose.fitnessScenario" (dict "name" (base $path | trimSuffix ".adl") "bytes" $bytes "root" $) }}
+{{- end }}
+{{- range $path, $bytes := .Files.Glob "fitness/*.md" }}
+{{- if ne (base $path) "README.md" }}
+{{- include "homelab-pilot-crew-prose.fitnessScenario" (dict "name" (base $path | trimSuffix ".md") "bytes" $bytes "root" $) }}
+{{- end }}
+{{- end }}
+{{- end }}

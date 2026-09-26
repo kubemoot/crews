@@ -1,0 +1,19 @@
+DESCRIPTION Concept/RAG band: virtualization-HA concept accuracy (HA manager, fencing, quorum/corosync), no fabrication.
+
+DEFINE CONST QUESTION AS "Explain how Proxmox HA and fencing work, and what a quorum is for in a Proxmox cluster."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator-answerable / correct stand-aside: do NOT assert specialist
+# agreement (it would gate a correct answer to 0). Synthesis quality is
+# judged by DEFER REFLECTS below.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "quorum")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Explains the Proxmox HA stack: the built-in ha-manager (pve-ha-crm and pve-ha-lrm, Proxmox's own, not Pacemaker), fencing of a failed node, and the role of Corosync-based quorum in preventing split-brain, plus when HA is appropriate. Accurate conceptual explanation, coordinator-answerable without live cluster data; naming Pacemaker as the Proxmox HA manager is inaccurate.")

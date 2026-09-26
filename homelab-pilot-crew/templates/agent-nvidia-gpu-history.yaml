@@ -1,0 +1,60 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: nvidia-gpu-history
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  # One question shape: "how has the GPU's behavior CHANGED OVER TIME?"
+  # Time-series, trends, spikes, regressions. May need metric-metadata to
+  # explain units/semantics in the answer. NOT for real-time state and not
+  # for discovery of available metrics.
+  description: "GPU trend / time-series analysis — how a metric moved over a window, plus the metric semantics needed to discuss it."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, observability]
+  discussChannels:
+    - observability
+  triageSummary: "Answers 'how did GPU X trend over time?' — usage spikes, average over an hour, comparison across windows. Includes metric metadata when explaining units. NOT for current state, NOT for scrape-target health."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-history-system]
+  enabledTools: [execute_range_query, get_metric_metadata]
+  discussKeywords:
+    - gpu
+    - trend
+    - history
+    - over
+    - last
+    - hour
+    - day
+    - week
+    - average
+    - spike
+    - peak
+    - decline
+    - regression
+  # LLM-based relevance — see sibling -now agent for rationale. The
+  # promptHint here biases yes toward time-series / window-spanning
+  # questions and no toward current-state / discovery shapes.
+  discussRelevance:
+    mode: llm
+    promptHint: |
+      DEFINE COMPONENT nvidia-gpu-history-relevance
+      DESCRIPTION Triage rules for the time-series GPU tooler
+
+      WHEN the user asks how a GPU metric CHANGED OVER A TIME WINDOW (trend, history, last hour/day/week, average, spike, peak, decline, comparison, regression) THEN say yes
+      WHEN the user uses time-spanning phrasing ("over the last", "during", "trend", "did it get worse") about a GPU metric THEN say yes
+      WHEN the user asks for the CURRENT instant value of a GPU metric ("right now", "current") THEN say no
+      WHEN the user asks WHICH metrics or scrape targets EXIST (discovery, metadata) THEN say no
+      WHEN the question is not about a time-spanning GPU metric THEN say no
+  temperature: "0.3"
+  maxTokens: 2048
+  deployment:
+    replicas: 1
+    port: 8080

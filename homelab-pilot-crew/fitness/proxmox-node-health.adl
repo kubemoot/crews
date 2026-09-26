@@ -1,0 +1,19 @@
+DESCRIPTION Cross-domain discovery band, Proxmox nodes + storage-pool capacity/usage via the Proxmox API; real nodes/pools, accurate health.
+
+DEFINE CONST QUESTION AS "List the Proxmox nodes with their health status, and the capacity and
+  usage of each ZFS or storage pool."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "node")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Reports the Proxmox node(s) with health/online status discovered from the Proxmox API; the cluster runs the Proxmox hypervisor host(s) that back the Talos VMs (may drift; the constant is real node names from the API). Per-storage-pool capacity and usage are NOT exposed by the available Proxmox listing tool, so an honest statement that capacity/usage is unavailable (naming pvesm status or the storage status API as the method) is correct; fabricating pool sizes or usage percentages misses.")

@@ -1,0 +1,57 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: nvidia-gpu-now
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot-prose
+    kubemoot.ai/role: tooler
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:
+  type: chat
+  # One question shape: "what is the GPU doing RIGHT NOW?"
+  # Real-time scalars / instant vectors only. No time-series, no discovery,
+  # no metric semantics. See agent.md → "Tooler Design — Cohesion,
+  # Coupling, and Question Shape" for the rationale behind splitting the
+  # original monolithic nvidia-gpu (which carried 5 tools across 4 question
+  # shapes and took ~3 min per call).
+  description: "Real-time NVIDIA GPU state — current utilization, temperature, VRAM use, power draw."
+  discussRole: tooler
+  think: false
+  capabilities: [tool-calling, observability]
+  discussChannels:
+    - observability
+  triageSummary: "Answers 'what is GPU X doing right now?' — current utilization, temperature, VRAM use, power draw, clock speeds. NOT for historical trends, not for metric semantics, not for scrape-target health."
+  promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-now-system]
+  enabledTools: [execute_query]
+  discussKeywords:
+    - gpu
+    - gpus
+    - nvidia
+    - cuda
+    - dcgm
+    - vram
+    - temperature
+    - rtx
+    - utilization
+    - "current"
+    - "now"
+  # LLM-based relevance — keyword overlap with the sibling -history /
+  # -meta agents was too broad to distinguish question shape (observed
+  # in thread 18cf021c on 2026-05-29: all three nvidia-gpu-* triaged
+  # relevant for "what's GPU utilization on rig0?", wasting ~2 min of
+  # cumulative mulling work on the two off-shape agents). LLM mode lets
+  # the triage model read this triageSummary + the user message and
+  # decide yes/no, so each shape claims only its own questions.
+  discussRelevance:
+    mode: llm
+    promptHint: |
+      This tooler answers about the current, live state of a GPU. It's relevant when someone asks for a metric's value right now — utilization, temperature, VRAM use, power draw, clock speed — or uses present-tense phrasing like "is it busy", "how hot is it", "right now", "current". It's not the right one when the question is about how a metric changed over a time window (a trend, history, or average — that's the time-series tooler), about which metrics or scrape targets exist (the discovery tooler), or anything that isn't live GPU state.
+  temperature: "0.3"
+  maxTokens: 2048
+  deployment:
+    replicas: 1
+    port: 8080

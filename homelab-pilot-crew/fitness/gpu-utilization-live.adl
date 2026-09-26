@@ -1,0 +1,20 @@
+DESCRIPTION Live-metric band, current GPU utilization (VRAM + SM) via DCGM; discover the cluster's GPUs, plausible consistent values, no fabrication.
+
+DEFINE CONST QUESTION AS "What is the current GPU utilization on the cluster's GPUs? Include both VRAM usage and
+  SM utilization percentages."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Response must reference GPU concepts
+ASSERT(synthesis CONTAINS "GPU")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "The cluster currently has two NVIDIA GPUs (an RTX 5090 and an RTX 4090, one per gpu-worker node, discoverable via nvidia.com node labels), but live utilization including VRAM and SM-utilization percentages is not available because no dcgm-exporter is currently deployed to expose DCGM metrics in Prometheus. A correct answer reports the present GPUs and the absence of live SM/VRAM telemetry rather than fabricating utilization values or citing scrape jobs that do not exist. (the exact GPU set may drift; the constant is discovering the real GPUs and honestly reporting that live metrics are unavailable.)")

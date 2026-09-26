@@ -1,0 +1,20 @@
+DESCRIPTION Observability band: query target liveness (the up metric) and report down targets honestly.
+
+DEFINE CONST QUESTION AS "Are all of Prometheus's scrape targets currently up, and if any are down, which jobs do they belong to?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: exact up/down is churny and unverified here, so keep loose; require Prometheus named and forbid a blanket "all targets are down".
+ASSERT(synthesis does NOT CONTAIN "all targets are down")
+ASSERT(synthesis CONTAINS "Prometheus")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Inspects Prometheus scrape-target health (the up metric or the targets endpoint) and reports whether all targets are up, naming the job for any that are down. The verified live state is Prometheus running (the prometheus statefulset is 1/1 in the observability namespace), so its scrape targets are presumably mostly up and a substantive answer is expected (may drift; the constant is querying real target health). A correct answer reports the target state; if the targets query genuinely fails an honest statement of the failure is acceptable, but a two-sentence content-free non-answer is thin. 'All targets up' is correct when true; no fabricated down targets.")

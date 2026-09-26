@@ -1,0 +1,19 @@
+DESCRIPTION Time-series band, GPU utilization trend over a window from DCGM history; honest about limited history, no fabricated spikes.
+
+DEFINE CONST QUESTION AS "How has GPU utilization on the cluster's GPUs trended over the last hour? Note any
+  spikes or sustained high-usage periods."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "GPU")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "No GPU utilization time-series exists in Prometheus for this cluster because no dcgm-exporter is currently deployed to produce DCGM metrics, so there is no last-hour trend, spikes, or sustained-usage data to report. A correct answer reports the absence of history and attributes it to the missing GPU exporter, rather than fabricating a trend or precise spikes. (the exporter state may drift; the constant is reporting that the time-series is genuinely unavailable and naming the real cause.)")

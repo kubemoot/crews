@@ -1,0 +1,31 @@
+{{/*
+CrewSchedulingPolicy for the fitness crew. One reasoning model (qwen3:32b) backs
+every phase — the judge is a pure-reasoning scorer. qualityBias is high so the
+strong model is always chosen.
+*/}}
+apiVersion: kubemoot.ai/v1alpha1
+kind: CrewSchedulingPolicy
+metadata:
+  name: {{ .Values.crew.name }}-scheduling
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+spec:
+  crewRef: {{ .Values.crew.name | quote }}
+  archetypeRef: consent-3
+  qualityBias:
+    reasoning: "0.9"
+    default: "0.9"
+  rules:
+    - phase: triage
+      require:
+        matchLabels:
+          capability/reasoning: "true"
+    - phase: mulling
+      require:
+        matchLabels:
+          capability/reasoning: "true"
+    - phase: synthesis
+      require:
+        matchLabels:
+          capability/reasoning: "true"

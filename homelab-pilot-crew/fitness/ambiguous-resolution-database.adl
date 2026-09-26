@@ -1,0 +1,23 @@
+DESCRIPTION Selectivity band, recognize an ambiguous referent and resolve it by enumerating candidates rather than assuming one.
+
+DEFINE CONST QUESTION AS "Is the database healthy?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth (text match, no judge): the cluster runs
+# real datastores (harbor-database, harbor-redis, sonarqube-postgresql, nats). A correct
+# enumeration names at least the long-lived Harbor datastores; the observed failure said
+# "no database components were found". Catch both. Regenerate if the datastore set changes.
+ASSERT(synthesis CONTAINS "harbor")
+ASSERT(synthesis does NOT CONTAIN "no database components")
+
+# Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew) scores the
+# synthesis against this ground truth: method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The cluster runs several real datastores and their health IS determinable from live state. A correct answer recognizes that 'the database' is ambiguous, discovers the datastores rather than assuming a single one, and reports each one's health. The datastores currently present and running include harbor-database (PostgreSQL) and sonarqube-postgresql, plus harbor-redis and the nats store; saying no database components were found is wrong. A correct answer enumerates the real datastores it finds and reports them healthy. (The exact set may drift; the constant is discovering and reporting the actual datastores present.)")

@@ -1,0 +1,43 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: fitness-coordinator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+    kubemoot.ai/role: coordinator
+spec:
+  type: chat
+  description: "Fitness coordinator — relays a reference-grounded judging task to the fitness-judge and returns its verdict"
+  discussRole: coordinator
+  capabilities:
+    - reasoning
+  discussChannels:
+    - general
+  promptRefs:
+    - advisory-prompt
+    - triage-selection
+    - coordinator-decision-logic
+    - synthesis-prompt
+  temperature: "0.1"
+  maxTokens: 2048
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      # Coordinator has no MCP tools — it only facilitates the discussion.
+      - name: KUBEMOOT_GATEWAY_ENABLED
+        value: "false"
+      # Facilitator, not a specialist — no DiscussionSubscriber.
+      - name: KUBEMOOT_DISCUSS_SPECIALIST
+        value: "false"
+      # The judge coordinator must ALWAYS delegate scoring to the fitness-judge
+      # specialist. Disable answer-directly so it never answers a coordinator-
+      # answerable-looking embedded question (concept/gotcha/judgment scoring docs)
+      # instead of producing the verdict — that caused errJudgeNoVerdict spurious 0s.
+      - name: KUBEMOOT_DISCUSS_ANSWER_DIRECTLY
+        value: "false"
+      - name: KUBEMOOT_DISCUSS_SYNTHESIS_TIMEOUT_SECONDS
+        value: "120"
+      - name: QUARKUS_LANGCHAIN4J_OLLAMA_TIMEOUT
+        value: "300s"

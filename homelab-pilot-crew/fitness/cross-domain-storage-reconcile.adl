@@ -1,0 +1,25 @@
+DESCRIPTION Cross-domain band, trace a logical Kubernetes resource down to its physical hypervisor backing (3-hop reconciliation).
+
+DEFINE CONST QUESTION AS "The cluster uses NFS-backed persistent storage. Trace where that storage physically lives: which Proxmox host and storage pool back it, and which VM serves NFS to the cluster."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "NFS")
+
+# Deterministic, drift-tolerant ground truth: cluster storage was MIGRATED off NFS to
+# TrueNAS - there is no longer an NFS-serving VM. The question premise ("the cluster uses
+# NFS") is now FALSE, so a correct answer corrects it and names TrueNAS. The observed
+# failure described a stale, decommissioned NFS topology as if current. (CONTAINS "NFS"
+# above just confirms the answer engages the premise; the required correction is TrueNAS.)
+# TODO(jonathan): consider reframing this as an explicit false-premise gotcha scenario.
+ASSERT(synthesis CONTAINS "TrueNAS")
+
+# Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew) scores the
+# synthesis against this ground truth: method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The cluster does NOT use NFS-backed storage; the premise is false. Persistent storage is provided by democratic-csi over NVMe-oF (storageclass truenas-nvme, provisioner org.democratic-csi.nvmeof) backed by a TrueNAS appliance, with no NFS-serving VM anywhere. A correct answer verifies the storage layer from the live CSI driver and storageclass, corrects the NFS premise, and names TrueNAS NVMe-oF instead of inventing a Proxmox host, NFS VM, or storage pool. Fabricating specific hosts, VM IDs, or pools is wrong; an honest 'I cannot map this hop' for anything genuinely not exposed read-only is correct. (The exact storageclass name may drift; the constant is discovering the real CSI backing and not hallucinating an NFS chain.)")

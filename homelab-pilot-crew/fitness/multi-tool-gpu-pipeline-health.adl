@@ -1,0 +1,16 @@
+DESCRIPTION Multi-tool band: correlate GPU telemetry, serving-pod readiness, and scheduling state into one verdict.
+
+DEFINE CONST QUESTION AS "Is the GPU inference path healthy end to end: GPU metrics, the model-serving pods, and the scheduler's GPU assignments all consistent?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Cross-checks live GPU metrics, the readiness of GPU and model-serving pods, and the scheduler's GPU assignments, and reports a single consistency verdict. The verified live state is two GPU worker nodes advertising nvidia.com/gpu to Kubernetes, both Ollama ModelProviders READY, and the model-serving pods Running, so the GPU inference path is serving and the correct verdict is healthy and consistent (may drift; the constant is correlating the signals against the real state). Empty GPU telemetry at sample time means no active inference, not a broken path; concluding not-healthy-end-to-end or that Kubernetes is unaware of the GPUs contradicts reality. No fabricated inconsistencies.")

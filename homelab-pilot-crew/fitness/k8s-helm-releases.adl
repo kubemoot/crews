@@ -1,0 +1,20 @@
+DESCRIPTION Discovery band, enumerate real Helm + Flux releases across namespaces; 'none' is wrong, no invented releases.
+
+DEFINE CONST QUESTION AS "Which Helm releases are deployed across all namespaces and what are their
+  current versions?"
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Should reference Helm release concepts
+ASSERT(synthesis CONTAINS "release")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "The cluster's Helm-managed apps are Flux HelmReleases; it currently runs 7, all Ready: in flux-system the three crews (homelab-pilot-crew, homelab-pilot-crew-prose, kubemoot-fitness-crew), homelab-pilot/homelab-pilot, and in kubemoot the kubemoot-dashboard, kubemoot-docs, and kubemoot-operator. A correct answer enumerates the real releases discovered live and never claims 'none found' (the set and versions may drift; the constant is reporting only the real discovered releases, never invented names).")

@@ -1,0 +1,16 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Crew
+metadata:
+  name: {{ .Values.crew.name }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+    # Declares which DEFER fitness keyword this crew evaluates. The operator
+    # resolves a `DEFER synthesis <KEYWORD> ...` assertion to the crew bearing
+    # this label — the keyword is decoupled from the crew.
+    kubemoot.ai/adl-keyword: {{ .Values.crew.adlKeyword | quote }}
+  annotations:
+    kubemoot.ai/manage-namespace: "true"
+spec:
+  description: {{ .Values.crew.description | quote }}
+  discussion:
+    enabled: {{ .Values.crew.discussion.enabled }}

@@ -1,0 +1,25 @@
+DESCRIPTION Meta-fitness — on a volatile (method) scenario the judge scores the approach, not exact
+  values, and does not fabrication-flag a plausible differing number
+
+DEFINE CONST QUESTION AS "Score how well ANSWER reflects GROUND_TRUTH. Output only your JSON
+  verdict. | QUESTION: What is the current GPU utilization on rig0? | ANSWER: rig0 (RTX 5090) is at
+  42% SM utilization with 18 GB of 32 GB VRAM in use, temperature 61C, queried via DCGM. |
+  GROUND_TRUTH: Volatile. Judge the approach: correct method (DCGM per-rig), plausible values (VRAM
+  <= 32GB on the 5090, SM 0-100%), no fabrication. Do not penalize a value for differing from any
+  example number. | REGIME: method"
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Well-formed verdict
+ASSERT(synthesis CONTAINS "score")
+ASSERT(synthesis CONTAINS "fabrication")
+ASSERT(synthesis CONTAINS "reasoning")
+
+# NOTE: that a plausible volatile value is NOT fabrication-flagged (the direction)
+# needs analog scoring (REFLECTS), not keyword CONTAINS — structural checks here.

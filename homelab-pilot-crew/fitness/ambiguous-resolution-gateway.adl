@@ -1,0 +1,20 @@
+DESCRIPTION Selectivity band: an ambiguous referent (ingress gateway vs MCP gateway vs network gateway); resolve it by enumerating candidates.
+
+DEFINE CONST QUESTION AS "Is the gateway up?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: the homelab-gateway (class cilium) is PROGRAMMED=True and serving on 192.168.50.210; require the Cilium gateway named and forbid a "no gateway" denial.
+ASSERT(synthesis CONTAINS "Cilium")
+ASSERT(synthesis does NOT CONTAIN "no gateway")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The cluster has a real, healthy gateway and its status IS determinable from live state. A correct answer recognizes 'the gateway' is ambiguous, discovers the gateway-like components rather than assuming absence, and reports each one's status. Currently a Cilium Gateway API gateway (default/homelab-gateway, class cilium) is PROGRAMMED and serving on 192.168.50.210 via a LoadBalancer service, fronting roughly a dozen HTTPRoutes; declaring no gateway exists or that it is unavailable is wrong. A correct answer names the discovered gateway and reports it up. (The exact name and address may drift; the constant is discovering and reporting the actual gateway present.)")

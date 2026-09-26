@@ -1,0 +1,59 @@
+# Smoke tests for the kubernetes MCP server (containers/kubernetes-mcp-server).
+# This is the highest-traffic MCP server in the pilot crew — most agents use it.
+# Catching its failure fast is critical to crew health.
+
+server: kubernetes-mcp
+namespace: crew-homelab-pilot
+description: Kubernetes API tools via the kubernetes MCP server
+
+tools:
+  - name: pods_list
+    invoke: true
+    input: {}
+    assert:
+      - kind: not_error
+      # Pilot crew agents themselves run in this namespace — should always
+      # have at least one pod returned (the coordinator).
+      - kind: response_contains
+        value: homelab-coordinator
+
+  - name: pods_list_in_namespace
+    invoke: true
+    input:
+      namespace: kubemoot
+    assert:
+      - kind: not_error
+      # Operator pod should always be present in the kubemoot namespace
+      - kind: response_contains
+        value: kubemoot-operator
+
+  - name: namespaces_list
+    invoke: true
+    input: {}
+    assert:
+      - kind: not_error
+      - kind: response_contains
+        value: kube-system
+
+  - name: events_list
+    invoke: true
+    input:
+      namespace: crew-homelab-pilot
+    assert:
+      - kind: not_error
+
+  # Destructive tools — verify registration only
+  - name: pods_delete
+    invoke: false
+    assert:
+      - kind: listed_in_tools
+
+  - name: resources_create_or_update
+    invoke: false
+    assert:
+      - kind: listed_in_tools
+
+  - name: resources_delete
+    invoke: false
+    assert:
+      - kind: listed_in_tools

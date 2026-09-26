@@ -1,0 +1,27 @@
+crew:
+  name: kubemoot-fitness
+  description: Internal Kubemoot crew that scores fitness results against ground truth (REFLECTS judge)
+  # The DEFER fitness keyword this crew evaluates. A scenario assertion
+  # `DEFER synthesis REFLECTS "<ref>"` is resolved to this crew via the
+  # kubemoot.ai/adl-keyword label. Change this (and the judge prompt) to serve a
+  # different keyword.
+  adlKeyword: REFLECTS
+  discussion:
+    enabled: true
+
+# Judging uses the strong reasoning model. ProviderRef points at the
+# cluster-shared ModelProvider CRs in the kubemoot namespace.
+models:
+  - name: qwen3-32b-rig0
+    model: "qwen3:32b"
+    providerRef: ollama-gpu
+    family: qwen3
+    params: "32B"
+    contextWindow: "32768"
+    latencyClass: high
+    vramMib: 20480
+    capabilities: [reasoning]
+
+# No MCP server or gateway: the judge calls no tools. The operator assembles the
+# comparison document and hands it to the judge in the dispatch message (see the
+# Lean Judge work); the superseded collect_scenario MCP was removed.

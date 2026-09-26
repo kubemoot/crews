@@ -1,0 +1,37 @@
+{{- if .Values.ragSources.enabled -}}
+{{- range .Values.ragSources.sources }}
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: RAGSource
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" $ | nindent 4 }}
+    app.kubernetes.io/managed-by-resource: kubemoot
+spec:
+  source:
+    type: git
+    git:
+      url: {{ .gitUrl }}
+      branch: {{ .branch | default "main" }}
+      paths:
+        {{- toYaml .paths | nindent 8 }}
+  embeddingModelRef: {{ $.Values.embeddingModel.name }}
+  vectorStore:
+    type: {{ $.Values.vectorStore.type }}
+    {{- if $.Values.vectorStore.endpoint }}
+    endpoint: {{ $.Values.vectorStore.endpoint }}
+    {{- else }}
+    endpoint: {{ $.Values.vectorStore.host }}:{{ $.Values.vectorStore.port }}/{{ $.Values.vectorStore.database }}
+    {{- end }}
+    collection: {{ .collection | default .name }}
+    {{- if $.Values.vectorStore.existingSecret }}
+    secretRef: {{ $.Values.vectorStore.existingSecret }}
+    {{- end }}
+  {{- if .forceReindex }}
+  indexer:
+    forceReindex: true
+  {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,20 @@
+DESCRIPTION State-read band, report pending scheduled reminders/follow-ups; honest 'none' when empty, never fabricates.
+
+DEFINE CONST QUESTION AS "List any pending scheduled reminders or follow-up discussions that are
+  currently queued."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# "schedul" matches schedule/scheduled/scheduling whether or not any are pending
+ASSERT(synthesis CONTAINS "schedul")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Reports any pending scheduled reminders or queued follow-up discussions. Correctly reports that there are none when the queue is empty; never fabricates reminders.")

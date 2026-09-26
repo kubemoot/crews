@@ -1,0 +1,16 @@
+DESCRIPTION Judgment band: weigh current load, readiness, and replica counts to judge timing, not reflexively say yes.
+
+DEFINE CONST QUESTION AS "Is it safe to restart the busiest namespace's deployments right now?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Deployment readiness is directly observable via kubectl, and all deployments in the cluster currently report fully ready (READY matches desired across all namespaces). The specific busiest namespace and per-deployment replica counts may drift; the constant is that readiness and replica/surge posture ARE knowable from live state. A correct answer discovers the busiest namespace and its deployments' readiness and replica/surge capacity, then gives a reasoned timing judgment (safe to restart if healthy replicas and surge headroom exist, caution if single-replica or already degraded) rather than a reflexive yes or no. Refusing with 'not possible to determine safety' or resting on a near-empty metrics result ignores the available deployment-readiness data.")

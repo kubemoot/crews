@@ -1,0 +1,34 @@
+{{/*
+Model CRs for the homelab-pilot crew.
+
+In Scheduler v2, each Model is labeled with capabilities/family/params so
+that CrewSchedulingPolicy.spec.rules[].require/prefer can select the right
+one per phase. The ProviderRef points at ModelProvider CRs in the kubemoot
+namespace (cluster-shared infrastructure).
+
+The full set ships in this chart so the same crew is portable to clusters
+with different GPU inventories — values.yaml controls which Models exist.
+*/}}
+{{- range .Values.models }}
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: Model
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" $ | nindent 4 }}
+    family: {{ .family | quote }}
+    params: {{ .params | quote }}
+    contextWindow: {{ .contextWindow | default "8192" | quote }}
+    latencyClass: {{ .latencyClass | default "high" | quote }}
+    {{- range $cap := .capabilities }}
+    capability/{{ $cap }}: "true"
+    {{- end }}
+spec:
+  model: {{ .model | quote }}
+  providerRef: {{ .providerRef | quote }}
+  {{- if .vramMib }}
+  vramMib: {{ .vramMib }}
+  {{- end }}
+{{- end }}

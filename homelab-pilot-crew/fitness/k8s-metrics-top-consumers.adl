@@ -1,0 +1,19 @@
+DESCRIPTION Live-metric band, rank top pods by memory via the metrics API; real pod names, correct ranking, no fabrication.
+
+DEFINE CONST QUESTION AS "What are the top 5 pods by memory consumption across the cluster right
+  now?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "memory")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Cluster-wide, the genuine top memory consumers are the GPU model-serving pods (ollama in ollama-rig0 and ollama-rig1, in the multi-GiB range with ollama-rig0 the largest), followed by sonarqube, the kube-apiserver replicas, and the prometheus pod, all above roughly 1.5Gi. A correct cluster-wide top-N surfaces these GiB-scale inference and system pods by real name; a list that tops out at a few hundred Mi has only scanned the crew namespaces and missed the real heaviest pods (exact numbers drift with load; the constant is that the true heavy hitters are GiB-scale model, database, or monitoring pods reported by real name, never fabricated).")

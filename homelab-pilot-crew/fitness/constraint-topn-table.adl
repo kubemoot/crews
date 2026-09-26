@@ -1,0 +1,21 @@
+DESCRIPTION Constraint band: honor a count cap, ranking order, exact column shape, and 'nothing else'.
+
+DEFINE CONST QUESTION AS "Give me exactly the top 5 namespaces by pod count, as a two-column table of namespace and count, highest first, and nothing else."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic ground truth: the cluster has 28 namespaces with pods, so the top-5-by
+# -pod-count is fully answerable. The observed failure returned "could not be retrieved"
+# - a non-answer to an answerable question. Forbid that.
+ASSERT(synthesis does NOT CONTAIN "could not be retrieved")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The cluster currently has roughly two dozen namespaces that contain pods, so a top-5-by-pod-count ranking is fully answerable and 'could not be retrieved' is wrong. A correct answer returns exactly five namespaces ranked by pod count descending in a two-column namespace and count table with no extra prose, discovered live. Honoring the count cap, sort order, table format, and the no-extra-output constraint is the point; the specific namespaces and counts are not scored. (The distribution drifts; if genuinely fewer than five namespaces had pods, reporting all of them honestly would be correct.)")

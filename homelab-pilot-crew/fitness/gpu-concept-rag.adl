@@ -1,0 +1,22 @@
+DESCRIPTION Concept/RAG band, RAG-grounded conceptual accuracy on GPU compute (CUDA vs Tensor cores); coordinator-answerable, specialists correctly stand aside, no fabrication.
+
+DEFINE CONST QUESTION AS "Explain the architectural difference between CUDA cores and Tensor cores
+  on NVIDIA GPUs, and when each is more efficient."
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Concept questions are coordinator-answerable from general knowledge, 
+# specialists correctly stand-aside when no tool call is needed. Do NOT
+# assert specialist agree; assert the synthesis quality instead.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Synthesis should reference both core types, RAG/training-data quality check
+ASSERT(synthesis CONTAINS "CUDA" AND "Tensor")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Explains CUDA cores as general-purpose SIMT parallel ALUs (graphics/general parallel compute) versus Tensor cores as specialized matrix-multiply-accumulate units for mixed-precision deep-learning math, and when each is more efficient (general/scalar work vs dense matrix multiply). Accurate architectural distinction, no fabricated claims.")

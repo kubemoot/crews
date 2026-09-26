@@ -1,0 +1,20 @@
+DESCRIPTION Discovery band: enumerate NetworkPolicies and report the gap (namespaces with no isolation).
+
+DEFINE CONST QUESTION AS "Which namespaces have NetworkPolicies defined, and which have none?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: flux-system reliably has NetworkPolicies while most namespaces have none; a loose line floor tolerates namespace churn and a broad-coverage fabrication fails.
+ASSERT(synthesis CONTAINS "flux-system")
+ASSERT(synthesis matches "[a-z0-9][a-z0-9-]*" at least 15 times)
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "NetworkPolicies exist in exactly 3 namespaces: crew-homelab-pilot and crew-homelab-pilot-prose (each a code-sandbox-egress policy) and flux-system (several flux policies); every other namespace in the cluster (the large majority of about 28) has NONE. A correct answer reports both sides, naming the 3 covered namespaces and stating the rest are uncovered; the without-policies side is obtainable from the namespace list and should not be left as 'unknown' (the set may drift; the constant is reporting only the real discovered policies and the real uncovered namespaces, never invented ones).")

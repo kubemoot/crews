@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kubemoot-fitness-crew
+description: Internal Kubemoot crew that judges fitness results — scores how well a crew's answer reflects a known ground truth (the REFLECTS assertion)
+type: application
+version: 0.4.6
+appVersion: 0.4.6

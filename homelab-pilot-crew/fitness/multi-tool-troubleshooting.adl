@@ -1,0 +1,22 @@
+DESCRIPTION Multi-tool band, coordinate Helm health + pod readiness + k8sgpt diagnosis into a root cause; 'nothing failing' acceptable when true.
+
+DEFINE CONST QUESTION AS "Which Helm releases are currently in a Failed or Pending state, what
+  underlying pods are not Ready, and what does k8sgpt diagnose as the root cause?"
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Multi-tool: multiple specialists typically engage (k8s-helm + k8s-workloads or k8sgpt);
+# gate on at least 1 agree so a correct coordinator-led synthesis is not gated to 0.
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Synthesis should reference both Helm and pod concepts
+ASSERT(synthesis CONTAINS "Helm" AND "pod")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Combines Helm release health, pod readiness, and a k8sgpt diagnosis to identify what (if anything) is failing and the root cause. The verified live state is dozens of Helm releases present in the cluster (around 86 release records) all currently deployed with no Failed or Pending release, so the correct answer is nothing currently failing, grounded in actually enumerating the releases (may drift; the constant is reading real release state, not an empty result). Asserting that helm returned empty or that there are no Helm releases contradicts reality and is wrong even when the cluster happens to be healthy. No fabricated failures.")

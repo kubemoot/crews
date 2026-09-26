@@ -1,0 +1,89 @@
+{{- if .Values.mcpServers.codeSandbox.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: code-sandbox-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  # Sandboxed code-execution server: the agent generates a small program, the
+  # server runs it in-process inside THIS pod (no Docker socket) and returns
+  # stdout. Tool: execute_code{language, code}. Pure stdio -> operator adds the
+  # bridge sidecar (port below is the bridge's TCP port, not a server listener).
+  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.codeSandbox.image) | quote }}
+  transport: stdio
+  # The bridge runs in exec mode (kubemoot-mcp-bridge exec -- <command>), so the
+  # server's start command must be explicit - the image's default ENTRYPOINT
+  # (docker-entrypoint.sh, no Cmd) which launches the stdio MCP server.
+  command:
+    - "/usr/local/bin/docker-entrypoint.sh"
+  port: 3000
+  replicas: 1
+  # Option A: NO cluster credentials. This sandbox only computes over data handed
+  # to it on the discussion board; it needs NO Kubernetes access, so it does NOT
+  # use the kubernetes-mcp service account (default namespace SA, no RBAC bound).
+  env:
+    - name: EXECUTION_TIMEOUT
+      value: "30"
+  capabilities:
+    - compute
+    - data-analysis
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  # Shared scratch the materializer writes and the sandbox reads. The operator
+  # mounts this emptyDir into BOTH the main container and the sidecar at the same
+  # path (EmptyDirVolume has no name; the operator auto-shares it).
+  emptyDirVolumes:
+    - mountPath: /artifacts
+      sizeLimit: 256Mi
+  # Materializer sidecar (native sidecar; operator sets restartPolicy=Always and
+  # auto-mounts /artifacts). It reaches NATS to fetch referenced objects and
+  # stages them on /artifacts for the no-network sandbox. The sandbox container
+  # itself has no NATS client; egress for this pod is locked to NATS-only by
+  # networkpolicy-code-sandbox.yaml (A1 posture - see Agent Collaborative
+  # Artifact Store; cross-crew isolation is the deferred per-crew-NATS-account work).
+  sidecars:
+    - name: artifact-access
+      image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
+      env:
+        - name: NATS_URL
+          value: "nats://nats.nats.svc.cluster.local:4222"
+        - name: ARTIFACT_DIR
+          value: "/artifacts"
+        - name: ARTIFACT_BUCKET
+          value: "kubemoot_discussion_artifacts"
+        # Crew-scoped subscription (soft boundary): only this crew's references.
+        - name: ARTIFACT_SUBJECT
+          value: "kubemoot.artifacts.homelab-pilot-prose.>"
+      securityContext:
+        # Runs non-root: the artifact-access image sets USER 1000, and this enforces
+        # uid:gid 1000:1000 at the pod layer too (defense in depth). runAsUser also
+        # makes the runtime user independent of the image tag, so this is safe whether
+        # or not the USER-1000 image is the one live. 1000 matches the sandbox reader,
+        # and the shared /artifacts emptyDir is 0777 so the materializer writes fine as
+        # non-root (verified live). Still contained by read-only rootfs + drop-ALL caps
+        # + no-privilege-escalation + NATS-only egress.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "64Mi"
+        limits:
+          cpu: "200m"
+          memory: "128Mi"
+{{- end }}

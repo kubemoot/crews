@@ -1,0 +1,12 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Crew
+metadata:
+  name: {{ .Values.crew.name }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+  annotations:
+    kubemoot.ai/manage-namespace: "true"
+spec:
+  description: {{ .Values.crew.description | quote }}
+  discussion:
+    enabled: {{ .Values.crew.discussion.enabled }}

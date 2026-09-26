@@ -1,0 +1,23 @@
+I'll start by extracting the zip and seeing what's in it.The listing got swamped by a pre-existing node_modules. Let me look at just the extracted content.The folders extracted to the top level. Let me look at both.22 agents in intent/. Two without historical matches (coordinator, scheduler-advisor) get written fresh; the other 20 get revised from history. Let me read all the intent briefs first.Now the historical prompts that I'll revise from.I have everything I need: 22 briefs in `intent/`, 20 with historical matches to revise, and 2 (coordinator, scheduler-advisor) to write fresh. The historical prompts share a clear voice (engineer-to-teammate, plain English, light `##` headers, a couple of concrete tool examples, "Your Domain / You do NOT handle" sections, and a `NOTHING_TO_ADD` stand-aside convention for the RAG-only advisors).
+
+A few substantive things the briefs change that I'll fold in: `k8sgpt` now owns cross-cutting Events (historical didn't mention events at all); `proxmox-pve` must stop hardcoding "three physical servers rig0/1/2" and discover host count at runtime; `nvidia-gpu-meta` historical had value-query PromQL examples it has no tools for (it only has `list_metrics`/`get_targets`), so those come out; the GPU agents are now a three-way split. I'll also avoid em dashes per your writing preference while keeping the register intact.
+
+Let me write the files.Fresh ones done. Now the revisions from historical, starting with the researcher and the four advisors.Now the read-only Kubernetes specialists. Starting with the cluster of similar ones (config, nodes, services, storage, scaling).Now the observability live specialist and the three GPU live specialists.Finally the two live Proxmox specialists. `proxmox-pve` needs the hardcoded three-host assumption removed.All 22 written. Let me verify completeness against `intent/` and sanity-check that no em dashes slipped in.All 22 agents from `intent/` are covered, one file each, no em dashes, lengths roughly tracking the historical originals.
+
+Done. 22 prompts written to one file per agent, prompt text only.
+
+**Written fresh** (intent-only, no historical match):
+- `coordinator.md` — routing across the four layers, minimum-viable subcommittee, synthesis rules, and the "don't expose the machinery / don't fabricate" guardrails.
+- `scheduler-advisor.md` — reminder vs. follow-up distinction, natural-language time, never exposing scheduleId/internal fields, ask-before-cancel, recurring = CronJob, thread-context behavior.
+
+**Revised from historical**, voice and rough length preserved. A few that needed more than light touch-ups:
+- `k8sgpt` — the historical didn't mention events at all; the brief makes it the owner of cross-cutting cluster Events, so I added `events_list`, Warning-before-Normal triage, and "a quiet cluster is a valid answer."
+- `proxmox-pve` — dropped the hardcoded "three physical servers rig0/1/2" assumption, since the brief and coordinator both insist host count and aliases are discovered at runtime, never asserted.
+- `nvidia-gpu-meta` — removed the value-query PromQL examples the historical carried over from the pre-split specialist; this agent only has `list_metrics` and `get_targets`, so it discovers names and scrape health and explicitly doesn't report values.
+- `nvidia-gpu-history` — the historical was a stub, so I expanded it to cover trends/peaks/window comparisons against its two real tools while keeping it tight.
+- `k8s-helm` — added the honesty rule and the native-Helm-vs-Flux-reconciliation distinction.
+- `k8s-workloads` — kept its own event troubleshooting but routed cluster-wide warning analysis to k8sgpt, matching the new boundary.
+
+One judgment call worth flagging: I avoided em dashes throughout (matching your writing preference) and substituted colons/parentheses/periods. The historical files used them heavily, so the diffs will show that punctuation change across every revised file. If you'd rather I preserve the originals' em dashes for a smaller diff, say so and I'll regenerate.
+
+One source tension I resolved rather than invented around: `proxmox-pve`'s brief lists LXC listing as in-scope but its five named tools don't include an obvious LXC tool, and the historical workaround referenced tools outside the brief's list. I kept the LXC scope and the "keep LXC distinct from VMs" behavior but didn't document the specific buggy historical workaround. If that workaround is still load-bearing in your setup, that one's worth a look.

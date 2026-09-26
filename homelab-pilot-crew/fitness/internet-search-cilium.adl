@@ -1,0 +1,21 @@
+DESCRIPTION Internet-research band, researcher fetches the current Cilium release line + real features from the web; coordinator synthesizes, no fabrication.
+
+DEFINE CONST QUESTION AS "What is the latest stable release version of the Cilium CNI, and what are
+  its headline features?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# internet-search is a researcher: its inputs feed the advisory/synthesis but it
+# is excluded from settle triggers, so do NOT assert specialist agree. Assert that
+# the crew produces a coherent answer about the queried technology.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "Cilium")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Cilium is the eBPF-based CNI on this cluster, and a correct answer identifies it as such and lists real headline features (eBPF dataplane, Hubble observability, network policies including L7, sidecarless service mesh, Gateway API, BGP, egress gateway, transparent encryption, ClusterMesh). It reports the current stable release line obtained by actually searching the web at answer time, not a version recalled from training data. (the latest version number drifts continually; the constant is fetching the current release live and not fabricating features.)")

@@ -1,0 +1,19 @@
+DESCRIPTION Concept/RAG band: observability concept depth (label explosion, TSDB cost, mitigation), no fabrication.
+
+DEFINE CONST QUESTION AS "Explain metric cardinality in Prometheus, why high cardinality is a problem, and how to reduce it."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator-answerable / correct stand-aside: do NOT assert specialist
+# agreement (it would gate a correct answer to 0). Synthesis quality is
+# judged by DEFER REFLECTS below.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "cardinality")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Explains cardinality as the count of unique label combinations, why high cardinality strains Prometheus memory and the TSDB, and concrete mitigations (drop or relabel high-cardinality labels, avoid unbounded label values, use recording rules). Accurate, no fabrication; coordinator-answerable.")

@@ -1,0 +1,20 @@
+DESCRIPTION Concept/RAG band, observability concepts (recording vs alerting rules, ServiceMonitor vs PodMonitor); coordinator-answerable, no fabrication.
+
+DEFINE CONST QUESTION AS "Explain when to use a Prometheus recording rule versus an alerting rule,
+  and how a ServiceMonitor differs from a PodMonitor."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Concept questions are coordinator-answerable; specialists correctly stand aside
+# when no tool call is needed. Assert synthesis quality, not specialist participation.
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "recording" AND "alerting")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "Explains a Prometheus recording rule (precomputes/persists frequent or expensive query expressions) versus an alerting rule (evaluates a condition and fires to Alertmanager), and ServiceMonitor (selects Services) versus PodMonitor (selects pods directly). Accurate, covers both distinctions, no fabrication.")

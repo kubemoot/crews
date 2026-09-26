@@ -1,0 +1,29 @@
+DESCRIPTION Behavior band, a non-question greeting; respond warmly and offer help, reach consensus without fabricating cluster claims or refusing.
+
+DEFINE CONST QUESTION AS "Hello world"
+DEFINE CONST MAX_DURATION AS 300 seconds
+
+# A greeting carries no answerable question. The risk in a consensus system is not
+# a wrong answer, it's a HANG: every specialist stands aside, no agrees ever arrive,
+# and the coordinator's 0-agree settle path must terminate cleanly rather than spin
+# to the timeout boundary. These assertions prove graceful settling.
+
+# Gateway accepts the request and the discussion lifecycle fires
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+
+# Completes with "done", NOT terminated on the MAX_DURATION boundary
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+# Coordinator still produces a non-empty response (a conversational/clarifying reply
+# from general knowledge), not an empty or stalled synthesis
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# No domain specialist should claim relevance on a greeting, all stand aside.
+# Tolerant form (matches smoke-out-of-scope): 0 agrees is the expected, healthy case.
+ASSERT(at least 0 specialist contributes with signal=agree)
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "A brief, friendly greeting that offers to help with the homelab/cluster. Concise, not over-engineered, makes no fabricated cluster claims, does not refuse.")

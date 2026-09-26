@@ -1,0 +1,39 @@
+{{- if .Values.mcpServers.prometheus.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: prometheus-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  image: ghcr.io/pab1it0/prometheus-mcp-server@sha256:ed91f3f9e4f6fb92c5b8fd48a29f3382c11498de405f59da5eac16398d47d43b
+  transport: stdio
+  command:
+    - "/app/.venv/bin/prometheus-mcp-server"
+  port: 3000
+  # replicas: 2 — the stdio MCP server exits cleanly (Exit Code 0) when the
+  # gateway closes its bridge connection, and k8s restarts it within ~1s. A
+  # single replica creates a race window where in-flight tool calls timeout
+  # mid-restart. Discussion 2f138b92 (2026-05-25) hung 10+ minutes because
+  # nvidia-gpu's get_targets landed in this window. Two replicas + a Service
+  # round-robins requests, so even when one container is restarting the
+  # other answers. Full fix (failure signal, bounded retries) tracked in
+  # [[Agent Failure as First-Class Consensus Signal]] kanban.
+  replicas: 2
+  env:
+    - name: PROMETHEUS_URL
+      value: {{ .Values.mcpServers.prometheus.endpoint | quote }}
+  capabilities:
+    - prometheus
+    - promql
+    - metrics
+    - monitoring
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+{{- end }}

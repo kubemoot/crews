@@ -1,0 +1,17 @@
+DESCRIPTION Multi-tool band, synthesize four independent signals across tools and report healthy without inventing problems.
+
+DEFINE CONST QUESTION AS "Give me a one-paragraph health rollup of the cluster: node readiness, any not-Ready pods, Helm releases not in a deployed state, and whether the GPU inference backends are serving. Flag anything abnormal; if everything is healthy, say so plainly."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "Ready")
+
+# Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew) scores the
+# synthesis against this ground truth: method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "Synthesizes node readiness, pod health, Helm release state, and GPU serving status from live discovery into one rollup, flagging genuine abnormalities and plainly stating health when all is well. The verified live state is all 12 nodes Ready, workloads healthy, every Helm release deployed, and both Ollama ModelProviders READY and serving, so the correct rollup is all healthy across the four signals (may drift; the constant is combining all four and not inventing problems). Covering only a couple of the 12 nodes, or calling the GPU backends abnormal off a monitoring-query error while they are serving, contradicts reality. Do not fabricate problems.")

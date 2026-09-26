@@ -1,0 +1,19 @@
+DESCRIPTION Discovery band, list LoadBalancer/NodePort Services with ports and Ingress host rules; real entries, correct absence reporting.
+
+DEFINE CONST QUESTION AS "List the Services of type LoadBalancer or NodePort with their ports, and
+  any Ingresses with their host rules."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis CONTAINS "Service")
+
+# Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
+# synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
+ASSERT(DEFER synthesis REFLECTS "The cluster has exactly one externally-typed Service: default/cilium-gateway-homelab-gateway, type LoadBalancer (external IP 192.168.50.210, ports 80:31030 and 443:30986); there are NO NodePort Services and NO Ingress resources (external HTTP routing uses Gateway API HTTPRoutes such as grade-discussion and homelab-pilot, not Ingress). A correct answer names this one LoadBalancer Service and does not claim there are none, and does not mislabel an HTTPRoute as an Ingress (the set may drift; the constant is reporting only the real discovered LoadBalancer and NodePort Services and real Ingresses, never inventing or mis-typing entries).")

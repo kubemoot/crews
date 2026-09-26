@@ -1,0 +1,20 @@
+DESCRIPTION Discovery band: Ingress and certificate surface with an expiry judgment; honest 'all valid'.
+
+DEFINE CONST QUESTION AS "List the Ingress resources and TLS certificates, and flag any cert that is expired or close to expiry."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic, drift-tolerant ground truth: there are NO Ingress resources (Gateway API) and the harbor cert is valid; require the real harbor cert and forbid a fabricated "expired".
+ASSERT(synthesis CONTAINS "harbor")
+ASSERT(synthesis does NOT CONTAIN "expired")
+
+# Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
+# the synthesis against this ground truth on method and honesty, not specific values.
+ASSERT(DEFER synthesis REFLECTS "The cluster exposes no Ingress resources (it uses the Gateway API), and cert-manager Certificates ARE listable: it currently holds 2, default/harbor-internal-tls and kubemoot/kubemoot-operator-webhook, both Ready with valid non-expired certificates. A correct answer discovers and names the real certs and reports them all valid; 'could not retrieve any' or naming nothing is wrong because the data is available (the set may drift; the constant is reporting the real discovered certs and their true validity, never inventing certs or dates).")
