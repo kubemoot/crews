@@ -4,6 +4,13 @@ Kubemoot agent crew for homelab infrastructure consultation.
 
 A multi-specialist crew that answers questions spanning the four layers of a homelab — **physical/hypervisor** (Proxmox), **Kubernetes**, **observability** (Prometheus + DCGM), and **GPU/AI** (NVIDIA + Ollama). Discussions are coordinated through the Kubemoot consensus protocol: the coordinator generates an advisory, selects a relevant subcommittee of specialists via triage, and synthesizes their findings into a single answer.
 
+## Before you install
+
+This crew is the reference homelab's own. Its Proxmox specialists use a `proxmox-mcp`
+tool image built from a private repository and pulled from that homelab's registry,
+so a copy of this chart on another cluster needs its own Proxmox MCP server (or
+the Proxmox agents removed). Everything else in the chart is public.
+
 ## Topology
 
 - **1 coordinator** (`homelab-coordinator`) — declares `reasoning` capability; binds to a quality-tier model (e.g. qwen3:32b)
