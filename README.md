@@ -1,6 +1,6 @@
 # Kubemoot Crews
 
-Each subdirectory is an independently versioned Helm chart for a Kubemoot agent crew. Crews are the deployable unit of agent collaboration on the [Kubemoot](https://github.com/javajon-homelab/kubemoot) operator.
+Each subdirectory is an independently versioned Helm chart for a Kubemoot agent crew. Crews are the deployable unit of agent collaboration on the [Kubemoot](https://github.com/kubemoot/kubemoot) operator.
 
 ## Layout
 
@@ -42,9 +42,9 @@ Crews could split into separate repos later; one repo for now keeps ergonomics f
 
 ## Consumers
 
-- **[CrewForge](https://github.com/javajon-homelab/crew-forge)** — Tauri desktop IDE reads/edits chart files here, runs fitness suites, exports results
-- **[Homelab Pilot](https://github.com/javajon-homelab/homelab-pilot)** — pilot web app discovers deployed crews via the `kubemoot.ai/crew-type: pilot` label
-- **[Kubemoot operator](https://github.com/javajon-homelab/kubemoot)** — reconciles the Crew CR + child resources once Flux applies the chart
+- **[CrewForge](https://github.com/kubemoot/crew-forge)** — Tauri desktop IDE reads/edits chart files here, runs fitness suites, exports results
+- **[Homelab Pilot](https://github.com/kubemoot/homelab-pilot)** — pilot web app discovers deployed crews via the `kubemoot.ai/crew-type: pilot` label
+- **[Kubemoot operator](https://github.com/kubemoot/kubemoot)** — reconciles the Crew CR + child resources once Flux applies the chart
 
 ## Contributing a new crew
 
