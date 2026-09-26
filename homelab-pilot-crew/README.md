@@ -9,7 +9,7 @@ A multi-specialist crew that answers questions spanning the four layers of a hom
 - **1 coordinator** (`homelab-coordinator`) — declares `reasoning` capability; binds to a quality-tier model (e.g. qwen3:32b)
 - **21 specialists** spanning Kubernetes (`k8s-*`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), scheduling, and internet search — declare `tool-calling` plus their domain capability; bind to speed-tier models (e.g. qwen3:8b) via `CrewSchedulingPolicy.spec.qualityBias`
 
-Model selection is loose-coupled — no agent CR names a specific model. See [`kubemoot/docs/scheduler.md`](https://github.com/javajon-homelab/kubemoot/blob/main/docs/scheduler.md) "Quality bias" for the mechanism.
+Model selection is loose-coupled — no agent CR names a specific model. See [`kubemoot/docs/scheduler.md`](https://github.com/kubemoot/kubemoot/blob/main/docs/scheduler.md) "Quality bias" for the mechanism.
 
 ## Layout
 
