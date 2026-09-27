@@ -16,8 +16,6 @@ spec:
   env:
     - name: KUBEMOOT_CREW
       value: {{ .Values.crew.name | quote }}
-    - name: KUBEMOOT_NAMESPACE
-      value: {{ .Release.Namespace | quote }}
     - name: NATS_URL
       value: "nats://nats.nats.svc.cluster.local:4222"
   capabilities:
