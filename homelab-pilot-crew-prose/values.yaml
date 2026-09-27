@@ -306,7 +306,7 @@ mcpServers:
     image: "ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26"
   scheduling:
     enabled: true
-    image: scheduling-mcp@sha256:3f4cd2480931f327c00937ba717b43cc16a487d58e0538be5dc2fdbad5d8af5f
+    image: scheduling-mcp:137268e5f2b4bc80f977d4d502cf124156d05d29
   codeSandbox:
     enabled: true
     # Sandboxed code executor; the pod itself is the sandbox (no Docker socket).
@@ -316,7 +316,7 @@ mcpServers:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
     # two modes). Released by the kubemoot artifact-access pipeline. Version tag
     # (immutable per semantic-version); not :latest. 0.311.19 is the first non-root image.
-    image: "artifact-access:0.320.5"
+    image: "artifact-access:0.333.1"
   artifactReadOps:
     # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
     # network-capable agents call head/tail/grep/select/count/rows/jq over a referenced
