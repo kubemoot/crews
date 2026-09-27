@@ -60,7 +60,7 @@ spec:
           value: "kubemoot_discussion_artifacts"
         # Crew-scoped subscription (soft boundary): only this crew's references.
         - name: ARTIFACT_SUBJECT
-          value: "kubemoot.artifacts.homelab-pilot.>"
+          value: "kubemoot.artifacts.{{ .Release.Namespace }}.{{ .Values.crew.name }}.>"
       securityContext:
         # Runs non-root: the artifact-access image sets USER 1000, and this enforces
         # uid:gid 1000:1000 at the pod layer too (defense in depth). runAsUser also
