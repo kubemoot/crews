@@ -42,7 +42,7 @@ Crews could split into separate repos later; one repo for now keeps ergonomics f
 
 ## Consumers
 
-- **[CrewForge](https://github.com/kubemoot/crew-forge)** — Tauri desktop IDE reads/edits chart files here, runs fitness suites, exports results
+- **[CrewForge](https://github.com/kubemoot/vscode-crewforge)** - VS Code extension lists crews from a cluster and opens a chat with them from the editor
 - **[Homelab Pilot](https://github.com/kubemoot/homelab-pilot)** — pilot web app discovers deployed crews via the `kubemoot.ai/crew-type: pilot` label
 - **[Kubemoot operator](https://github.com/kubemoot/kubemoot)** — reconciles the Crew CR + child resources once Flux applies the chart
 

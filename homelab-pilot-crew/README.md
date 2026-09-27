@@ -50,4 +50,4 @@ Ten scenarios in `fitness/` cover:
 - Observability — Prometheus queries
 - Multi-tool troubleshooting
 
-Run the suite via CrewForge's fitness runner (in development).
+Run the suite with `kmctl fitness run`, or by applying `CrewFitness` CRs directly with `kubectl`.
