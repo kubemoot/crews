@@ -309,9 +309,11 @@ mcpServers:
     image: scheduling-mcp:137268e5f2b4bc80f977d4d502cf124156d05d29
   codeSandbox:
     enabled: true
-    # Sandboxed code executor; the pod itself is the sandbox (no Docker socket).
-    # Option A posture (no creds). Digest-pinned per gitops rule (never :latest).
-    image: "ghcr.io/timlikesai/code-sandbox-mcp@sha256:edbb021773fad2b9325f84eafd82e3b8c048b4759c9bee19abb4b867a38f255f"
+    # Kubemoot code-sandbox (kubemoot/code-sandbox): runs the compute tooler's
+    # Python or bash with no stdin, a process-group time limit, and capped output.
+    # The pod itself is the sandbox (no creds). Version tag, manual pin like
+    # artifact-access; bump after each code-sandbox release.
+    image: "code-sandbox:0.14.2"
   artifactAccess:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
     # two modes). Released by the kubemoot artifact-access pipeline. Version tag

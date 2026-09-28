@@ -7,17 +7,17 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:
-  # Sandboxed code-execution server: the agent generates a small program, the
-  # server runs it in-process inside THIS pod (no Docker socket) and returns
-  # stdout. Tool: execute_code{language, code}. Pure stdio -> operator adds the
-  # bridge sidecar (port below is the bridge's TCP port, not a server listener).
+  # Kubemoot code-sandbox: the agent writes a short Python or bash program, the
+  # server runs it inside THIS pod (no stdin, a time limit that kills the whole
+  # process group, capped output) and returns stdout, stderr and the exit code.
+  # Tools: execute_code and validate_code. Pure stdio -> operator adds the bridge
+  # sidecar (port below is the bridge's TCP port, not a server listener).
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.codeSandbox.image) | quote }}
   transport: stdio
   # The bridge runs in exec mode (kubemoot-mcp-bridge exec -- <command>), so the
-  # server's start command must be explicit - the image's default ENTRYPOINT
-  # (docker-entrypoint.sh, no Cmd) which launches the stdio MCP server.
+  # server's start command must be explicit.
   command:
-    - "/usr/local/bin/docker-entrypoint.sh"
+    - "/usr/local/bin/code-sandbox"
   port: 3000
   replicas: 1
   # Option A: NO cluster credentials. This sandbox only computes over data handed
