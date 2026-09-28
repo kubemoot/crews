@@ -37,12 +37,13 @@ spec:
       # Coordinator is a facilitator, not a tooler: disable DiscussionSubscriber.
       - name: KUBEMOOT_DISCUSS_TOOLER
         value: "false"
-      # compute is domain-agnostic, so the domain RAG pre-filter buries it under the
-      # domain toolers and it never reaches reasoning-select. Always union it into the
-      # candidate set so the reasoning LLM can pick it for a counting/sorting/inventory
-      # question. See B0 in the Crew Evasion note.
+      # compute (counting, sorting, math) and internet-search (current versions,
+      # external docs) are domain-agnostic, so the domain RAG pre-filter buries them
+      # under the domain toolers and they never reach reasoning-select. Always union
+      # them into the candidate set so the reasoning LLM can pick them when a
+      # question needs them. See B0 in the Crew Evasion note.
       - name: KUBEMOOT_DISCUSS_ALWAYS_CANDIDATE_AGENTS
-        value: "compute"
+        value: "compute,internet-search"
       # Inventory answers ("list X, describe each") truncate partway on the 32B; the
       # runtime counts the entities the gathered data holds and re-prompts naming the
       # omitted ones until the list is complete. Opt-in per coordinator (default 0);
