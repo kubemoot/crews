@@ -15,8 +15,12 @@ spec:
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.codeSandbox.image) | quote }}
   transport: stdio
   # The bridge runs in exec mode (kubemoot-mcp-bridge exec -- <command>), so the
-  # server's start command must be explicit.
+  # server's start command must be explicit. tini reaps processes a killed
+  # program leaves behind.
   command:
+    - "/usr/bin/tini"
+    - "-s"
+    - "--"
     - "/usr/local/bin/code-sandbox"
   port: 3000
   replicas: 1

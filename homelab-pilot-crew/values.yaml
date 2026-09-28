@@ -313,7 +313,7 @@ mcpServers:
     # Python or bash with no stdin, a process-group time limit, and capped output.
     # The pod itself is the sandbox (no creds). Version tag, manual pin like
     # artifact-access; bump after each code-sandbox release.
-    image: "code-sandbox:0.14.2"
+    image: "code-sandbox:0.14.4"
   artifactAccess:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
     # two modes). Released by the kubemoot artifact-access pipeline. Version tag
