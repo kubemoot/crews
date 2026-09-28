@@ -24,8 +24,10 @@ spec:
   # to it on the discussion board; it needs NO Kubernetes access, so it does NOT
   # use the kubernetes-mcp service account (default namespace SA, no RBAC bound).
   env:
+    # Below the gateway's 30 s tool-call timeout, so a program that runs too long
+    # comes back as the sandbox's own "stopped" result, not a gateway error.
     - name: EXECUTION_TIMEOUT
-      value: "30"
+      value: "25"
   capabilities:
     - compute
     - data-analysis
