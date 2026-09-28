@@ -301,6 +301,11 @@ mcpServers:
     # public deployment must supply its own Proxmox MCP image or disable this server.
     image: harbor-homelab.dijure.com/homelab-pilot/proxmox-mcp:0.71.4
     secretRef: proxmox-secret
+  webSearch:
+    # DuckDuckGo MCP server for internet-search (search, fetch_content). Docker's MCP
+    # catalog publishes it only as latest, so it is pinned by digest.
+    enabled: true
+    image: "docker.io/mcp/duckduckgo@sha256:5617c4c60f48f47556c0735de7a73f6abd731c132c65ec8c720b511819c9f88f"
   k8sgpt:
     enabled: true
     image: "ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26"

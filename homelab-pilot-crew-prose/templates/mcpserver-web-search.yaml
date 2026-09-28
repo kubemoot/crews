@@ -1,0 +1,33 @@
+{{- if .Values.mcpServers.webSearch.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: web-search-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  # Web search and page fetch for the internet-search researcher: the DuckDuckGo
+  # MCP server (github.com/nickclyde/duckduckgo-mcp-server, MIT), tools search and
+  # fetch_content. It needs egress to the internet and no cluster credentials.
+  image: {{ .Values.mcpServers.webSearch.image | quote }}
+  transport: stdio
+  command:
+    - "python"
+    - "-m"
+    - "duckduckgo_mcp_server.server"
+  port: 3000
+  replicas: 1
+  # The image runs as root, so strict mode's non-root enforcement would refuse it.
+  securityMode: relaxed
+  capabilities:
+    - web-search
+    - documentation
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+{{- end }}
