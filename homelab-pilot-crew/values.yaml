@@ -29,59 +29,44 @@ fitness:
 # Per-cluster override: dev clusters can use phi3-mini / llama3.2; prod uses
 # the qwen3 family. CrewSchedulingPolicy rules stay the same in both.
 models:
-  - name: qwen3-32b-rig0
-    model: "qwen3:32b"
+  # Bake-off arm "qwen-next" (Pilot Crew Model Bake-Off): Qwen3.8 27B for reasoning
+  # (coordinator, synthesis, analysts) and Qwen3.5 9B for tool calling, on both GPUs.
+  # Prompts and the scheduling policy are unchanged, so the model is the only variable.
+  - name: qwen3.8-27b-rig0
+    model: "qwen3.8:27b"
     providerRef: ollama-gpu
-    family: qwen3
-    params: "32B"
+    family: qwen3.8
+    params: "27B"
     contextWindow: "32768"
     latencyClass: high
-    vramMib: 20480
+    vramMib: 18432
     capabilities: [tool-calling, reasoning]
-  - name: qwen3-14b-rig0
-    model: "qwen3:14b"
+  - name: qwen3.5-9b-rig0
+    model: "qwen3.5:9b"
     providerRef: ollama-gpu
-    family: qwen3
-    params: "14B"
-    contextWindow: "32768"
-    latencyClass: medium
-    vramMib: 9216
-    capabilities: [tool-calling]
-  - name: qwen3-8b-rig0
-    model: "qwen3:8b"
-    providerRef: ollama-gpu
-    family: qwen3
-    params: "8B"
+    family: qwen3.5
+    params: "9B"
     contextWindow: "32768"
     latencyClass: low
-    vramMib: 5120
+    vramMib: 6656
     capabilities: [tool-calling]
-  - name: qwen3-32b-rig1
-    model: "qwen3:32b"
+  - name: qwen3.8-27b-rig1
+    model: "qwen3.8:27b"
     providerRef: ollama-rig1
-    family: qwen3
-    params: "32B"
+    family: qwen3.8
+    params: "27B"
     contextWindow: "32768"
     latencyClass: high
-    vramMib: 20480
+    vramMib: 18432
     capabilities: [tool-calling, reasoning]
-  - name: qwen3-8b-rig1
-    model: "qwen3:8b"
+  - name: qwen3.5-9b-rig1
+    model: "qwen3.5:9b"
     providerRef: ollama-rig1
-    family: qwen3
-    params: "8B"
+    family: qwen3.5
+    params: "9B"
     contextWindow: "32768"
     latencyClass: low
-    vramMib: 5120
-    capabilities: [tool-calling]
-  - name: qwen3-14b-rig1
-    model: "qwen3:14b"
-    providerRef: ollama-rig1
-    family: qwen3
-    params: "14B"
-    contextWindow: "32768"
-    latencyClass: medium
-    vramMib: 9216
+    vramMib: 6656
     capabilities: [tool-calling]
 
 # Embedding model configuration
