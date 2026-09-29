@@ -29,17 +29,17 @@ fitness:
 # Per-cluster override: dev clusters can use phi3-mini / llama3.2; prod uses
 # the qwen3 family. CrewSchedulingPolicy rules stay the same in both.
 models:
-  # Bake-off arm "gemma-reasoning" (Pilot Crew Model Bake-Off): Gemma 4 31B for
-  # reasoning (coordinator, synthesis, analysts, compute) and Qwen3.5 9B for tool
-  # calling, on both GPUs. Prompts and the scheduling policy are unchanged.
-  - name: gemma4-31b-rig0
-    model: "gemma4:31b"
+  # Bake-off arm "qwen-next" (re-run with read-ops that report their position) (Pilot Crew Model Bake-Off): Qwen3.8 27B for reasoning
+  # (coordinator, synthesis, analysts) and Qwen3.5 9B for tool calling, on both GPUs.
+  # Prompts and the scheduling policy are unchanged, so the model is the only variable.
+  - name: qwen3.8-27b-rig0
+    model: "qwen3.8:27b"
     providerRef: ollama-gpu
-    family: gemma4
-    params: "31B"
+    family: qwen3.8
+    params: "27B"
     contextWindow: "32768"
     latencyClass: high
-    vramMib: 20480
+    vramMib: 18432
     capabilities: [tool-calling, reasoning]
   - name: qwen3.5-9b-rig0
     model: "qwen3.5:9b"
@@ -50,14 +50,14 @@ models:
     latencyClass: low
     vramMib: 6656
     capabilities: [tool-calling]
-  - name: gemma4-31b-rig1
-    model: "gemma4:31b"
+  - name: qwen3.8-27b-rig1
+    model: "qwen3.8:27b"
     providerRef: ollama-rig1
-    family: gemma4
-    params: "31B"
+    family: qwen3.8
+    params: "27B"
     contextWindow: "32768"
     latencyClass: high
-    vramMib: 20480
+    vramMib: 18432
     capabilities: [tool-calling, reasoning]
   - name: qwen3.5-9b-rig1
     model: "qwen3.5:9b"
@@ -309,7 +309,7 @@ mcpServers:
     # two modes). Released by the kubemoot artifact-access pipeline. Version tag
     # (immutable per semantic-version); not :latest. 0.311.4 is the first version
     # that ships ARTIFACT_MODE=mcp; 0.311.19 is the first non-root (USER 1000) image.
-    image: "artifact-access:0.333.1"
+    image: "artifact-access:0.342.1"
   artifactReadOps:
     # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
     # network-capable agents call head/tail/grep/select/count/rows/jq over a

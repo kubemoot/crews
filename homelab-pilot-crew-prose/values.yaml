@@ -323,7 +323,7 @@ mcpServers:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
     # two modes). Released by the kubemoot artifact-access pipeline. Version tag
     # (immutable per semantic-version); not :latest. 0.311.19 is the first non-root image.
-    image: "artifact-access:0.333.1"
+    image: "artifact-access:0.342.1"
   artifactReadOps:
     # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
     # network-capable agents call head/tail/grep/select/count/rows/jq over a referenced
