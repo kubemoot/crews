@@ -59,7 +59,12 @@ homelab-pilot-crew/
 
 `fitness/` holds 76 scenarios in ADL (`*.adl`), grouped by prefix: smoke, single-domain Kubernetes, GPU, observability, and Proxmox questions, cross-domain (`xdomain-*`, `multi-tool-*`), judgment, constraint-following, and trap questions (`gotcha-*`, `partial-answerable-*`). Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
 
-Run a scenario with `kmctl fitness run`, or apply a `CrewFitness` resource with `kubectl`.
+Run a scenario with `kmctl fitness run`, or apply a `CrewFitness` resource with `kubectl`. To run all of them as one `CrewFitnessSuite`, assemble it with [`scripts/build-suite.py`](../scripts/build-suite.py):
+
+```bash
+python3 scripts/build-suite.py homelab-pilot-crew/fitness \
+  --namespace crew-homelab-pilot --crew-ref homelab-pilot --name baseline-n10 --iterations 10
+```
 
 ## Deployment
 

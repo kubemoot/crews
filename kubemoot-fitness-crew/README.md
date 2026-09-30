@@ -38,4 +38,9 @@ models:
 
 ## Fitness
 
-`fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question.
+`fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
+
+```bash
+python3 scripts/build-suite.py kubemoot-fitness-crew/fitness \
+  --namespace crew-kubemoot-fitness --crew-ref kubemoot-fitness --name judge-check --iterations 3
+```

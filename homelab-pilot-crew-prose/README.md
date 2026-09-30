@@ -26,6 +26,13 @@ The Crew is named `homelab-pilot-prose`, so both arms can run in one cluster. Me
 
 `fitness/` holds the same 76 scenarios as the ADL crew, written as prose Markdown (`*.md`). Questions and reference answers are identical between the arms. Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
 
+Assemble the suite for this arm with [`scripts/build-suite.py`](../scripts/build-suite.py), the same script the ADL crew uses:
+
+```bash
+python3 scripts/build-suite.py homelab-pilot-crew-prose/fitness \
+  --namespace crew-homelab-pilot-prose --crew-ref homelab-pilot-prose --name baseline-n10 --iterations 10
+```
+
 ## Deployment
 
 The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew-prose` on each release commit to `main`.

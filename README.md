@@ -83,6 +83,8 @@ crews/
     templates/          # Agents, PromptModules, MCPServers, CrewSchedulingPolicy, Crew CR
     fitness/            # CrewFitness scenarios for measuring this crew
     README.md           # what this crew does
+  scripts/
+    build-suite.py      # assembles a crew's fitness/ scenarios into one CrewFitnessSuite
 ```
 
 A crew chart deploys:
@@ -93,6 +95,18 @@ A crew chart deploys:
 - **CrewSchedulingPolicy**, phase rules and `qualityBias` for model selection
 - **Crew**, the top-level resource binding everything together
 - **CrewFitness** scenarios (under `fitness/`), measurable test cases
+
+To run every scenario of a crew as one reproducible suite, assemble a `CrewFitnessSuite` from the committed scenarios. Pass the crew's `fitness/` directory, its namespace, and its Crew name:
+
+```bash
+python3 scripts/build-suite.py homelab-pilot-crew/fitness \
+  --namespace crew-homelab-pilot --crew-ref homelab-pilot \
+  --name baseline-n10 --iterations 10 \
+  --description "Full baseline across all four homelab layers" > baseline-suite.yaml
+kubectl apply -f baseline-suite.yaml
+```
+
+The script includes every `.adl` and `.md` scenario except `README.md`, prints the scenario count to stderr, and fails when the directory holds no scenarios. Its tests run with `python3 -m unittest discover -s scripts -p 'test_*.py'`.
 
 ## Versioning
 

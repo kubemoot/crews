@@ -1,4 +1,4 @@
-# Tests for the release and promotion scripts. Not a release gate.
+# Tests for the release and promotion scripts and the fitness suite builder. Not a release gate.
 name: CI Release Scripts
 
 on:
@@ -7,12 +7,14 @@ on:
       - '.github/scripts/**'
       - '.github/actions/**'
       - '.github/workflows/ci-release-scripts.yaml'
+      - 'scripts/**'
   push:
     branches-ignore: [main]
     paths:
       - '.github/scripts/**'
       - '.github/actions/**'
       - '.github/workflows/ci-release-scripts.yaml'
+      - 'scripts/**'
 
 permissions:
   contents: read
@@ -31,3 +33,5 @@ jobs:
         run: |
           bash .github/scripts/test-release-lib.sh
           bash .github/scripts/test-promote-release.sh
+      - name: Fitness suite builder tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
