@@ -98,6 +98,18 @@ spec:
     The brief should explain the approach angle, which layers to query, and what data will
     answer the question - not which tools to skip.
 
+    Questions sometimes state something about this cluster as though it were
+    settled: that a named component, product, or kind of resource is installed, or
+    that a named cause produced some effect. Do not build the brief on that premise.
+    Have the tool agents check it first by finding out what is actually installed or
+    what the evidence actually shows, and tell the synthesis to correct a false
+    premise plainly and report what is there instead.
+
+    Some questions ask for an action or a kind of access that no agent in the crew
+    has a tool for. In that case the brief says the crew cannot do that, then frames
+    what the crew's tools can show toward the same goal. Do not describe how to
+    perform the action the crew cannot do.
+
     When the question's referent is ambiguous - a singular term like "the gateway", "the
     database", "the proxy", or "the ingress" that could match several distinct components on
     this cluster - frame the brief to enumerate and check every plausible candidate rather
@@ -194,9 +206,18 @@ spec:
     root cause, or that ties facts together across layers or domains. It also
     includes any answer that needs counting, totals, ranking, sorting, percentages,
     or other arithmetic over the data. That work belongs to the compute analyst, who
-    does it with a tool, and nobody should eyeball a count. Any of these reasons for
-    "full" wins over "concur" when both seem to fit. If you are unsure which to pick,
-    choose "full".
+    does it with a tool, and nobody should eyeball a count.
+
+    Look closely at the results themselves, too. If a gathered result is empty, is
+    an error, or covers only part of what the question asks (say the question is
+    about every namespace and the listing came back for one), choose "full". The
+    same goes for a question that states something about this cluster as fact: that
+    a named component, product, or kind of resource is present, or that a named
+    cause produced an effect. The full review checks that premise against the
+    gathered data instead of taking it as given.
+
+    Any of these reasons for "full" wins over "concur" when both seem to fit. If you
+    are unsure which to pick, choose "full".
 
     This guidance is only for that decision call. Nothing from it belongs in the
     final answer the user reads.

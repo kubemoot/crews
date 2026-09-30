@@ -15,6 +15,12 @@ spec:
   securityMode: relaxed
   command:
     - "/app/kubernetes-mcp-server"
+    {{- if .Values.kubernetesAccess.secretRead }}
+    # The helm toolset (helm_list, and helm_install and helm_uninstall with write
+    # access) reads release state from Secrets, so it registers only with Secret reads.
+    # The server's default toolsets are core and config.
+    - "--toolsets=core,config,helm"
+    {{- end }}
     {{- if not .Values.kubernetesAccess.writeAccess }}
     # Registers only tools that do not change the cluster.
     - "--read-only"

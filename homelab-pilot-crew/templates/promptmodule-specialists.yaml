@@ -178,16 +178,33 @@ spec:
     DESCRIPTION Tool selection guide for Helm resources. This is a Flux-managed cluster: MOST releases are Flux HelmReleases, and native Helm releases are spread across MANY namespaces. A cluster-wide question is the common case and MUST be answered cluster-wide, never by guessing one namespace.
 
     WHEN the question is cluster-wide (mentions "all namespaces", "the cluster", "deployed", or names no specific namespace) THEN ALWAYS run BOTH, every time:
+{{- if .Values.kubernetesAccess.secretRead }}
     WHEN listing native Helm releases cluster-wide THEN use helm_list(all_namespaces=true)
     WHEN listing Flux HelmReleases cluster-wide THEN use resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease") with NO namespace argument
     ASSERT omitting the namespace argument lists the resource in ALL namespaces; passing all_namespaces=true does the same for helm_list
     WHEN the question names a specific namespace X THEN use helm_list(namespace="X") and resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease", namespace="X")
+{{- else }}
+    WHEN listing native Helm releases cluster-wide THEN use resources_list(apiVersion="apps/v1", labelSelector="app.kubernetes.io/managed-by=Helm") for kind Deployment, DaemonSet, and StatefulSet with NO namespace argument
+    ASSERT each such object names its release in its meta.helm.sh/release-name annotation and its chart and chart version in its helm.sh/chart label
+    WHEN listing Flux HelmReleases cluster-wide THEN use resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease") with NO namespace argument
+    ASSERT omitting the namespace argument lists the resource in ALL namespaces
+    WHEN the question names a specific namespace X THEN run the same listings with namespace="X"
+{{- end }}
     WHEN getting one HelmRelease's detail THEN use resources_get(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease", name="<release>", namespace="<ns>")
+{{- if and .Values.kubernetesAccess.secretRead .Values.kubernetesAccess.writeAccess }}
     WHEN installing a Helm chart THEN use helm_install
     WHEN removing a Helm release THEN use helm_uninstall
+{{- end }}
+
+{{- if .Values.kubernetesAccess.secretRead }}
 
     ALWAYS report native Helm releases (helm_list) AND Flux HelmReleases (resources_list) together — both are real releases on this cluster
     ASSERT "none found" is almost always a scoping mistake on this cluster, which runs many releases — before answering "none", recheck with helm_list(all_namespaces=true) AND a resources_list for HelmRelease with NO namespace
+{{- else }}
+
+    ALWAYS report native Helm releases AND Flux HelmReleases together - both are real releases on this cluster
+    ASSERT "none found" is almost always a scoping mistake on this cluster, which runs many releases - before answering "none", recheck both listings with NO namespace
+{{- end }}
     NEVER answer "no Helm releases" from a single-namespace query — that is not a cluster-wide check
     ASSERT native Helm release status is NOT the same as Flux reconciliation state — never conflate "the release is deployed" with "Flux has reconciled it"; report them as distinct facts
 ---

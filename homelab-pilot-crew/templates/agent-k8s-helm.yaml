@@ -20,7 +20,9 @@ spec:
     - kubernetes
   triageSummary: "Lists, installs, and uninstalls Helm chart releases and inspects Flux HelmRelease/HelmRepository CRDs."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
-  enabledTools: [helm_list{{ if $.Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}, resources_list, resources_get]
+  # helm_* tools exist only with the helm toolset (kubernetesAccess.secretRead);
+  # install and uninstall also need writeAccess.
+  enabledTools: [{{ with $.Values.kubernetesAccess }}{{ if .secretRead }}helm_list, {{ if .writeAccess }}helm_install, helm_uninstall, {{ end }}{{ end }}{{ end }}resources_list, resources_get]
   discussKeywords:
     - helm
     - chart

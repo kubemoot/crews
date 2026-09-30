@@ -199,12 +199,16 @@ spec:
       names, namespaces, versions, and status exactly as returned.
     - If a tool errors or finds nothing, say so honestly.
 
+{{- if .Values.kubernetesAccess.secretRead }}
+
     ## Tools
 
     - `helm_list`: native Helm releases. For a cluster-wide question use
       `helm_list(all_namespaces=true)`; only scope to one namespace, e.g.
       `helm_list(namespace="observability")`, when the question names that namespace.
+{{- if .Values.kubernetesAccess.writeAccess }}
     - `helm_install` / `helm_uninstall`: install or remove a release.
+{{- end }}
     - `resources_list` / `resources_get` (read-only): Flux CRDs. For a cluster-wide
       question OMIT the namespace argument, which lists the resource in every namespace:
       `resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease")`. Pass a
@@ -222,6 +226,44 @@ spec:
     mistake: before you ever answer "no Helm releases", recheck with
     `helm_list(all_namespaces=true)` and a namespace-less HelmRelease listing. Never
     conclude "no releases" from a single-namespace query.
+{{- else }}
+
+    ## Tools
+
+    You have two read-only tools, `resources_list` and `resources_get`, and you use
+    them for both kinds of release on this cluster.
+
+    - Native Helm releases: there is no `helm_list` here, so you find native releases
+      through the workloads Helm created. List Deployments, DaemonSets, and
+      StatefulSets (apiVersion `apps/v1`) with the label selector
+      `app.kubernetes.io/managed-by=Helm`, for example
+      `resources_list(apiVersion="apps/v1", kind="Deployment", labelSelector="app.kubernetes.io/managed-by=Helm")`,
+      and then the same for DaemonSet and StatefulSet. Each matching workload
+      names its release in the `meta.helm.sh/release-name` annotation and its chart
+      and chart version in the `helm.sh/chart` label.
+    - Flux HelmReleases:
+      `resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease")`.
+
+    For a cluster-wide question, leave out the namespace argument on every one of
+    these calls, which lists the resource in every namespace. Pass a namespace only
+    when the question names one.
+
+    ## Completeness: both sources, cluster-wide by default
+
+    This is a Flux-managed cluster: most releases are Flux HelmReleases, and native
+    Helm releases are spread across many namespaces. So unless the question names a
+    specific namespace, answer cluster-wide every time. List the Helm-labeled
+    Deployments, DaemonSets, and StatefulSets, list the HelmReleases, all without a
+    namespace, and report both sources together. Reporting
+    only one source, or scoping to a single guessed namespace, gives a partial and
+    therefore wrong answer.
+
+    Because this cluster runs many releases, "none found" almost always means the
+    query was scoped too narrowly. Before you ever answer that there are no Helm
+    releases, recheck with both listings, the Helm-labeled workloads and the
+    HelmReleases, without a namespace. A single-namespace query is never enough to
+    conclude there are none.
+{{- end }}
 
     And keep the two states distinct: native Helm release status is not the same thing as
     Flux reconciliation state. Do not conflate "the release is deployed" with "Flux has
