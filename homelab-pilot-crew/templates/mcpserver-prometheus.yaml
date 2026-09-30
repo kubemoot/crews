@@ -12,14 +12,12 @@ spec:
   command:
     - "/app/.venv/bin/prometheus-mcp-server"
   port: 3000
-  # replicas: 2 — the stdio MCP server exits cleanly (Exit Code 0) when the
-  # gateway closes its bridge connection, and k8s restarts it within ~1s. A
-  # single replica creates a race window where in-flight tool calls timeout
-  # mid-restart. Discussion 2f138b92 (2026-05-25) hung 10+ minutes because
-  # nvidia-gpu's get_targets landed in this window. Two replicas + a Service
-  # round-robins requests, so even when one container is restarting the
-  # other answers. Full fix (failure signal, bounded retries) tracked in
-  # [[Agent Failure as First-Class Consensus Signal]] kanban.
+  # replicas: 2. The stdio MCP server exits cleanly (exit code 0) when the
+  # gateway closes its bridge connection, and Kubernetes restarts it within
+  # about a second. With a single replica, a tool call that lands in that window
+  # times out. Two replicas behind one Service keep one answering while the
+  # other restarts. The agent runtime also reports a failed tool call as a
+  # failure signal instead of waiting on it.
   replicas: 2
   env:
     - name: PROMETHEUS_URL

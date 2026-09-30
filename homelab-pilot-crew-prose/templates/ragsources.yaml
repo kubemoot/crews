@@ -23,7 +23,7 @@ spec:
     {{- if $.Values.vectorStore.endpoint }}
     endpoint: {{ $.Values.vectorStore.endpoint }}
     {{- else }}
-    endpoint: {{ $.Values.vectorStore.host }}:{{ $.Values.vectorStore.port }}/{{ $.Values.vectorStore.database }}
+    endpoint: {{ required "vectorStore.host is required: RAG sources store embeddings in a pgvector database. Set vectorStore.host (or vectorStore.endpoint), or set ragSources.enabled=false" $.Values.vectorStore.host }}:{{ $.Values.vectorStore.port }}/{{ $.Values.vectorStore.database }}
     {{- end }}
     collection: {{ .collection | default .name }}
     {{- if $.Values.vectorStore.existingSecret }}

@@ -12,107 +12,60 @@ crew:
     enabled: true
 
 # Baseline fitness-scenario CRs deployed alongside the crew.
-# Default OFF: the operator unconditionally fires a Job on CrewFitness
-# create, so deploying a baseline suite via the chart triggers all
-# scenarios simultaneously — a thundering herd against the crew. Until
-# the operator supports a manual-trigger annotation (see kanban card
-# [[Baseline Fitness Scenarios — Visible Without Auto-Run]]), keep this
-# off and rely on the CrewForge runner to create per-run CRs on demand.
+# Default OFF: the operator starts a Job as soon as a CrewFitness exists, so
+# deploying the baseline suite through the chart runs every scenario at once
+# against the crew. Keep this off and run scenarios on demand (kmctl fitness
+# run, or a CrewFitnessSuite).
 fitness:
   deployBaselineScenarios: false
 
-# Scheduler v2 model fixture for this cluster.
-# Each entry creates a Model CR in the crew namespace labeled with capability /
-# family / params so that CrewSchedulingPolicy.rules can select per-phase via
-# label selectors. ProviderRef points at ModelProvider CRs in the kubemoot ns.
+# Model CRs for this crew. Each entry becomes a Model in the crew namespace,
+# labeled with capability / family / params / latencyClass so the
+# CrewSchedulingPolicy rules can pick a model per phase by label.
 #
-# Per-cluster override: dev clusters can use phi3-mini / llama3.2; prod uses
-# the qwen3 family. CrewSchedulingPolicy rules stay the same in both.
+# providerRef names a ModelProvider (an Ollama server) that the Kubemoot operator
+# chart creates in its own namespace. The default below matches the provider the
+# Kubemoot quickstart creates (ollama-local); change it to the name of yours.
+#
+# One model is enough: every phase falls back to it. For better answers, add a
+# larger reasoning model (latencyClass: high, capabilities [tool-calling,
+# reasoning]) and a medium tool-calling model; the policy then routes synthesis to
+# the large model and tool work to the medium one. The maintainer's reference
+# cluster runs qwen3 8B, 14B, and 32B on two GPUs.
 models:
-  - name: qwen3-32b-rig0
-    model: "qwen3:32b"
-    providerRef: ollama-gpu
-    family: qwen3
-    params: "32B"
-    contextWindow: "32768"
-    latencyClass: high
-    vramMib: 20480
-    capabilities: [tool-calling, reasoning]
-  - name: qwen3-14b-rig0
-    model: "qwen3:14b"
-    providerRef: ollama-gpu
-    family: qwen3
-    params: "14B"
-    contextWindow: "32768"
-    latencyClass: medium
-    vramMib: 9216
-    capabilities: [tool-calling]
-  - name: qwen3-8b-rig0
+  - name: qwen3-8b
     model: "qwen3:8b"
-    providerRef: ollama-gpu
+    providerRef: ollama-local
     family: qwen3
     params: "8B"
     contextWindow: "32768"
     latencyClass: low
     vramMib: 5120
-    capabilities: [tool-calling]
-  - name: qwen3-32b-rig1
-    model: "qwen3:32b"
-    providerRef: ollama-rig1
-    family: qwen3
-    params: "32B"
-    contextWindow: "32768"
-    latencyClass: high
-    vramMib: 20480
     capabilities: [tool-calling, reasoning]
-  - name: qwen3-8b-rig1
-    model: "qwen3:8b"
-    providerRef: ollama-rig1
-    family: qwen3
-    params: "8B"
-    contextWindow: "32768"
-    latencyClass: low
-    vramMib: 5120
-    capabilities: [tool-calling]
-  - name: qwen3-14b-rig1
-    model: "qwen3:14b"
-    providerRef: ollama-rig1
-    family: qwen3
-    params: "14B"
-    contextWindow: "32768"
-    latencyClass: medium
-    vramMib: 9216
-    capabilities: [tool-calling]
 
 # Embedding model configuration
 embeddingModel:
   name: nomic-embed
   modelId: nomic-embed-text
-  providerRef: ollama-gpu
+  # ModelProvider that serves the embedding model (see models above).
+  providerRef: ollama-local
 
-# Vector store configuration (required for RAG sources)
+# Vector store for RAG sources and the MCP gateway tool index. REQUIRED when
+# ragSources.enabled is true: a pgvector (PostgreSQL) database this chart does not
+# install. Set host, database, and existingSecret, the name of a Secret in the crew
+# namespace holding the database credentials (keys: username, password). The chart
+# does not create that Secret.
 vectorStore:
   type: pgvector
-  host: homelab-pilot-db.homelab-pilot.svc.cluster.local
+  host: ""
   port: 5432
-  database: homelab_pilot
-  # Credentials from database secret (created by chart)
-  # Secret contains: username, password, database, host, port, DATABASE_URL
-  existingSecret: ""  # Leave empty to use chart-created secret
+  database: kubemoot
+  existingSecret: ""
 
 # RAG sources configuration
 ragSources:
   enabled: true
   sources:
-    # homelab-docs disabled - private repo requires git credentials
-    # - name: homelab-docs
-    #   gitUrl: https://github.com/javajon/homelab-pilot
-    #   branch: main
-    #   paths:
-    #     - "src/**"
-    #     - "README.md"
-    #   secretRef: github-credentials  # TODO: add when credentials available
-
     - name: kubectl-reference
       gitUrl: https://github.com/kubernetes/website
       branch: main
@@ -207,15 +160,17 @@ mcpGateway:
       memory: 1Gi
   # Tool index for semantic search
   toolIndex:
+    # host, database, and secretRef default to the vectorStore values above.
     vectorStore:
       type: pgvector
-      host: homelab-pilot-db.homelab-pilot.svc.cluster.local
+      host: ""
       port: 5432
-      database: homelab_pilot
-      secretRef: homelab-pilot-db-credentials
+      database: ""
+      secretRef: ""
     embeddingModel:
       provider: ollama
-      endpoint: http://ollama.ollama-rig0:11434
+      # URL of an Ollama server that has the embedding model pulled.
+      endpoint: http://ollama.ollama:11434
       model: nomic-embed-text
   # Meta-tools for agent discovery
   metaTools:
@@ -267,6 +222,27 @@ mcpQualityPolicy:
     timeoutSeconds: 30
     fallbackAction: deny
 
+# Cluster permissions for the Kubernetes MCP servers (kubernetes, kubernetesLegacy,
+# k8sgpt), which share one ServiceAccount. The default is read-only: cluster-wide
+# get/list/watch through the built-in `view` ClusterRole plus the Flux, storage,
+# networking, metrics, and Kubemoot resources the crew inspects. Agents act on
+# text from tools and the web, so grant more only on a cluster you trust them with.
+kubernetesAccess:
+  # Adds get/list/watch on Secrets cluster-wide. helm_list needs it (Helm stores
+  # release state in Secrets), and so does any question that counts Secrets.
+  secretRead: false
+  # Adds pods/exec, workload patch and scale, and the matching agent tools
+  # (pods_exec, resources_scale, helm_install, helm_uninstall). When false the
+  # MCP servers also run in their read-only modes.
+  writeAccess: false
+
+# NATS JetStream that carries the discussion and the artifact store. The Kubemoot
+# quickstart and operator chart use release "nats" in namespace "nats".
+nats:
+  url: "nats://nats.nats.svc.cluster.local:4222"
+  # Namespace of the NATS pods; the code-sandbox NetworkPolicy allows egress to it.
+  namespace: nats
+
 # Direct MCPServer deployment via Helm template
 mcpServers:
   kubernetes:
@@ -294,12 +270,14 @@ mcpServers:
         memory: 512Mi
   prometheus:
     enabled: true
-    endpoint: "http://kube-prometheus-stack-prometheus.observability:9090"
+    # Prometheus HTTP API URL (a kube-prometheus-stack release in "monitoring" here).
+    endpoint: "http://kube-prometheus-stack-prometheus.monitoring:9090"
   proxmox:
-    enabled: true
-    # Built by the private homelab-pilot repo, not part of the Kubemoot release; a
-    # public deployment must supply its own Proxmox MCP image or disable this server.
-    image: harbor-homelab.dijure.com/homelab-pilot/proxmox-mcp:0.71.4
+    # Proxmox VE tools for the proxmox-pve and proxmox-qm agents, which render only
+    # when this is enabled. No public Proxmox MCP image ships with Kubemoot; set
+    # image to your own and secretRef to a Secret with the Proxmox API credentials.
+    enabled: false
+    image: ""
     secretRef: proxmox-secret
   webSearch:
     # DuckDuckGo MCP server for internet-search (search, fetch_content). Docker's MCP
@@ -310,7 +288,10 @@ mcpServers:
     enabled: true
     image: "ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26"
   scheduling:
-    enabled: true
+    # Reminders and follow-ups (the scheduler-advisor agent renders only when this
+    # is enabled). The scheduling-mcp image is not published to ghcr.io yet, so it
+    # is off by default; enable it when your registry has the image.
+    enabled: false
     image: scheduling-mcp:137268e5f2b4bc80f977d4d502cf124156d05d29
   codeSandbox:
     enabled: true
@@ -326,6 +307,6 @@ mcpServers:
     image: "artifact-access:0.342.1"
   artifactReadOps:
     # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
-    # network-capable agents call head/tail/grep/select/count/rows/jq over a referenced
-    # artifact key to sip a slice near the data. See [[Agent Collaborative Artifact Store]].
+    # network-capable agents call head/tail/grep/select/count/rows/jq over a
+    # referenced artifact key to read a slice of the data where it is stored.
     enabled: true

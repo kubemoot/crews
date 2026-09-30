@@ -52,14 +52,14 @@ spec:
   # auto-mounts /artifacts). It reaches NATS to fetch referenced objects and
   # stages them on /artifacts for the no-network sandbox. The sandbox container
   # itself has no NATS client; egress for this pod is locked to NATS-only by
-  # networkpolicy-code-sandbox.yaml (A1 posture - see Agent Collaborative
-  # Artifact Store; cross-crew isolation is the deferred per-crew-NATS-account work).
+  # networkpolicy-code-sandbox.yaml (A1 posture; cross-crew isolation needs
+  # per-crew NATS accounts, which are not implemented yet).
   sidecars:
     - name: artifact-access
       image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
       env:
         - name: NATS_URL
-          value: "nats://nats.nats.svc.cluster.local:4222"
+          value: {{ .Values.nats.url | quote }}
         - name: ARTIFACT_DIR
           value: "/artifacts"
         - name: ARTIFACT_BUCKET

@@ -7,7 +7,7 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:
-  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.proxmox.image) | quote }}
+  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" (required "mcpServers.proxmox.image is required when mcpServers.proxmox.enabled is true: no public Proxmox MCP image ships with this chart, so supply your own" .Values.mcpServers.proxmox.image)) | quote }}
   transport: stdio
   command:
     - "proxmox-mcp"

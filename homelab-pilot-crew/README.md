@@ -1,22 +1,42 @@
 # homelab-pilot-crew
 
-Kubemoot agent crew for homelab infrastructure consultation.
-
-A multi-specialist crew that answers questions spanning the four layers of a homelab — **physical/hypervisor** (Proxmox), **Kubernetes**, **observability** (Prometheus + DCGM), and **GPU/AI** (NVIDIA + Ollama). Discussions are coordinated through the Kubemoot consensus protocol: the coordinator generates an advisory, selects a relevant subcommittee of specialists via triage, and synthesizes their findings into a single answer.
+The Kubemoot reference crew: a coordinator and up to 22 specialists that answer operational questions about a cluster across four layers, **Kubernetes**, **observability** (Prometheus and DCGM), **GPU/AI** (NVIDIA and Ollama), and optionally **physical/hypervisor** (Proxmox VE). Discussions run on the Kubemoot consensus protocol: the coordinator writes an advisory, selects a subcommittee of relevant specialists, and synthesizes their findings into one answer. Every prompt is written in ADL.
 
 ## Before you install
 
-This crew is the reference homelab's own. Its Proxmox specialists use a `proxmox-mcp`
-tool image built from a private repository and pulled from that homelab's registry,
-so a copy of this chart on another cluster needs its own Proxmox MCP server (or
-the Proxmox agents removed). Everything else in the chart is public.
+This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on Proxmox VE, with two GPU nodes that each run an Ollama server, kube-prometheus-stack, and a pgvector database. The chart defaults are generic; this is what you supply or change for your cluster:
+
+| Value | Default | What to set |
+|---|---|---|
+| `models` | one `qwen3:8b` Model on provider `ollama-local` | The Models your Ollama servers serve, each with the `providerRef` of a ModelProvider in the operator namespace. The reference cluster runs qwen3 8B, 14B, and 32B on each of two providers. |
+| `embeddingModel.providerRef` | `ollama-local` | The ModelProvider that serves `nomic-embed-text`. |
+| `vectorStore.host`, `.database`, `.existingSecret` | empty (required) | Your pgvector database and a Secret with its credentials. Or set `ragSources.enabled=false` and `mcpGateway.toolIndex=null` to run without RAG. |
+| `mcpGateway.toolIndex.embeddingModel.endpoint` | `http://ollama.ollama:11434` | An Ollama URL that serves the embedding model. |
+| `mcpServers.prometheus.endpoint` | `http://kube-prometheus-stack-prometheus.monitoring:9090` | Your Prometheus. |
+| `mcpServers.proxmox.*` | disabled | Proxmox needs your own Proxmox MCP image and an API-credentials Secret. No public image ships with Kubemoot. The `proxmox-pve` and `proxmox-qm` agents render only when this is enabled; `proxmox-advisor` answers from Proxmox documentation (RAG) and always renders. |
+| `mcpServers.scheduling.enabled` | `false` | The scheduling-mcp image is not published to ghcr.io yet; the `scheduler-advisor` agent renders only when this is enabled. |
+| `kubernetesAccess.secretRead`, `.writeAccess` | `false` | See [Cluster permissions](#cluster-permissions). |
+| `nats.url`, `nats.namespace` | release `nats` in namespace `nats` | Your NATS JetStream. |
+
+The prompts and fitness scenarios also carry the reference cluster's vocabulary (host aliases such as `rig0`, two GPUs, its namespaces). The crew discovers the real topology at run time, so they work elsewhere, but the fitness reference answers describe the maintainer's cluster and will not match yours.
+
+See the [repository README](../README.md#install) for prerequisites and the install command.
+
+## Cluster permissions
+
+The Kubernetes MCP servers (`kubernetes-mcp`, `kubernetes-legacy-mcp`, and k8sgpt) share one ServiceAccount. By default it is read-only: the built-in `view` ClusterRole plus get/list/watch on Flux, storage, networking, metrics, and Kubemoot resources, and the servers run in their read-only modes.
+
+- `kubernetesAccess.secretRead: true` adds cluster-wide Secret reads. `helm_list` needs it, because Helm stores release state in Secrets; without it the `k8s-helm` agent still reads Flux HelmReleases but `helm_list` returns a forbidden error.
+- `kubernetesAccess.writeAccess: true` adds `pods/exec`, patch and scale on workloads, and the `pods_exec`, `resources_scale`, `helm_install`, and `helm_uninstall` agent tools.
+
+Agents act on text they read from tools and the web, so treat either setting as giving that access to anyone who can put text in front of the crew.
 
 ## Topology
 
-- **1 coordinator** (`homelab-coordinator`) — declares `reasoning` capability; binds to a quality-tier model (e.g. qwen3:32b)
-- **21 specialists** spanning Kubernetes (`k8s-*`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), scheduling, and internet search — declare `tool-calling` plus their domain capability; bind to speed-tier models (e.g. qwen3:8b) via `CrewSchedulingPolicy.spec.qualityBias`
+- **1 coordinator** (`homelab-coordinator`) declares the `reasoning` capability and binds to a quality-tier model.
+- **Up to 22 specialists** (19 with the chart defaults, which leave Proxmox VE and scheduling off) cover Kubernetes (`k8s-*`, `k8sgpt`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), computation (`compute`), scheduling, and internet search. They declare `tool-calling` plus their domain capability, and bind to faster models through `CrewSchedulingPolicy.spec.qualityBias`.
 
-Model selection is loose-coupled — no agent CR names a specific model. See [`kubemoot/docs/scheduler.md`](https://github.com/kubemoot/kubemoot/blob/main/docs/scheduler.md) "Quality bias" for the mechanism.
+Model selection is loosely coupled: no Agent names a model. See the Kubemoot scheduler documentation, section "Quality bias", for the mechanism.
 
 ## Layout
 
@@ -25,29 +45,22 @@ homelab-pilot-crew/
   Chart.yaml
   values.yaml
   templates/
-    agent-*.yaml              # individual agent definitions
+    agent-*.yaml              # agent definitions
     promptmodule-*.yaml       # composable ADL behavior modules
-    mcpserver-*.yaml          # tool servers (proxmox, kubernetes, observability, internet)
-    crewschedulingpolicy.yaml # phase rules + qualityBias
-    crew.yaml                 # top-level Crew CR
-    models.yaml               # Model CRs labeled by family/params/latencyClass
-    ...
-  fitness/                    # CrewFitness scenarios (10 today) — measurable test cases
-  mcp-smoke/                  # MCP tool smoke tests — verify each MCP server's tools respond
+    mcpserver-*.yaml          # tool servers (kubernetes, prometheus, proxmox, web search, ...)
+    crewschedulingpolicy.yaml # phase rules and qualityBias
+    crew.yaml                 # top-level Crew resource
+    models.yaml               # Model resources labeled by family/params/latencyClass
+  fitness/                    # CrewFitness scenarios in ADL
+  mcp-smoke/                  # MCP tool smoke-test definitions
 ```
-
-## Deployment
-
-The chart publishes to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` via the per-crew release workflow on commit to main (and to an in-cluster mirror when one is configured). Flux pulls the chart from an OCI source and applies it to the cluster.
 
 ## Fitness
 
-Ten scenarios in `fitness/` cover:
+`fitness/` holds 76 scenarios in ADL (`*.adl`), grouped by prefix: smoke, single-domain Kubernetes, GPU, observability, and Proxmox questions, cross-domain (`xdomain-*`, `multi-tool-*`), judgment, constraint-following, and trap questions (`gotcha-*`, `partial-answerable-*`). Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
 
-- Kubernetes — pod status, helm releases, storage classes
-- GPU — live utilization queries, concept-RAG retrieval
-- Proxmox — VM listing, concept-RAG retrieval
-- Observability — Prometheus queries
-- Multi-tool troubleshooting
+Run a scenario with `kmctl fitness run`, or apply a `CrewFitness` resource with `kubectl`.
 
-Run the suite with `kmctl fitness run`, or by applying `CrewFitness` CRs directly with `kubectl`.
+## Deployment
+
+The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` on each release commit to `main`.
