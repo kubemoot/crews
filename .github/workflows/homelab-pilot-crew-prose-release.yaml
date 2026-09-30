@@ -77,38 +77,38 @@ jobs:
           echo "Pushing ${CHART_NAME} to ${CHART_REGISTRY}..."
           helm push --insecure-skip-tls-verify "${CHART_NAME}-${VERSION}.tgz" "${CHART_REGISTRY}"
 
-      - name: Commit Chart.yaml version bump
-        if: steps.version.outputs.release_created == 'true'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          if git diff --quiet "${CHART_PATH}/Chart.yaml"; then
-            echo "No Chart.yaml changes to commit"
-          else
-            git add "${CHART_PATH}/Chart.yaml"
-            git commit -m "chore(${CHART_NAME}): update chart to v${VERSION} [skip ci]"
-          fi
-
-      - name: Create and push tag
+      - name: Commit the chart version to main and tag it
+        # Re-applies only this release's Chart.yaml version onto fresh main and retries a
+        # rejected push (the crews release together and race), then tags only after the
+        # commit is on main, so the next version is computed from a tag main contains.
+        # Fails loudly instead of leaving a tag off main.
         if: steps.version.outputs.release_created == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${CHART_NAME}-v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists locally, skipping"
-          elif git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
-            echo "Tag $TAG already exists on remote, skipping"
+          pushed=false
+          for attempt in 1 2 3 4 5 6 7 8; do
+            git fetch -q origin main
+            git reset -q --hard FETCH_HEAD
+            sed -i "s/^version:.*/version: $VERSION/" "${CHART_PATH}/Chart.yaml"
+            sed -i "s/^appVersion:.*/appVersion: $VERSION/" "${CHART_PATH}/Chart.yaml"
+            if ! git diff --quiet -- "${CHART_PATH}/Chart.yaml"; then
+              git add "${CHART_PATH}/Chart.yaml"
+              git commit -q -m "chore(${CHART_NAME}): update chart to v${VERSION} [skip ci]"
+            fi
+            if git push origin HEAD:main; then pushed=true; break; fi
+            echo "git push rejected (attempt ${attempt}/8); re-reading origin/main and retrying"
+            sleep $((attempt * 5))
+          done
+          [ "$pushed" = true ] || { echo "::error::could not land ${CHART_NAME} ${VERSION} on main"; exit 1; }
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on remote"
           else
-            echo "Creating tag: $TAG"
             git tag -a "$TAG" -m "Release candidate $TAG"
+            git push origin "refs/tags/$TAG"
           fi
-
-          git push origin main --follow-tags || {
-            echo "Push failed, attempting without tags..."
-            git push origin main || true
-          }
 
