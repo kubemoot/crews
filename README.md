@@ -110,8 +110,12 @@ Each crew chart is independently versioned. CI runs per crew:
 - **kmctl**, the Kubemoot CLI, runs fitness scenarios against a crew (`kmctl fitness run`).
 - **Homelab Pilot**, the maintainer's homelab web app, talks to the reference crew through the crew's discussion gateway.
 
-## Contributing a new crew
+## Community and contributing
+
+Kubemoot is an independent open-source project under the Apache License 2.0. Contributing, support, governance, the code of conduct, security reporting, and releases are documented in one place: the [Community section of kubemoot.org](https://kubemoot.org/docs/community/). Ask questions and share ideas in [GitHub Discussions](https://github.com/orgs/kubemoot/discussions). Write to moot@kubemoot.org for anything else. Use security@kubemoot.org only to report a vulnerability, privately.
+
+To add a crew:
 
 1. Create a new subdirectory `<your-crew>/` with the layout above.
 2. Add a per-crew workflow `.github/workflows/<your-crew>-release.yaml` modeled on the existing ones.
-3. Commit. CI publishes the chart on the first conventional-commit version bump.
+3. Commit with a conventional-commit message. CI builds a release candidate of the chart; a maintainer promotes a tested candidate to a public release.
