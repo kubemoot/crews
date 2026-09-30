@@ -2,8 +2,8 @@ apiVersion: v2
 name: homelab-pilot-crew-prose
 description: Prose arm of the Kubemoot ADL-vs-prose experiment, the reference crew with every prompt written as natural prose
 type: application
-version: 0.30.0
-appVersion: 0.30.0
+version: 0.30.1-rc.0
+appVersion: 0.30.1-rc.0
 home: https://github.com/kubemoot/crews
 sources:
   - https://github.com/kubemoot/crews/tree/main/homelab-pilot-crew-prose
