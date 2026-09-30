@@ -19,7 +19,7 @@ on:
         type: boolean
 
 env:
-  REGISTRY: harbor-homelab.dijure.com
+  REGISTRY: ${{ vars.REGISTRY }}
   CHART_NAME: homelab-pilot-crew
   CHART_PATH: homelab-pilot-crew
 
