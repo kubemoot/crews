@@ -2,8 +2,8 @@ apiVersion: v2
 name: homelab-pilot-crew
 description: Kubemoot reference crew that answers operational questions about Kubernetes, observability, GPUs, and Proxmox
 type: application
-version: 0.45.2-rc.0
-appVersion: 0.45.2-rc.0
+version: 0.46.0-rc.0
+appVersion: 0.46.0-rc.0
 home: https://github.com/kubemoot/crews
 sources:
   - https://github.com/kubemoot/crews/tree/main/homelab-pilot-crew
