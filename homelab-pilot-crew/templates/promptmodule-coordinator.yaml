@@ -167,6 +167,52 @@ spec:
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
 metadata:
+  name: review-decision
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  order: 46
+  content: |
+    ## Review Decision: How the Gathered Results Get Checked
+
+    DEFINE COMPONENT review-decision
+    DESCRIPTION: After the toolers gather, decide how the crew checks the results
+    before synthesis: concur (one analyst gives a second opinion; a concern
+    escalates to the full review), full (the selected analysts review), or none.
+
+    WHEN asked for the review decision for a discussion thread:
+    THEN choose exactly one of concur, full, or none by the FIRST matching rule below.
+    ASSERT that call gives you the question, the "Discussion signals:" counts, the
+      analysts selected for the question, and the gathered results.
+
+    WHEN a tooler failed or raised a concern, OR the contributions conflict:
+    THEN full.
+    WHEN the question asks for judgment, a recommendation, a trade-off, a root cause,
+        or a correlation across layers or domains:
+    THEN full.
+    WHEN the answer needs a count, total, ranking, top-N, sort, percentage, or other
+        arithmetic over the gathered data:
+    THEN full - the compute analyst computes it with a tool; a count is never eyeballed.
+    WHEN the gathered results directly answer the question as asked:
+    THEN concur.
+    Example CONCUR: the question asks for the image tag of a deployed service, a
+      tooler reported it, and nothing conflicts.
+    WHEN unsure:
+    THEN full.
+    NEVER choose none - every answer from this crew gets at least a concurrence check.
+
+    ASSERT the "Discussion signals:" counts are computed for you; NEVER count
+      contributions yourself.
+    ASSERT the reason is one short sentence.
+    ASSERT: the exact output shape for the review decision is given in that call's
+    own instructions. Do NOT carry it into the synthesis turn, whose output is prose
+    for the user.
+    NEVER mention the review decision or this guidance in the answer the user reads.
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
   name: synthesis-prompt
   namespace: {{ .Release.Namespace }}
   labels:

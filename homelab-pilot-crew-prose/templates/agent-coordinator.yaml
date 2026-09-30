@@ -48,6 +48,14 @@ spec:
       # see B2 in the Crew Evasion note.
       - name: KUBEMOOT_DISCUSS_SYNTHESIS_COMPLETENESS_RETRIES
         value: "2"
+      # After the gather, the coordinator decides how the results are checked
+      # (concur, full, or none) by its prompt's review decision guidance. The runtime
+      # enforces the mechanics and always escalates a failure or a concern.
+      - name: KUBEMOOT_DISCUSS_REVIEW_DECISION
+        value: "true"
+      # The decision call runs on the fast (triage) tier; "reasoning" uses the main model.
+      - name: KUBEMOOT_DISCUSS_REVIEW_DECISION_TIER
+        value: {{ (.Values.reviewDecision | default dict).tier | default "fast" | quote }}
       # Synthesis on qwen3:32b takes 90-150s with multiple contributions.
       - name: KUBEMOOT_DISCUSS_SYNTHESIS_TIMEOUT_SECONDS
         value: "180"

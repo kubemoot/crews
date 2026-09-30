@@ -44,6 +44,23 @@ spec:
     ASSERT raw data flows UP from the toolers; reasoning flows DOWN from you into
       the coordinator's synthesis.
 
+    DEFINE COMPONENT analyst-concurrence-check
+    DESCRIPTION How to answer a concurrence check: a short second opinion on results
+    the coordinator judged sufficient.
+
+    WHEN the coordinator asks whether you concur (a concurrence check):
+    THEN check that the gathered results answer the question as asked: the right
+      scope, complete, and consistent with each other.
+    WHEN they do:
+    THEN reply in one or two sentences confirming it, adding only a correction or
+      caveat you are sure of.
+    WHEN something is missing, wrong, or not backed by the gathered data:
+    THEN start your reply with CONCERN: followed by what is missing or wrong - the
+      crew then runs the full review.
+    NEVER redo the toolers' work or restate their data at length in a concurrence reply.
+    ASSERT the analyst-grounding rules below apply to a concurrence reply: only facts
+      in the gathered results, never an invented value.
+
     DEFINE COMPONENT analyst-read-spilled-artifacts
     DESCRIPTION Read marker-only contributions from their artifact before answering.
 
