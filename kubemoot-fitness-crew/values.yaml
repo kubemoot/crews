@@ -9,19 +9,21 @@ crew:
   discussion:
     enabled: true
 
-# Judging uses the strong reasoning model. ProviderRef points at the
-# cluster-shared ModelProvider CRs in the kubemoot namespace.
+# The judge's Model CRs. providerRef names a ModelProvider (an Ollama server) that
+# the Kubemoot operator chart creates in its own namespace; the default matches the
+# provider the Kubemoot quickstart creates (ollama-local). Give the judge the
+# strongest reasoning model you run: scores from a small judge are noisy. The
+# maintainer's reference cluster judges with qwen3:32b.
 models:
-  - name: qwen3-32b-rig0
-    model: "qwen3:32b"
-    providerRef: ollama-gpu
+  - name: qwen3-8b
+    model: "qwen3:8b"
+    providerRef: ollama-local
     family: qwen3
-    params: "32B"
+    params: "8B"
     contextWindow: "32768"
     latencyClass: high
-    vramMib: 20480
+    vramMib: 5120
     capabilities: [reasoning]
 
 # No MCP server or gateway: the judge calls no tools. The operator assembles the
-# comparison document and hands it to the judge in the dispatch message (see the
-# Lean Judge work); the superseded collect_scenario MCP was removed.
+# comparison document and hands it to the judge in the dispatch message.

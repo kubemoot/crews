@@ -1,3 +1,4 @@
+{{- if .Values.mcpServers.scheduling.enabled }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: Agent
 metadata:
@@ -76,3 +77,4 @@ spec:
   deployment:
     replicas: 1
     port: 8080
+{{- end }}

@@ -1,6 +1,6 @@
-# MCP Tool Smoke Tests — homelab-pilot-crew
+# MCP Tool Smoke Tests: homelab-pilot-crew
 
-**Status:** Format scaffolding. The runner (CrewForge Tauri backend) doesn't exist yet — see `[[Crew Fitness Test Layers]]` in the homelab-ecosystem tasks repo.
+**Status:** Format scaffolding. The MCP smoke-test definitions are here; no runner executes them yet.
 
 ## Purpose
 

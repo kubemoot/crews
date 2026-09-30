@@ -15,9 +15,10 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
-  # Read-only access to core resources
+  # Read-only access to core resources. Secrets are listed only when
+  # kubernetesAccess.secretRead is true (see values.yaml).
   - apiGroups: [""]
-    resources: ["pods", "services", "endpoints", "nodes", "namespaces", "configmaps", "secrets", "events", "persistentvolumeclaims", "persistentvolumes"]
+    resources: ["pods", "services", "endpoints", "nodes", "namespaces", "configmaps",{{ if .Values.kubernetesAccess.secretRead }} "secrets",{{ end }} "events", "persistentvolumeclaims", "persistentvolumes"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
@@ -28,9 +29,11 @@ rules:
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get", "list"]
+  {{- if .Values.kubernetesAccess.writeAccess }}
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs: ["create"]
+  {{- end }}
   - apiGroups: ["metrics.k8s.io"]
     resources: ["pods", "nodes"]
     verbs: ["get", "list"]
@@ -38,6 +41,7 @@ rules:
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
+  {{- if .Values.kubernetesAccess.writeAccess }}
   # Scale and patch for workload management (kubectl_scale, kubectl_patch)
   - apiGroups: ["apps"]
     resources: ["deployments/scale", "statefulsets/scale", "replicasets/scale"]
@@ -48,6 +52,7 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments/rollout"]
     verbs: ["get", "patch"]
+  {{- end }}
   # Flux HelmRelease CRDs (for helm tooler queries)
   - apiGroups: ["helm.toolkit.fluxcd.io"]
     resources: ["helmreleases"]
@@ -69,7 +74,7 @@ rules:
     verbs: ["get", "list", "watch"]
   # Kubemoot CRDs (for cluster introspection)
   - apiGroups: ["kubemoot.ai"]
-    resources: ["agents", "agentpolicies", "mcpservers", "mcpgateways", "ragsources", "models", "modelproviders"]
+    resources: ["agents", "mcpservers", "mcpgateways", "ragsources", "models", "modelproviders"]
     verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -89,8 +94,8 @@ roleRef:
 ---
 # Broad read-only coverage via the built-in `view` role, so the crew can answer about
 # any standard resource class (networkpolicies, resourcequotas, PDBs, RBAC, etc.) without
-# enumerating each one above. `view` excludes secrets; the custom role above adds the
-# secrets/exec/patch/CRD access this crew needs on top.
+# enumerating each one above. `view` excludes secrets; the custom role above adds CRD
+# access, plus secrets, exec, and patch only when kubernetesAccess opts in to them.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

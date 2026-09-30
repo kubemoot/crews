@@ -71,10 +71,10 @@ spec:
   toolIndex:
     vectorStore:
       type: {{ .Values.mcpGateway.toolIndex.vectorStore.type | default "pgvector" }}
-      host: {{ .Values.mcpGateway.toolIndex.vectorStore.host }}
+      host: {{ required "mcpGateway.toolIndex.vectorStore.host (or vectorStore.host) is required: the gateway tool index is a pgvector database. Set it, or set mcpGateway.toolIndex to null" (.Values.mcpGateway.toolIndex.vectorStore.host | default .Values.vectorStore.host) }}
       port: {{ .Values.mcpGateway.toolIndex.vectorStore.port | default 5432 }}
-      database: {{ .Values.mcpGateway.toolIndex.vectorStore.database }}
-      secretRef: {{ .Values.mcpGateway.toolIndex.vectorStore.secretRef }}
+      database: {{ .Values.mcpGateway.toolIndex.vectorStore.database | default .Values.vectorStore.database }}
+      secretRef: {{ .Values.mcpGateway.toolIndex.vectorStore.secretRef | default .Values.vectorStore.existingSecret }}
     embeddingModel:
       provider: {{ .Values.mcpGateway.toolIndex.embeddingModel.provider | default "ollama" }}
       endpoint: {{ .Values.mcpGateway.toolIndex.embeddingModel.endpoint }}

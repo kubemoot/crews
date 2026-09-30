@@ -20,7 +20,7 @@ spec:
     - kubernetes
   triageSummary: "Lists and inspects Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and Pods, including database and datastore workloads (which run as StatefulSets). Reads pod logs, container status, restart counts, and events."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-workloads-system]
-  enabledTools: [pods_list, pods_list_in_namespace, pods_get, pods_log, pods_top, pods_exec, resources_list, resources_get, events_list]
+  enabledTools: [pods_list, pods_list_in_namespace, pods_get, pods_log, pods_top{{ if $.Values.kubernetesAccess.writeAccess }}, pods_exec{{ end }}, resources_list, resources_get, events_list]
   discussKeywords:
     - kubernetes
     - k8s

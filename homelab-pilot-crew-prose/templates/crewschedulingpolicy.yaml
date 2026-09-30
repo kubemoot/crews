@@ -10,9 +10,8 @@ each agent's declared spec.capabilities. The agent's most demanding
 capability sets the bias (max combiner). Loose coupling preserved — no
 Agent CR names a model size; the scheduler matches at reconcile time.
 
-See kubemoot/docs/scheduler.md "Quality bias" and the kanban card
-[[Capability-Weighted Quality Bias in Scheduler]] for the design and
-worked-example bindings.
+See the Kubemoot scheduler documentation, section "Quality bias", for the
+design and worked-example bindings.
 */}}
 apiVersion: kubemoot.ai/v1alpha1
 kind: CrewSchedulingPolicy

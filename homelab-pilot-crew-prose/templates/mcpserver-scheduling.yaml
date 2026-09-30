@@ -17,7 +17,7 @@ spec:
     - name: KUBEMOOT_CREW
       value: {{ .Values.crew.name | quote }}
     - name: NATS_URL
-      value: "nats://nats.nats.svc.cluster.local:4222"
+      value: {{ .Values.nats.url | quote }}
   capabilities:
     - scheduling
     - reminders

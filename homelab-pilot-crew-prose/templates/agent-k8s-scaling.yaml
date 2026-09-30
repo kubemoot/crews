@@ -20,7 +20,7 @@ spec:
     - kubernetes
   triageSummary: "Inspects HorizontalPodAutoscalers, VerticalPodAutoscalers, ResourceQuotas, LimitRanges, and performs manual replica scaling."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-scaling-system]
-  enabledTools: [resources_list, resources_get, resources_scale, pods_top, events_list]
+  enabledTools: [resources_list, resources_get{{ if $.Values.kubernetesAccess.writeAccess }}, resources_scale{{ end }}, pods_top, events_list]
   discussKeywords:
     - hpa
     - vpa

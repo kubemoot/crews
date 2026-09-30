@@ -1,7 +1,7 @@
-# homelab-pilot-crew-prose — authoring workspace
+# homelab-pilot-crew-prose: authoring workspace
 
 This directory stages the inputs for the **prose counterfactual crew** in the
-ADL-POC experiment (Epic - ADL-POC, Phase 7). The hypothesis under test:
+ADL-vs-prose experiment. The hypothesis under test:
 
 > Does ADL-structured prompting (WHEN/THEN/ASSERT, exhaustive and explicit)
 > produce better/more-consistent crew behavior than the **same intent** written
@@ -24,7 +24,7 @@ hypothesis. The defense is structural, not a promise to "write naturally":
 1. **`intent/<agent>.md` — the controlled variable.** Each agent's intent
    distilled UP from the current ADL: role, scope, the tools/RAG it has, what a
    good answer looks like, what to avoid. It deliberately DROPS the rule
-   structure and the exhaustive case/tool-selection tables. Jonathan reviews each
+   structure and the exhaustive case/tool-selection tables. A maintainer reviews each
    brief so we agree it is the SAME intent — neither enriched nor starved.
 
 2. **Blind authoring (later step).** The prose system prompts are written FROM
@@ -101,8 +101,9 @@ strongest shared enforcement). Staged in `shared/historical/` + `shared/intent/`
 - [x] shared-module historical (2) + intent briefs (3) staged
 - [x] handoff zips built (per-agent + shared), README excluded
 - [x] prose authored blind from briefs (external Claude.ai) — round1/ + round2/
-- [x] leakage + parity guards run (25/25 PASS, 0 ADL DSL); raw artifact committed
-      before the interface-contract fix (coordinator JSON, REMEMBER) for auditability
+- [x] leakage + parity guards run (25/25 PASS, 0 ADL DSL); the authored files were
+      committed before the interface-contract fix (coordinator JSON, REMEMBER) for
+      auditability (the authoring chat transcripts are not kept in this repository)
 - [x] chart assembled — clone of the ADL crew with prose PromptModules; crew renamed
       `homelab-pilot-prose`, all-prose verified (0 ADL syntax), tiering parity kept
 - [ ] deployed + baseline run vs the ADL crew (waits for baseline-v4 to free the GPUs)

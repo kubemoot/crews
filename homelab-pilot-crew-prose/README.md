@@ -1,53 +1,31 @@
-# homelab-pilot-crew
+# homelab-pilot-crew-prose
 
-Kubemoot agent crew for homelab infrastructure consultation.
+The prose arm of the ADL-vs-prose experiment. This chart is a copy of [homelab-pilot-crew](../homelab-pilot-crew/) with every PromptModule rewritten as natural prose instead of ADL. Agents, tools, RAG sources, models, the CrewSchedulingPolicy, and the archetype are the same, so prompt form is the only variable between the two crews.
 
-A multi-specialist crew that answers questions spanning the four layers of a homelab — **physical/hypervisor** (Proxmox), **Kubernetes**, **observability** (Prometheus + DCGM), and **GPU/AI** (NVIDIA + Ollama). Discussions are coordinated through the Kubemoot consensus protocol: the coordinator generates an advisory, selects a relevant subcommittee of specialists via triage, and synthesizes their findings into a single answer.
+The experiment asks whether ADL-structured prompts (WHEN/THEN/ASSERT rules) produce better or more consistent crew answers than the same intent written the way an engineer naturally would, on the same models. The two crews run the same fitness scenarios, one arm at a time, and a judge crew scores both.
 
-## Before you install
+## How the prose was written
 
-This crew is the reference homelab's own. Its Proxmox specialists use a `proxmox-mcp`
-tool image built from a private repository and pulled from that homelab's registry,
-so a copy of this chart on another cluster needs its own Proxmox MCP server (or
-the Proxmox agents removed). Everything else in the chart is public.
+The prose was authored blind: each agent's intent was distilled from the ADL into a short brief, and an author that had never seen the ADL wrote the prompts from the brief alone. Leakage and parity checks confirmed the prose carries the same intent without ADL syntax. The briefs, the pre-ADL historical prompts used for calibration, and the authored prose are in [`_authoring/`](./_authoring/), which is not part of the chart.
 
-## Topology
+## Install
 
-- **1 coordinator** (`homelab-coordinator`) — declares `reasoning` capability; binds to a quality-tier model (e.g. qwen3:32b)
-- **21 specialists** spanning Kubernetes (`k8s-*`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), scheduling, and internet search — declare `tool-calling` plus their domain capability; bind to speed-tier models (e.g. qwen3:8b) via `CrewSchedulingPolicy.spec.qualityBias`
+Install it like the ADL crew, into its own namespace, with the same values file you use for `homelab-pilot-crew`. See [Before you install](../homelab-pilot-crew/README.md#before-you-install) for the values you must set and the [repository README](../README.md#install) for prerequisites.
 
-Model selection is loose-coupled — no agent CR names a specific model. See [`kubemoot/docs/scheduler.md`](https://github.com/kubemoot/kubemoot/blob/main/docs/scheduler.md) "Quality bias" for the mechanism.
-
-## Layout
-
-```
-homelab-pilot-crew/
-  Chart.yaml
-  values.yaml
-  templates/
-    agent-*.yaml              # individual agent definitions
-    promptmodule-*.yaml       # composable ADL behavior modules
-    mcpserver-*.yaml          # tool servers (proxmox, kubernetes, observability, internet)
-    crewschedulingpolicy.yaml # phase rules + qualityBias
-    crew.yaml                 # top-level Crew CR
-    models.yaml               # Model CRs labeled by family/params/latencyClass
-    ...
-  fitness/                    # CrewFitness scenarios (10 today) — measurable test cases
-  mcp-smoke/                  # MCP tool smoke tests — verify each MCP server's tools respond
+```bash
+helm upgrade --install homelab-pilot-prose \
+  oci://ghcr.io/kubemoot/charts/homelab-pilot-crew-prose \
+  --version <version> \
+  -n crew-homelab-pilot-prose --create-namespace \
+  -f my-values.yaml
 ```
 
-## Deployment
-
-The chart publishes to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` via the per-crew release workflow on commit to main (and to an in-cluster mirror when one is configured). Flux pulls the chart from an OCI source and applies it to the cluster.
+The Crew is named `homelab-pilot-prose`, so both arms can run in one cluster. Measure them one at a time: two crews sharing GPUs slow each other down and skew the comparison.
 
 ## Fitness
 
-Ten scenarios in `fitness/` cover:
+`fitness/` holds the same 76 scenarios as the ADL crew, written as prose Markdown (`*.md`). Questions and reference answers are identical between the arms. Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
 
-- Kubernetes — pod status, helm releases, storage classes
-- GPU — live utilization queries, concept-RAG retrieval
-- Proxmox — VM listing, concept-RAG retrieval
-- Observability — Prometheus queries
-- Multi-tool troubleshooting
+## Deployment
 
-Run the suite via CrewForge's fitness runner (in development).
+The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew-prose` on each release commit to `main`.

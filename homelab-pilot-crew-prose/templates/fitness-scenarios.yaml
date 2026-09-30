@@ -7,10 +7,8 @@ Today the operator unconditionally runs a Job the moment a CrewFitness
 CR exists, so deploying a baseline suite via the chart fires the whole
 suite at once — a thundering herd against the crew that was never
 intended. Until the operator supports a "visible-without-auto-run"
-annotation (see [[Baseline Fitness Scenarios — Visible Without Auto-Run]]),
-this template stays gated and the dashboard's /dashboard/crewfitnesses
-page populates only via the upcoming CrewForge runner (per-run CRs
-created on demand with stable cleanup).
+annotation, this template stays gated; run scenarios on demand instead
+(kmctl fitness run, or a CrewFitnessSuite).
 
 Enable via values when the operator-side guard is in place:
 
@@ -39,9 +37,8 @@ metadata:
     kubemoot.ai/crew: {{ .root.Values.crew.name }}
     kubemoot.ai/fitness-kind: baseline-scenario
   annotations:
-    # Requires the operator-side guard from
-    # [[Baseline Fitness Scenarios — Visible Without Auto-Run]]
-    # to actually be honored; without it the operator still runs the Job.
+    # Honored only once the operator supports a manual trigger; without that
+    # guard the operator still runs the Job.
     kubemoot.ai/fitness-trigger: manual
 spec:
   crewRef: {{ .root.Values.crew.name | quote }}

@@ -13,7 +13,6 @@ spec:
   # Thinking OFF: scoring against a reference does not need an extended reasoning
   # chain, and the chain is stripped from the verdict anyway. On a 32b this is the
   # dominant cost, so disabling it cuts judge latency from minutes to seconds.
-  # See [[Lean Judge Direct Context No Tool Round-Trip]].
   think: false
   discussChannels:
     - general
