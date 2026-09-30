@@ -12,5 +12,10 @@ Chart.lock
 *.swp
 *.swo
 
+# Python test and coverage output
+__pycache__/
+.coverage
+coverage.xml
+
 # Measurement reports stay local to the homelab; they are not part of the release
 reports/

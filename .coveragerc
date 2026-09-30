@@ -1,0 +1,5 @@
+[run]
+branch = true
+source = scripts
+omit = scripts/test_*.py
+relative_files = true
