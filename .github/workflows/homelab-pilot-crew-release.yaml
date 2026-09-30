@@ -36,42 +36,22 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Calculate semantic version (per-crew, path-filtered)
+      - name: Calculate the release candidate version
         id: version
-        uses: paulhatch/semantic-version@v6.0.1
+        uses: ./.github/actions/release-candidate-version
         with:
           tag_prefix: "homelab-pilot-crew-v"
-          major_pattern: "(BREAKING CHANGE|feat!|fix!)"
-          minor_pattern: "feat"
-          version_format: "${major}.${minor}.${patch}"
-          bump_each_commit: true
-          search_commit_body: true
-          # Only count commits whose changes touch this crew's path. Keeps
-          # other crews' commits from bumping this crew's version.
           change_path: "homelab-pilot-crew"
-
-      - name: Check if release needed
-        id: check
-        run: |
-          echo "Current version: ${{ steps.version.outputs.version }}"
-          echo "Changed: ${{ steps.version.outputs.changed }}"
-
-          if [ "${{ steps.version.outputs.changed }}" = "true" ] || [ "${{ inputs.force_release }}" = "true" ]; then
-            echo "release_created=true" >> $GITHUB_OUTPUT
-            echo "Will create release homelab-pilot-crew-v${{ steps.version.outputs.version }}"
-          else
-            echo "release_created=false" >> $GITHUB_OUTPUT
-            echo "Skipping release - no version-bumping commits since last tag for this crew"
-          fi
+          force: ${{ inputs.force_release }}
 
       - name: Install Helm
-        if: steps.check.outputs.release_created == 'true'
+        if: steps.version.outputs.release_created == 'true'
         uses: azure/setup-helm@v4
         with:
           version: 'v3.14.0'
 
       - name: Update Chart.yaml version
-        if: steps.check.outputs.release_created == 'true'
+        if: steps.version.outputs.release_created == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           echo "Updating Chart.yaml to version: $VERSION"
@@ -80,13 +60,10 @@ jobs:
           grep -E "^(version|appVersion):" "${CHART_PATH}/Chart.yaml"
 
       - name: Package and push Helm chart
-        if: steps.check.outputs.release_created == 'true'
+        if: steps.version.outputs.release_created == 'true'
         env:
           HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
-          RELEASE_REGISTRY: ${{ vars.RELEASE_REGISTRY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHART_REGISTRY="oci://${{ env.REGISTRY }}/crews"
@@ -100,16 +77,8 @@ jobs:
           echo "Pushing ${CHART_NAME} to ${CHART_REGISTRY}..."
           helm push --insecure-skip-tls-verify "${CHART_NAME}-${VERSION}.tgz" "${CHART_REGISTRY}"
 
-          # Harbor is the in-cluster deploy path. When a release registry is configured
-          # (repo variable RELEASE_REGISTRY, e.g. ghcr.io/kubemoot), publish the same
-          # chart there too so it is reachable outside the cluster.
-          if [ -n "${RELEASE_REGISTRY:-}" ]; then
-            echo "${GHCR_TOKEN}" | helm registry login "${RELEASE_REGISTRY%%/*}" -u "${GHCR_USERNAME}" --password-stdin
-            helm push "${CHART_NAME}-${VERSION}.tgz" "oci://${RELEASE_REGISTRY}/charts"
-          fi
-
       - name: Commit Chart.yaml version bump
-        if: steps.check.outputs.release_created == 'true'
+        if: steps.version.outputs.release_created == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
@@ -124,7 +93,7 @@ jobs:
           fi
 
       - name: Create and push tag
-        if: steps.check.outputs.release_created == 'true'
+        if: steps.version.outputs.release_created == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${CHART_NAME}-v${VERSION}"
@@ -135,7 +104,7 @@ jobs:
             echo "Tag $TAG already exists on remote, skipping"
           else
             echo "Creating tag: $TAG"
-            git tag -a "$TAG" -m "Release $TAG"
+            git tag -a "$TAG" -m "Release candidate $TAG"
           fi
 
           git push origin main --follow-tags || {
@@ -143,13 +112,3 @@ jobs:
             git push origin main || true
           }
 
-      - name: Create GitHub Release
-        if: steps.check.outputs.release_created == 'true'
-        continue-on-error: true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.CHART_NAME }}-v${{ steps.version.outputs.version }}
-          name: ${{ env.CHART_NAME }}-v${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
