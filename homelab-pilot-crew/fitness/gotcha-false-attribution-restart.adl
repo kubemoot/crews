@@ -13,9 +13,8 @@ ASSERT(discussion completes with "done" event within MAX_DURATION)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic, drift-tolerant ground truth: no node has DiskPressure, so the disk causation is false; forbid confirming the planted cause.
+# Deterministic, drift-tolerant ground truth: no node has DiskPressure, so the disk causation is false; forbid confirming the planted cause. "DiskPressure" itself is not forbidden: a correct refutation ("DiskPressure is False on every node") names it.
 ASSERT(synthesis does NOT CONTAIN "ran out of disk")
-ASSERT(synthesis does NOT CONTAIN "DiskPressure")
 
 # Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
 # the synthesis against this ground truth on method and honesty, not specific values.

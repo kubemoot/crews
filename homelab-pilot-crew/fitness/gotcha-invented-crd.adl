@@ -13,9 +13,8 @@ ASSERT(discussion completes with "done" event within MAX_DURATION)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic, drift-tolerant ground truth: no WorkloadProfile CRD exists; the answer should name it to deny existence, and forbidding "Degraded" catches a fabricated phase count.
+# Deterministic, drift-tolerant ground truth: no WorkloadProfile CRD exists; the answer should name it to deny existence. "Degraded" is not forbidden: a correct denial ("none in a Degraded phase") contains it; a fabricated phase count is the judge's to catch.
 ASSERT(synthesis CONTAINS "WorkloadProfile")
-ASSERT(synthesis does NOT CONTAIN "Degraded")
 
 # Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
 # the synthesis against this ground truth on method and honesty, not specific values.
