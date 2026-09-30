@@ -46,8 +46,12 @@ Crews could split into separate repos later; one repo for now keeps ergonomics f
 - **[Homelab Pilot](https://github.com/kubemoot/homelab-pilot)** — pilot web app discovers deployed crews via the `kubemoot.ai/crew-type: pilot` label
 - **[Kubemoot operator](https://github.com/kubemoot/kubemoot)** — reconciles the Crew CR + child resources once Flux applies the chart
 
-## Contributing a new crew
+## Community and contributing
+
+Kubemoot is an independent open-source project under the Apache License 2.0. Contributing, support, governance, the code of conduct, security reporting, and releases are documented in one place: the [Community section of kubemoot.org](https://kubemoot.org/docs/community/). Ask questions and share ideas in [GitHub Discussions](https://github.com/orgs/kubemoot/discussions). For anything else write to moot@kubemoot.org, and report vulnerabilities privately to security@kubemoot.org.
+
+To add a crew:
 
 1. Create a new subdirectory `crews/<your-crew>/` with the layout above.
 2. Add a per-crew workflow `.github/workflows/<your-crew>-release.yaml` modeled on the existing ones.
-3. Commit. CI will publish the chart on the first conventional-commit version bump.
+3. Commit with a conventional-commit message. CI publishes the chart on the first version bump.
