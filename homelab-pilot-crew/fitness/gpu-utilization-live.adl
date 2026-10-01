@@ -1,4 +1,4 @@
-DESCRIPTION Live-metric band, current GPU utilization (VRAM + SM) via DCGM; discover the cluster's GPUs, plausible consistent values, no fabrication.
+DESCRIPTION Live-metric band, current GPU utilization and VRAM via DCGM (no SM-active metric is exported); every GPU covered, values from DCGM, no fabrication.
 
 DEFINE CONST QUESTION AS "What is the current GPU utilization on the cluster's GPUs? Include both VRAM usage and
   SM utilization percentages."
@@ -15,6 +15,9 @@ ASSERT(synthesis is non-empty)
 # Response must reference GPU concepts
 ASSERT(synthesis CONTAINS "GPU")
 
+# Per-GPU utilization is reported as a percentage for each GPU present (a bound, not a value).
+ASSERT(synthesis matches "[0-9]+(\.[0-9]+)? ?%" at least 2 times)
+
 # Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
 # synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
-ASSERT(DEFER synthesis REFLECTS "The cluster currently has two NVIDIA GPUs (an RTX 5090 and an RTX 4090, one per gpu-worker node, discoverable via nvidia.com node labels), but live utilization including VRAM and SM-utilization percentages is not available because no dcgm-exporter is currently deployed to expose DCGM metrics in Prometheus. A correct answer reports the present GPUs and the absence of live SM/VRAM telemetry rather than fabricating utilization values or citing scrape jobs that do not exist. (the exact GPU set may drift; the constant is discovering the real GPUs and honestly reporting that live metrics are unavailable.)")
+ASSERT(DEFER synthesis REFLECTS "The cluster has two NVIDIA GPUs, an RTX 5090 and an RTX 4090, one per gpu-worker node. A dcgm-exporter DaemonSet in the observability namespace exposes their live DCGM metrics in Prometheus: DCGM_FI_DEV_GPU_UTIL (percent) is the utilization figure, DCGM_FI_DEV_FB_USED and DCGM_FI_DEV_FB_FREE (MiB) give VRAM in use and free, and DCGM_FI_PROF_GR_ENGINE_ACTIVE (a 0 to 1 ratio) is the closest engine-activity figure; no SM-active or SM-occupancy metric is exported. A correct answer reads these metrics and reports, for each GPU, its utilization percentage and VRAM used against total, with units, and either derives SM activity from the exposed metrics with that stated or says a dedicated SM-active metric is not exported. The values change from minute to minute and are not scored; what is scored is that every value comes from the DCGM data and every GPU present is covered. Stating that live GPU telemetry is unavailable or that no exporter is deployed contradicts the live state and misses; fabricated values, or a scrape job or metric that does not exist, miss. (GPU models and exporter placement may drift; the constant is reading live DCGM metrics per GPU and reporting only what they show.)")
