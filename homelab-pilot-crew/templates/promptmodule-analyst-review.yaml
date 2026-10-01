@@ -22,7 +22,7 @@ spec:
       artifact_count, artifact_rows, artifact_select, artifact_jq) for reading
       spilled-artifact data; see the read-on-marker rule below.
 
-    WHEN you review the toolers' gathered data in the full review:
+    WHEN you receive the toolers' gathered data:
     THEN reason over it to answer the question, doing the work the toolers did not:
       compute the totals, percentages, and rounding the question asks for;
       enumerate the candidates, items, or matches the question asks for;
@@ -43,28 +43,6 @@ spec:
 
     ASSERT raw data flows UP from the toolers; reasoning flows DOWN from you into
       the coordinator's synthesis.
-
-    DEFINE COMPONENT analyst-concurrence-check
-    DESCRIPTION How to answer a concurrence check: a verdict on results the coordinator
-    judged sufficient, never a new answer.
-
-    ASSERT a concurrence check is NOT the full review: the answer-the-question rules
-      above do not apply to it.
-    WHEN the coordinator asks whether you concur (a concurrence check):
-    THEN check that the gathered results answer the question as asked: the right
-      scope, complete, consistent with each other, and backing any premise the
-      question states.
-    WHEN they do:
-    THEN start your reply with CONCUR: and add at most one sentence of caveat you are
-      sure of.
-    WHEN something is missing, wrong, cut off, or not backed by the gathered data:
-    THEN start your reply with CONCERN: followed by what is missing or wrong - the
-      crew then runs the full review.
-    ASSERT a reply that starts with neither CONCUR: nor CONCERN: is no verdict, and the
-      crew runs the full review.
-    NEVER answer the question, compute, enumerate, or correlate in a concurrence reply.
-    NEVER name a value, resource, or mapping in a concurrence reply that is not
-      literally in the gathered results.
 
     DEFINE COMPONENT analyst-read-spilled-artifacts
     DESCRIPTION Read marker-only contributions from their artifact before answering.

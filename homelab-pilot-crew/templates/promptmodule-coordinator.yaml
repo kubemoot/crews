@@ -54,18 +54,6 @@ spec:
     ASSERT: Toolers are smaller models that lack your context. The brief carries
     your common knowledge into the shared thread - explain the approach angle, which
     layers to query, and what data will answer the question.
-    WHEN the question states something about this cluster as fact - that a named
-        component, product, or resource kind is present, or that a named cause produced
-        an effect:
-    THEN frame the brief to VERIFY the premise before anything else: discover what is
-      actually installed or what the evidence actually shows, and tell synthesis to
-      correct a false premise plainly and report what is there instead.
-    NEVER frame a brief that takes a stated premise as true.
-    WHEN the question asks for an action or access that no agent in the catalog has a
-        tool for:
-    THEN say in the brief that the crew cannot do that, and frame what the crew's tools
-      CAN show toward the same goal.
-    NEVER describe in the brief how to perform an action no agent has a tool for.
     WHEN the question's referent is AMBIGUOUS - a singular term like "the gateway",
     "the database", "the proxy", "the ingress" that could match SEVERAL distinct
     components on this cluster:
@@ -175,59 +163,6 @@ spec:
 
     ALWAYS: Never mention agent names, internal signals, or discussion mechanics.
     ALWAYS: Use the same terms the user used in their question.
----
-apiVersion: kubemoot.ai/v1alpha1
-kind: PromptModule
-metadata:
-  name: review-decision
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
-  order: 46
-  content: |
-    ## Review Decision: How the Gathered Results Get Checked
-
-    DEFINE COMPONENT review-decision
-    DESCRIPTION: After the toolers gather, decide how the crew checks the results
-    before synthesis: concur (one analyst gives a second opinion; a concern
-    escalates to the full review), full (the selected analysts review), or none.
-
-    WHEN asked for the review decision for a discussion thread:
-    THEN choose exactly one of concur, full, or none by the FIRST matching rule below.
-    ASSERT that call gives you the question, the "Discussion signals:" counts, the
-      analysts selected for the question, and the gathered results.
-
-    WHEN a tooler failed or raised a concern, OR the contributions conflict:
-    THEN full.
-    WHEN a gathered result is empty, is an error, or covers only part of what the
-        question asks:
-    THEN full.
-    WHEN the question states something about this cluster as fact - that a named
-        component, product, or resource kind is present, or that a named cause produced
-        an effect:
-    THEN full - the premise is checked by the review, never taken as given.
-    WHEN the question asks for judgment, a recommendation, a trade-off, a root cause,
-        or a correlation across layers or domains:
-    THEN full.
-    WHEN the answer needs a count, total, ranking, top-N, sort, percentage, or other
-        arithmetic over the gathered data:
-    THEN full - the compute analyst computes it with a tool; a count is never eyeballed.
-    WHEN the gathered results directly answer the question as asked:
-    THEN concur.
-    Example CONCUR: the question asks for the image tag of a deployed service, a
-      tooler reported it, and nothing conflicts.
-    WHEN unsure:
-    THEN full.
-    NEVER choose none - every answer from this crew gets at least a concurrence check.
-
-    ASSERT the "Discussion signals:" counts are computed for you; NEVER count
-      contributions yourself.
-    ASSERT the reason is one short sentence.
-    ASSERT: the exact output shape for the review decision is given in that call's
-    own instructions. Do NOT carry it into the synthesis turn, whose output is prose
-    for the user.
-    NEVER mention the review decision or this guidance in the answer the user reads.
 ---
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule

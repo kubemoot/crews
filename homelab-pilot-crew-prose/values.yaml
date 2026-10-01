@@ -19,12 +19,6 @@ crew:
 fitness:
   deployBaselineScenarios: false
 
-# How the coordinator's review decision call runs (the call that chooses how the
-# gathered results are checked: concur, full, or none). "fast" runs it on the
-# triage model; "reasoning" runs it on the coordinator's main model.
-reviewDecision:
-  tier: fast
-
 # Model CRs for this crew. Each entry becomes a Model in the crew namespace,
 # labeled with capability / family / params / latencyClass so the
 # CrewSchedulingPolicy rules can pick a model per phase by label.
