@@ -115,7 +115,7 @@ Each crew chart is independently versioned. CI runs per crew:
 - `.github/workflows/<crew-name>-release.yaml` triggers on `<crew-name>/**`
 - The version comes from conventional commits scoped to the changed crew's path
 - Each crew has its own tag stream (for example `homelab-pilot-crew-v1.2.3`)
-- Each release pushes the chart to `oci://ghcr.io/kubemoot/charts/<crew-name>`
+- Each merge to `main` builds a release candidate for the maintainers' registry; a maintainer runs Promote Release to tag the final version and push the chart to `oci://ghcr.io/kubemoot/charts/<crew-name>`
 
 ## Consumers
 

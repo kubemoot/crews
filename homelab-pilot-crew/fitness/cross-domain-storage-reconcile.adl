@@ -17,7 +17,6 @@ ASSERT(synthesis CONTAINS "NFS")
 # NFS") is now FALSE, so a correct answer corrects it and names TrueNAS. The observed
 # failure described a stale, decommissioned NFS topology as if current. (CONTAINS "NFS"
 # above just confirms the answer engages the premise; the required correction is TrueNAS.)
-# TODO(jonathan): consider reframing this as an explicit false-premise gotcha scenario.
 ASSERT(synthesis CONTAINS "TrueNAS")
 
 # Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew) scores the

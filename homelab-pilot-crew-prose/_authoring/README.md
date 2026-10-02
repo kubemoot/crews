@@ -65,8 +65,8 @@ whether the intent briefs quietly added intent the humans never had.
   broken up by scope into three files — verbatim sentences routed to the split
   they belong to (now = instant value queries; history = range/trend + metadata;
   meta = topology/metric discovery + scrape health). NOT enriched to current
-  intent. An honest wart this surfaced: the original discovered topology via
-  instant `count by(...)` queries, a tool the split `meta` agent no longer has —
+  intent. One wart this surfaced: the original discovered topology via
+  instant `count by(...)` queries, a tool the split `meta` agent no longer has,
   left visible, not rewritten.
 - **No history → brief-only:** scheduler-advisor (added post-ADL) and coordinator
   (never had a single inline prose prompt — its behavior lived in the advisory /
