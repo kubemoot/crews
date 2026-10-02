@@ -19,3 +19,4 @@ coverage.xml
 
 # Measurement reports stay local to the homelab; they are not part of the release
 reports/
+.claude/worktrees/
