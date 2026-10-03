@@ -1,4 +1,4 @@
-# Tests for the release and promotion scripts and the fitness suite builder. Not a release gate.
+# Tests for the release and promotion scripts, the fitness suite builder, and the brand copies. Not a release gate.
 name: CI Release Scripts
 
 on:
@@ -7,12 +7,16 @@ on:
       - '.github/scripts/**'
       - '.github/workflows/ci-release-scripts.yaml'
       - 'scripts/**'
+      - 'brand.lock'
+      - '.github/assets/**'
   push:
     branches-ignore: [main]
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ci-release-scripts.yaml'
       - 'scripts/**'
+      - 'brand.lock'
+      - '.github/assets/**'
 
 permissions:
   contents: read
@@ -22,6 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # The README lockups are copies of github.com/kubemoot/.github brand/ files;
+      # brand.lock pins the commit and each copy's sha256.
+      - name: Check the brand copies against brand.lock
+        run: scripts/brand-sync.sh check && scripts/brand-sync.test.sh
       - uses: azure/setup-helm@v4
         with:
           version: 'v3.14.0'
