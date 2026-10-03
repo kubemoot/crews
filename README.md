@@ -1,4 +1,11 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kubemoot-horizontal-white-text.png">
+  <img src=".github/assets/kubemoot-horizontal-color.png" alt="Kubemoot" height="64">
+</picture>
+
 # Kubemoot Crews
+
+[![Latest release](https://img.shields.io/github/v/release/kubemoot/crews?sort=semver&filter=homelab-pilot-crew-v*)](https://github.com/kubemoot/crews/releases) [![Build status](https://github.com/kubemoot/crews/actions/workflows/homelab-pilot-crew-release.yaml/badge.svg?branch=main)](https://github.com/kubemoot/crews/actions/workflows/homelab-pilot-crew-release.yaml?query=branch%3Amain) [![License: Apache 2.0](https://img.shields.io/github/license/kubemoot/crews)](https://github.com/kubemoot/crews/blob/main/LICENSE)
 
 Each subdirectory is an independently versioned Helm chart for a Kubemoot agent crew. Crews are the deployable unit of agent collaboration on the [Kubemoot](https://github.com/kubemoot/kubemoot) operator: a chart installs the Agents, PromptModules, MCP tool servers, Models, and the Crew resource that binds them, and the operator runs them.
 
