@@ -5,7 +5,7 @@ labels:
 body:
   - type: markdown
     attributes:
-      value: "This repository covers the crew charts. Describe the crew you want and what it should know; ideas for the operator or kmctl belong in [another repository, found through the issue chooser](https://github.com/kubemoot/crews/issues/new/choose)."
+      value: "This repository covers the crew charts. Use this form for a crew that does not exist yet; a change to an existing crew goes in Feature request, and a crew that misbehaves goes in Bug report. Ideas for the operator or kmctl belong in [another repository, found through the issue chooser](https://github.com/kubemoot/crews/issues/new/choose)."
   - type: checkboxes
     id: searched
     attributes:
@@ -14,23 +14,23 @@ body:
         - label: I searched existing issues and discussions and did not find this one
           required: true
   - type: textarea
-    id: purpose
+    id: domain
     attributes:
-      label: "What should the crew help with?"
-      description: The domain and the people who would ask it questions.
+      label: Problem domain
+      description: What the crew helps with, and who would ask it questions.
     validations:
       required: true
   - type: textarea
     id: questions
     attributes:
-      label: Example questions
-      description: Three to five questions you would ask it, and what a good answer contains.
+      label: Questions the crew should answer
+      description: Three to five real questions, and what a good answer contains.
     validations:
       required: true
   - type: textarea
     id: sources
     attributes:
-      label: Tools and sources
+      label: Tools and data it needs
       description: The MCP servers, APIs, documents, or repositories it should draw on, and how access is authenticated.
     validations:
       required: true
@@ -44,16 +44,10 @@ body:
   - type: dropdown
     id: contribute
     attributes:
-      label: "Would you be open to contributing this crew?"
+      label: "Would you be willing to help build this crew?"
       options:
         - "Yes"
         - Maybe
         - "No"
-    validations:
-      required: false
-  - type: textarea
-    id: context
-    attributes:
-      label: Anything else
     validations:
       required: false
