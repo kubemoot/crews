@@ -5,7 +5,7 @@ labels:
 body:
   - type: markdown
     attributes:
-      value: "This repository covers the crew charts. A crew that does not exist yet goes in the Suggest a new crew form; ideas for the operator, dashboard, or kmctl belong in [another repository, found through the issue chooser](https://github.com/kubemoot/crews/issues/new/choose). Something that worked or should work does not? File a Bug report instead; this form is for something new or different."
+      value: "This repository covers the crew charts. A crew that does not exist yet goes in the Suggest a new crew form; ideas for the operator, dashboard, or kmctl belong in their own repositories, linked from [the issue chooser](https://github.com/kubemoot/crews/issues/new/choose). Something that worked or should work does not? File a Bug report instead; this form is for something new or different."
   - type: checkboxes
     id: searched
     attributes:
