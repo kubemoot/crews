@@ -1,0 +1,63 @@
+name: Chart install problem
+description: A crew chart fails to install, upgrade, or start.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: "Use this form when helm install or upgrade fails, or the crew's pods do not start. A crew that runs but answers badly belongs in Crew behavior problem. This repository covers the crew charts; operator problems belong in [kubemoot/kubemoot](https://github.com/kubemoot/kubemoot/issues/new/choose)."
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and did not find this one
+          required: true
+  - type: dropdown
+    id: chart
+    attributes:
+      label: Crew chart
+      options:
+        - homelab-pilot-crew
+        - homelab-pilot-crew-prose
+        - kubemoot-fitness-crew
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: chart-version
+    attributes:
+      label: Chart version
+      placeholder: "The version you passed to `--version`"
+    validations:
+      required: true
+  - type: input
+    id: kubemoot-version
+    attributes:
+      label: Kubemoot version
+      placeholder: "The operator chart version from `helm list -A`"
+    validations:
+      required: true
+  - type: input
+    id: kubernetes
+    attributes:
+      label: Kubernetes distribution and version
+      placeholder: "Distribution name, and the server version from `kubectl version`"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: The command and your values
+      description: The helm command and the values you overrode. Remove secrets first.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or error
+      description: "The helm error, or `kubectl describe` and logs for the failing pod."
+      render: shell
+    validations:
+      required: true
