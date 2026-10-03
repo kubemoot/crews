@@ -22,11 +22,11 @@
 #   GHCR_USERNAME, GHCR_TOKEN  (the caller logs helm in to Harbor)
 #   CREWS             crew chart directories (default below)
 #   OUT_DIR           where packaged charts and notes land (default: promotion)
+#   RELEASE_LIB       release-lib.sh of kubemoot/release-actions (its actions set it)
 set -euo pipefail
 
-here="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source-path=SCRIPTDIR source=release-lib.sh
-source "${here}/release-lib.sh"
+# shellcheck source=/dev/null
+source "${RELEASE_LIB:?RELEASE_LIB must point to release-lib.sh from kubemoot/release-actions}"
 
 RC_TAG="${RC_TAG:-latest}"
 CREWS="${CREWS:-homelab-pilot-crew homelab-pilot-crew-prose kubemoot-fitness-crew}"
