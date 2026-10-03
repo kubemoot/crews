@@ -1,0 +1,59 @@
+name: Suggest a new crew
+description: A crew that does not exist yet.
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: "This repository covers the crew charts. Describe the crew you want and what it should know; ideas for the operator or kmctl belong in [another repository, found through the issue chooser](https://github.com/kubemoot/crews/issues/new/choose)."
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and discussions and did not find this one
+          required: true
+  - type: textarea
+    id: purpose
+    attributes:
+      label: "What should the crew help with?"
+      description: The domain and the people who would ask it questions.
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Example questions
+      description: Three to five questions you would ask it, and what a good answer contains.
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Tools and sources
+      description: The MCP servers, APIs, documents, or repositories it should draw on, and how access is authenticated.
+    validations:
+      required: true
+  - type: textarea
+    id: specialists
+    attributes:
+      label: Specialist roles
+      description: The kinds of specialist agents you imagine. Rough is fine.
+    validations:
+      required: false
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: "Would you be open to contributing this crew?"
+      options:
+        - "Yes"
+        - Maybe
+        - "No"
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+    validations:
+      required: false

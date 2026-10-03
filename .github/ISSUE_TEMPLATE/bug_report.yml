@@ -1,0 +1,80 @@
+name: Bug report or crew behavior
+description: A crew answers badly, or a crew chart is wrong.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: "This repository covers the crew charts. A bug in the operator, agent runtime, or dashboard belongs in [kubemoot/kubemoot](https://github.com/kubemoot/kubemoot/issues/new/choose); questions go to [Discussions](https://github.com/orgs/kubemoot/discussions/categories/q-a)."
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and did not find this one
+          required: true
+  - type: dropdown
+    id: chart
+    attributes:
+      label: Crew chart
+      options:
+        - homelab-pilot-crew
+        - homelab-pilot-crew-prose
+        - kubemoot-fitness-crew
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: chart-version
+    attributes:
+      label: Chart version
+      placeholder: "The chart version from `helm list -A`"
+    validations:
+      required: true
+  - type: input
+    id: kubemoot-version
+    attributes:
+      label: Kubemoot version
+      placeholder: "The operator chart version from `helm list -A`"
+    validations:
+      required: true
+  - type: input
+    id: model-provider
+    attributes:
+      label: Model provider and models
+      placeholder: For example Ollama serving the models you use
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: The question you asked
+    validations:
+      required: true
+  - type: textarea
+    id: answered
+    attributes:
+      label: What the crew answered
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What a correct answer contains, or what a chart should have done.
+    validations:
+      required: true
+  - type: textarea
+    id: export
+    attributes:
+      label: Discussion export
+      description: If you can export the discussion, paste or attach it. Remove secrets first.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+    validations:
+      required: false
