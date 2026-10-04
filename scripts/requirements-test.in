@@ -1,0 +1,7 @@
+# Test tooling for the scripts in this directory (the quality workflow runs them under coverage).
+#
+# requirements-test.txt is the hash-locked install set, generated with:
+#   pip-compile --allow-unsafe --generate-hashes --strip-extras --output-file=requirements-test.txt requirements-test.in
+# (Python 3.12, the quality workflow's Python). Dependabot updates both.
+
+coverage==7.16.2

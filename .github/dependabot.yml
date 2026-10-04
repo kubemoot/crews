@@ -14,3 +14,15 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "ci"
+
+  - package-ecosystem: pip
+    directories:
+      - "/scripts"
+    schedule:
+      interval: weekly
+    groups:
+      pip:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
