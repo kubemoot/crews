@@ -19,7 +19,6 @@ body:
       label: Crew it touches
       options:
         - homelab-pilot-crew
-        - homelab-pilot-crew-prose
         - kubemoot-fitness-crew
         - Other
     validations:

@@ -14,7 +14,6 @@ Each subdirectory is an independently versioned Helm chart for a Kubemoot agent 
 | Crew | What it is | Chart |
 |---|---|---|
 | [homelab-pilot-crew](./homelab-pilot-crew/) | The reference crew: a coordinator and up to 22 specialists that answer operational questions about a Kubernetes cluster, its observability stack, NVIDIA GPUs, and optionally Proxmox VE. Its prompts are written in ADL. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` |
-| [homelab-pilot-crew-prose](./homelab-pilot-crew-prose/) | The prose arm of the ADL-vs-prose experiment: the same crew with every prompt rewritten as natural prose, so prompt form is the only difference. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew-prose` |
 | [kubemoot-fitness-crew](./kubemoot-fitness-crew/) | A one-agent judge crew that scores fitness-scenario answers against a reference (the `REFLECTS` assertion). Install it once per cluster if you run fitness suites. | `oci://ghcr.io/kubemoot/charts/kubemoot-fitness-crew` |
 
 The reference crew was built for the maintainer's homelab: a Talos Kubernetes cluster on Proxmox VE with two GPU nodes, each serving Ollama. The chart defaults are generic, but read [Before you install](./homelab-pilot-crew/README.md#before-you-install) in its README for what you have to supply.
@@ -27,7 +26,7 @@ The reference crew was built for the maintainer's homelab: a Talos Kubernetes cl
 - The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. The crews in this repository are tested against operator chart 0.92.x; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
 - NATS JetStream, which carries the discussions. The operator docs and the quickstart install it as release `nats` in namespace `nats`; if yours differs, set `nats.url` and `nats.namespace`.
 - At least one Ollama server registered as a `ModelProvider` (created through the operator chart's `modelProviders` values), with the models your crew's `models` values name already pulled. The Kubemoot quickstart creates one called `ollama-local`, which is the default `providerRef` in these charts.
-- For `homelab-pilot-crew` and `homelab-pilot-crew-prose`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
+- For `homelab-pilot-crew`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
 
 ### Install a crew
 
