@@ -8,8 +8,13 @@
 # with the final version X.Y.Z and the Kubemoot image tags its tested candidate chart
 # in Harbor ran (stamp-crew.sh, in a scratch worktree, never committed), pushes it to
 # Harbor and the release registry, and tags the candidate's commit <crew>-vX.Y.Z.
-# Every chart is packaged and checked before anything is pushed; all the tags are
-# pushed together (atomic). Each promoted crew gets its own release
+# Every chart is packaged and checked before anything is pushed; each chart pushed to
+# the release registry is signed there by digest with cosign, keyless, under the
+# workflow's GitHub OIDC identity (sign-release.sh), and recorded in
+# ${OUT_DIR}/subjects.tsv and the `subjects` output for the workflow's attest job
+# (a chart already signed by this workflow is not signed again). A
+# signing failure stops the run before any tag, so no GitHub Release is written. All
+# the tags are pushed together (atomic). Each promoted crew gets its own release
 # notes (${OUT_DIR}/<crew>.md) and a line in ${OUT_DIR}/releases.tsv.
 #
 # A crew chart that pins a Kubemoot release candidate image is refused: promote
@@ -17,7 +22,9 @@
 #
 # Env:
 #   RC_TAG            "latest" (default) or a release-candidate tag on main
-#   DRY_RUN           "true" (default) plans and packages; pushes nothing, tags nothing
+#   DRY_RUN           "true" (default) plans and packages; pushes nothing, signs
+#                     nothing, tags nothing, but checks that cosign and the signing
+#                     identity are in place
 #   REGISTRY          Harbor host (charts at oci://${REGISTRY}/crews)
 #   RELEASE_REGISTRY  registry plus namespace, e.g. ghcr.io/kubemoot (charts at .../charts)
 #   GHCR_USERNAME, GHCR_TOKEN  (the caller logs helm in to Harbor)
@@ -36,6 +43,8 @@ OUT_DIR="$(mkdir -p "${OUT_DIR:-promotion}" && cd "${OUT_DIR:-promotion}" && pwd
 : "${RELEASE_REGISTRY:?RELEASE_REGISTRY required}"
 
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=SCRIPTDIR/sign-release.sh
+source "${here}/sign-release.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 trap rl_remove_worktrees EXIT
 
@@ -68,13 +77,23 @@ package_crew() {
   helm package "${wt}/${crew}" --destination "${OUT_DIR}"
 }
 
+# push_chart TGZ: the chart to Harbor and the release registry, then signed by the
+# digest the release registry reports for the push.
 push_chart() {
-  local tgz="$1"
+  local tgz="$1" repo out digest
   echo "chart $(basename "$tgz")"
-  rl_is_dry && return 0
+  repo="$(sign_release_chart_repo "$tgz")"
+  if rl_is_dry; then
+    sign_release_artifact "$repo" "<digest after the push>"
+    return 0
+  fi
   helm push --insecure-skip-tls-verify "$tgz" "oci://${REGISTRY}/crews"
   echo "${GHCR_TOKEN:?GHCR_TOKEN required}" | helm registry login "${RELEASE_REGISTRY%%/*}" -u "${GHCR_USERNAME:?GHCR_USERNAME required}" --password-stdin
-  helm push "$tgz" "oci://${RELEASE_REGISTRY}/charts"
+  # helm prints the pushed reference and its digest on stderr.
+  out=$(helm push "$tgz" "oci://${RELEASE_REGISTRY}/charts" 2>&1) || { echo "$out" >&2; die "pushing $(basename "$tgz") to ${RELEASE_REGISTRY} failed"; }
+  echo "$out"
+  digest=$(sed -n 's/^Digest: //p' <<<"$out")
+  sign_release_artifact "$repo" "$digest"
 }
 
 write_notes() {
@@ -112,6 +131,7 @@ main() {
   local point crew tgz
   point=$(rl_resolve_point "$RC_TAG")
   echo "Promoting crew charts from ${RC_TAG} (commit ${point}); dry run: ${DRY_RUN:-true}"
+  sign_release_preflight "${OUT_DIR}"
   : > "${OUT_DIR}/releases.tsv"
   for crew in ${CREWS}; do
     promote_crew "$crew" "$point"
@@ -122,6 +142,7 @@ main() {
     push_chart "$tgz"
   done
   rl_push_new_tags
+  [ -z "${GITHUB_OUTPUT:-}" ] || echo "subjects=$(sign_release_subjects_json)" >> "$GITHUB_OUTPUT"
 }
 
 main "$@"
