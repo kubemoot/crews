@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ci-release-scripts.yaml'
+      - '.github/workflows/*-release.yaml'
+      - '*/Chart.yaml'
+      - '*/values.yaml'
       - 'scripts/**'
       - 'brand.lock'
       - '.github/assets/**'
@@ -14,6 +17,9 @@ on:
     paths:
       - '.github/scripts/**'
       - '.github/workflows/ci-release-scripts.yaml'
+      - '.github/workflows/*-release.yaml'
+      - '*/Chart.yaml'
+      - '*/values.yaml'
       - 'scripts/**'
       - 'brand.lock'
       - '.github/assets/**'
@@ -34,11 +40,12 @@ jobs:
         with:
           version: 'v3.14.0'
       - name: Set up the release helpers
-        uses: kubemoot/release-actions/setup@76c35a749b9db4105e73307b91b8f7cf1359b755 # v0.4.0
+        uses: kubemoot/release-actions/setup@73fdfa313081f82c79758dfba3f8b4bb1e106dcf # v0.6.2
       - name: Shellcheck
         run: shellcheck -x .github/scripts/*.sh
       - name: Tests
         run: |
           bash .github/scripts/test-promote-release.sh
+          bash .github/scripts/test-stamp-crew.sh
       - name: Fitness suite builder tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py' -v

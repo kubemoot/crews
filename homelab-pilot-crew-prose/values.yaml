@@ -297,14 +297,14 @@ mcpServers:
     enabled: true
     # Kubemoot code-sandbox (kubemoot/code-sandbox): runs the compute tooler's
     # Python or bash with no stdin, a process-group time limit, and capped output.
-    # The pod itself is the sandbox (no creds). Version tag, manual pin like
-    # artifact-access; bump after each code-sandbox release.
-    image: "code-sandbox:0.14.4"
+    # The pod itself is the sandbox (no creds). The 0.0.0 tag is stamped at build with
+    # Kubemoot's latest released code-sandbox version.
+    image: "code-sandbox:0.0.0"
   artifactAccess:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
-    # two modes). Released by the kubemoot artifact-access pipeline. Version tag
-    # (immutable per semantic-version); not :latest. 0.311.19 is the first non-root image.
-    image: "artifact-access:0.342.1"
+    # two modes). The 0.0.0 tag is stamped at build with Kubemoot's latest released
+    # artifact-access version.
+    image: "artifact-access:0.0.0"
   artifactReadOps:
     # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
     # network-capable agents call head/tail/grep/select/count/rows/jq over a

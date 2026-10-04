@@ -2,8 +2,8 @@ apiVersion: v2
 name: kubemoot-fitness-crew
 description: Kubemoot crew that judges fitness results, scoring how well a crew's answer reflects a known ground truth (the REFLECTS assertion)
 type: application
-version: 0.4.8-rc.0
-appVersion: 0.4.8-rc.0
+version: 0.0.0
+appVersion: 0.0.0
 home: https://github.com/kubemoot/crews
 sources:
   - https://github.com/kubemoot/crews/tree/main/kubemoot-fitness-crew

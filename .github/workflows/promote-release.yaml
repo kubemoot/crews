@@ -4,8 +4,9 @@
 # chart into Harbor, and the homelab runs it. When the candidates have passed their
 # tests and measurements, a maintainer runs this workflow (Actions tab, Run workflow;
 # dispatch needs write access). For every crew it takes the latest unreleased
-# candidate, packages the chart from that candidate's commit with the final version,
-# pushes it to Harbor and the release registry, tags the commit <crew>-vX.Y.Z, and
+# candidate, packages the chart from that candidate's commit with the final version and
+# the Kubemoot image tags the candidate ran, pushes it to Harbor (the homelab moves to
+# the final) and the release registry, tags the commit <crew>-vX.Y.Z, and
 # writes one GitHub Release per crew (.github/scripts/promote-release.sh). A crew that
 # pins a Kubemoot release candidate image is refused: promote Kubemoot first.
 #
@@ -65,11 +66,12 @@ jobs:
           version: 'v3.14.0'
 
       - name: Set up the release helpers
-        uses: kubemoot/release-actions/setup@76c35a749b9db4105e73307b91b8f7cf1359b755 # v0.4.0
+        uses: kubemoot/release-actions/setup@73fdfa313081f82c79758dfba3f8b4bb1e106dcf # v0.6.2
 
       - name: Test the release scripts
         run: |
           bash .github/scripts/test-promote-release.sh
+          bash .github/scripts/test-stamp-crew.sh
 
       - name: Log in to Harbor
         env:

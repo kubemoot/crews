@@ -33,14 +33,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          # RELEASE_TOKEN (contents+workflows write) pushes even when main's workflow files changed after this commit; GITHUB_TOKEN is refused there.
+          # RELEASE_TOKEN (contents+workflows write) pushes the tag even when main's workflow files changed after this commit; GITHUB_TOKEN is refused there.
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
           fetch-depth: 0
           fetch-tags: true
 
       - name: Calculate the release candidate version
         id: version
-        uses: kubemoot/release-actions/release-candidate-version@76c35a749b9db4105e73307b91b8f7cf1359b755 # v0.4.0
+        uses: kubemoot/release-actions/release-candidate-version@73fdfa313081f82c79758dfba3f8b4bb1e106dcf # v0.6.2
         with:
           tag_prefix: "homelab-pilot-crew-prose-v"
           change_path: "homelab-pilot-crew-prose"
@@ -52,14 +52,14 @@ jobs:
         with:
           version: 'v3.14.0'
 
-      - name: Update Chart.yaml version
+      # Git holds 0.0.0 for the chart version and for every Kubemoot image tag; the build
+      # stamps the candidate version and the latest final Kubemoot image tags into the
+      # chart it packages and never commits them.
+      - name: Stamp the chart version and the Kubemoot images
         if: steps.version.outputs.release_created == 'true'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          echo "Updating Chart.yaml to version: $VERSION"
-          sed -i "s/^version:.*/version: $VERSION/" "${CHART_PATH}/Chart.yaml"
-          sed -i "s/^appVersion:.*/appVersion: $VERSION/" "${CHART_PATH}/Chart.yaml"
-          grep -E "^(version|appVersion):" "${CHART_PATH}/Chart.yaml"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash .github/scripts/stamp-crew.sh "${CHART_PATH}" "${VERSION}"
 
       - name: Package and push Helm chart
         if: steps.version.outputs.release_created == 'true'
@@ -79,11 +79,7 @@ jobs:
           echo "Pushing ${CHART_NAME} to ${CHART_REGISTRY}..."
           helm push --insecure-skip-tls-verify "${CHART_NAME}-${VERSION}.tgz" "${CHART_REGISTRY}"
 
-      - name: Commit the chart version to main and tag it
-        # Re-applies only this release's Chart.yaml version onto fresh main and retries a
-        # rejected push (the crews release together and race), then tags only after the
-        # commit is on main, so the next version is computed from a tag main contains.
-        # Fails loudly instead of leaving a tag off main.
+      - name: Create and push tag
         if: steps.version.outputs.release_created == 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -91,26 +87,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          pushed=false
-          for attempt in 1 2 3 4 5 6 7 8; do
-            git fetch -q origin main
-            git reset -q --hard FETCH_HEAD
-            sed -i "s/^version:.*/version: $VERSION/" "${CHART_PATH}/Chart.yaml"
-            sed -i "s/^appVersion:.*/appVersion: $VERSION/" "${CHART_PATH}/Chart.yaml"
-            if ! git diff --quiet -- "${CHART_PATH}/Chart.yaml"; then
-              git add "${CHART_PATH}/Chart.yaml"
-              git commit -q -m "chore(${CHART_NAME}): update chart to v${VERSION} [skip ci]"
-            fi
-            if git push origin HEAD:main; then pushed=true; break; fi
-            echo "git push rejected (attempt ${attempt}/8); re-reading origin/main and retrying"
-            sleep $((attempt * 5))
-          done
-          [ "$pushed" = true ] || { echo "::error::could not land ${CHART_NAME} ${VERSION} on main"; exit 1; }
-
+          # The tag marks the commit this run built; nothing is committed back to main.
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists on remote"
           else
-            git tag -a "$TAG" -m "Release candidate $TAG"
+            git tag -a "$TAG" -m "Release candidate $TAG" "${GITHUB_SHA}"
             git push origin "refs/tags/$TAG"
           fi
-
