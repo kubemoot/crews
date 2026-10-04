@@ -5,14 +5,15 @@
 # the homelab runs it. For every crew chart, this script takes the highest
 # <crew>-vX.Y.Z-rc.N tag reachable from the starting point (RC_TAG, or the tip of main
 # for "latest") that is not yet released, packages the chart from that tag's commit
-# with the final version X.Y.Z (in a scratch worktree, never committed), pushes it to
+# with the final version X.Y.Z and the Kubemoot image tags its tested candidate chart
+# in Harbor ran (stamp-crew.sh, in a scratch worktree, never committed), pushes it to
 # Harbor and the release registry, and tags the candidate's commit <crew>-vX.Y.Z.
 # Every chart is packaged and checked before anything is pushed; all the tags are
 # pushed together (atomic). Each promoted crew gets its own release
 # notes (${OUT_DIR}/<crew>.md) and a line in ${OUT_DIR}/releases.tsv.
 #
 # A crew chart that pins a Kubemoot release candidate image is refused: promote
-# Kubemoot first and pin its final version.
+# Kubemoot first, then build a new crew candidate, which resolves Kubemoot's finals.
 #
 # Env:
 #   RC_TAG            "latest" (default) or a release-candidate tag on main
@@ -34,18 +35,36 @@ OUT_DIR="$(mkdir -p "${OUT_DIR:-promotion}" && cd "${OUT_DIR:-promotion}" && pwd
 : "${REGISTRY:?REGISTRY required}"
 : "${RELEASE_REGISTRY:?RELEASE_REGISTRY required}"
 
+here="$(cd "$(dirname "$0")" && pwd)"
 die() { echo "ERROR: $*" >&2; exit 1; }
 trap rl_remove_worktrees EXIT
 
-# package_crew CREW RC_TAG FINAL: the chart from the candidate's commit, final version.
+# candidate_values CREW RC_TAG: the path of the values.yaml the candidate chart in
+# Harbor was packaged with, which holds the Kubemoot image tags the candidate ran.
+candidate_values() {
+  local crew="$1" rc_tag="$2" file
+  file="$(mktemp)"
+  helm show values --insecure-skip-tls-verify "oci://${REGISTRY}/crews/${crew}" \
+    --version "${rc_tag#"${crew}-v"}" > "$file" \
+    || die "cannot read the candidate chart ${crew} ${rc_tag#"${crew}-v"} from Harbor"
+  printf '%s\n' "$file"
+}
+
+# package_crew CREW RC_TAG FINAL: the chart from the candidate's commit, stamped with the
+# final version and the Kubemoot image tags of the tested candidate chart.
 package_crew() {
-  local crew="$1" rc_tag="$2" final="$3" wt
+  local crew="$1" rc_tag="$2" final="$3" wt candidate pins=()
   rl_checkout_at "$(git rev-list -n 1 "$rc_tag")"
   wt="$RL_CHECKOUT"
-  if grep -nE -- ':[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${wt}/${crew}/values.yaml"; then
-    die "${crew} at ${rc_tag} pins a release candidate image; promote it in its own repository and pin the final"
+  if [ -n "$(rl_image_placeholders "${wt}/${crew}/values.yaml")" ]; then
+    candidate="$(candidate_values "$crew" "$rc_tag")"
+    pins=("$candidate")
   fi
-  sed -i -E "s/^version:.*/version: ${final}/; s/^appVersion:.*/appVersion: ${final}/" "${wt}/${crew}/Chart.yaml"
+  bash "${here}/stamp-crew.sh" "${wt}/${crew}" "${final}" "${pins[@]}"
+  [ -z "${candidate:-}" ] || rm -f "$candidate"
+  if grep -nE -- ':[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${wt}/${crew}/values.yaml"; then
+    die "${crew} at ${rc_tag} pins a release candidate image; promote Kubemoot first, then promote a crew candidate built after it"
+  fi
   helm package "${wt}/${crew}" --destination "${OUT_DIR}"
 }
 
