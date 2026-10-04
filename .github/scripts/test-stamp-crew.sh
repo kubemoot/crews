@@ -18,7 +18,7 @@ failures=0
 check() {
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: want [$2] got [$3]"; failures=$((failures + 1)); fi
 }
-crews=(homelab-pilot-crew homelab-pilot-crew-prose kubemoot-fitness-crew)
+crews=(homelab-pilot-crew kubemoot-fitness-crew)
 
 # The rule as git holds it.
 for crew in "${crews[@]}"; do
@@ -39,8 +39,6 @@ for crew in "${crews[@]}"; do
 done
 check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "the prose crew pins the same placeholders" "artifact-access code-sandbox" \
-  "$(rl_image_placeholders "${repo}/homelab-pilot-crew-prose/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
 root="$(mktemp -d)"
@@ -87,11 +85,7 @@ copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.1-rc.0 && status=0 || status=$?
 check "a later candidate picks up the newer final" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.19.0')"
 
-# The prose crew and the fitness crew (no Kubemoot images) stamp the same way.
-copy_crew homelab-pilot-crew-prose
-stamp "${root}/homelab-pilot-crew-prose" 0.32.0-rc.0 && status=0 || status=$?
-check "prose candidate stamp succeeds" 0 "$status"
-check "prose renders the latest artifact-access" 1 "$(rendered_images homelab-pilot-crew-prose | grep -cx 'ghcr.io/kubemoot/artifact-access:0.343.0')"
+# The fitness crew (no Kubemoot images) stamps the same way.
 copy_crew kubemoot-fitness-crew
 KUBEMOOT_REMOTE="${root}/missing.git" stamp "${root}/kubemoot-fitness-crew" 0.5.0-rc.1 && status=0 || status=$?
 check "a crew without Kubemoot images needs no Kubemoot remote" 0 "$status"
