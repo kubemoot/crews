@@ -1,0 +1,8 @@
+# Lint tooling for the scripts in this directory (CI Release Scripts runs `ruff check .`
+# from the repository root with ruff.toml there).
+#
+# requirements-lint.txt is the hash-locked install set, generated with:
+#   pip-compile --allow-unsafe --generate-hashes --strip-extras --output-file=requirements-lint.txt requirements-lint.in
+# (Python 3.12). Dependabot updates both.
+
+ruff==0.16.10
