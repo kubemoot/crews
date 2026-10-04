@@ -1,4 +1,4 @@
-# Tests for the release and promotion scripts, the fitness suite builder, and the brand copies. Not a release gate.
+# Tests for the release and promotion scripts, the fitness suite builder, and the brand copies; lints the Python. Not a release gate.
 name: CI Release Scripts
 
 on:
@@ -10,6 +10,7 @@ on:
       - '*/Chart.yaml'
       - '*/values.yaml'
       - 'scripts/**'
+      - 'ruff.toml'
       - 'brand.lock'
       - '.github/assets/**'
   push:
@@ -21,6 +22,7 @@ on:
       - '*/Chart.yaml'
       - '*/values.yaml'
       - 'scripts/**'
+      - 'ruff.toml'
       - 'brand.lock'
       - '.github/assets/**'
 
@@ -47,5 +49,14 @@ jobs:
         run: |
           bash .github/scripts/test-promote-release.sh
           bash .github/scripts/test-stamp-crew.sh
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      # Ruff with the root ruff.toml, pinned by scripts/requirements-lint.txt.
+      - name: Lint Python
+        run: |
+          python -m pip install --quiet --require-hashes -r scripts/requirements-lint.txt
+          ruff check .
       - name: Fitness suite builder tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
