@@ -17,25 +17,25 @@ jobs:
     runs-on: homelab-runners
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # full history for SonarQube new-code detection
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
       - name: Tests with coverage
         run: |
-          python -m pip install --quiet coverage==7.16.2
+          python -m pip install --quiet --require-hashes -r scripts/requirements-test.txt
           python -m coverage run -m unittest discover -s scripts -p 'test_*.py'
           python -m coverage xml -o coverage.xml
           python -m coverage report
         continue-on-error: true
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
