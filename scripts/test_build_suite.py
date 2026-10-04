@@ -100,29 +100,29 @@ class RenderTest(unittest.TestCase):
 
     def test_full_manifest(self):
         scn = [("one", "WHEN x\n\nTHEN y"), ("two", "ASSERT z")]
-        expected = "\n".join([
-            "apiVersion: kubemoot.ai/v1alpha1",
-            "kind: CrewFitnessSuite",
-            "metadata:",
-            "  name: baseline",
-            "  namespace: crew-demo",
-            "spec:",
-            "  crewRef: demo",
-            "  description: 'the crew''s run'",
-            "  iterations: 2",
-            "  concurrency: 1",
-            "  perIterationTimeout: 5m",
-            "  artifactRetention: 24h",
-            "  scripts:",
-            "    - testRef: one",
-            "      testContent: |",
-            "        WHEN x",
-            "",
-            "        THEN y",
-            "    - testRef: two",
-            "      testContent: |",
-            "        ASSERT z",
-        ])
+        expected = (
+            "apiVersion: kubemoot.ai/v1alpha1\n"
+            "kind: CrewFitnessSuite\n"
+            "metadata:\n"
+            "  name: baseline\n"
+            "  namespace: crew-demo\n"
+            "spec:\n"
+            "  crewRef: demo\n"
+            "  description: 'the crew''s run'\n"
+            "  iterations: 2\n"
+            "  concurrency: 1\n"
+            "  perIterationTimeout: 5m\n"
+            "  artifactRetention: 24h\n"
+            "  scripts:\n"
+            "    - testRef: one\n"
+            "      testContent: |\n"
+            "        WHEN x\n"
+            "\n"
+            "        THEN y\n"
+            "    - testRef: two\n"
+            "      testContent: |\n"
+            "        ASSERT z"
+        )
         args = self.args("--description", "the crew's run", "--per-iteration-timeout", "5m",
                          "--artifact-retention", "24h")
         self.assertEqual(build_suite.render(scn, args), expected)
