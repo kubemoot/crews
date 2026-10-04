@@ -67,9 +67,7 @@ write_notes() {
     echo "helm install ${crew} oci://${RELEASE_REGISTRY}/charts/${crew} --version ${final}"
     echo '```'
     echo
-    echo "## Changes${prev:+ since ${prev}}"
-    echo
-    rl_release_notes "$prev" "$src" "$crew"
+    rl_notes_document "$prev" "$src" "${crew}-v${final}" "$crew"
   } > "${OUT_DIR}/${crew}.md"
 }
 

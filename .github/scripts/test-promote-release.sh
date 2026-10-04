@@ -73,7 +73,7 @@ check "skips a crew with no candidate" 1 "$(grep -c 'gamma: no release candidate
 check "packages alpha from its candidate commit" 1 "$(tar -xzOf "${root}/out-dry/alpha-0.5.0.tgz" alpha/Chart.yaml | grep -c '^version: 0.5.0$')"
 check "leaves out later work" 0 "$(tar -xzOf "${root}/out-dry/alpha-0.5.0.tgz" alpha/README.md | grep -c 'alpha later' || true)"
 check "alpha notes are alpha only" 0 "$(grep -c 'beta' "${root}/out-dry/alpha.md" || true)"
-check "alpha notes list its feature" 1 "$(grep -c '^- feat(alpha): new scenario' "${root}/out-dry/alpha.md")"
+check "alpha notes list its feature" 1 "$(grep -c '^- New scenario (' "${root}/out-dry/alpha.md")"
 check "dry run pushes nothing" 0 "$(grep -c '^helm push' "$LOG" || true)"
 check "dry run tags nothing" "" "$(git tag -l alpha-v0.5.0)"
 
