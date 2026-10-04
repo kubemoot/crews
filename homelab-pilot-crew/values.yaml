@@ -289,10 +289,10 @@ mcpServers:
     image: "ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26"
   scheduling:
     # Reminders and follow-ups (the scheduler-advisor agent renders only when this
-    # is enabled). The scheduling-mcp image is not published to ghcr.io yet, so it
-    # is off by default; enable it when your registry has the image.
+    # is enabled). Off by default. The 0.0.0 tag is stamped at build with Kubemoot's
+    # latest released scheduling-mcp version.
     enabled: false
-    image: scheduling-mcp:137268e5f2b4bc80f977d4d502cf124156d05d29
+    image: "scheduling-mcp:0.0.0"
   codeSandbox:
     enabled: true
     # Kubemoot code-sandbox (kubemoot/code-sandbox): runs the compute tooler's

@@ -28,6 +28,8 @@ for crew in "${crews[@]}"; do
   # tag in git is 0.0.0, never a typed X.Y.Z.
   check "${crew} types no Kubemoot image version" "" \
     "$(grep -nE '^\s*image:\s*"?[a-z0-9][a-z0-9._-]*:[0-9]+\.[0-9]+\.[0-9]+' "${repo}/${crew}/values.yaml" | grep -v ':0\.0\.0' || true)"
+  check "${crew} pins no Kubemoot image by commit" "" \
+    "$(grep -nE '^\s*image:\s*"?[a-z0-9][a-z0-9._-]*:[0-9a-f]{40}"?\s*$' "${repo}/${crew}/values.yaml" || true)"
   check "${crew} release workflow commits nothing" "" \
     "$(grep -nE 'git (commit|add|reset|pull)|HEAD:main|\[skip ci\]' "${repo}/.github/workflows/${crew}-release.yaml" || true)"
   # shellcheck disable=SC2016 # the workflow text itself, not an expansion
@@ -37,7 +39,7 @@ for crew in "${crews[@]}"; do
   check "${crew} release workflow tags the built commit" "1" \
     "$(grep -c 'git tag -a "\$TAG" -m "Release candidate \$TAG" "\${GITHUB_SHA}"' "${repo}/.github/workflows/${crew}-release.yaml")"
 done
-check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox" \
+check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox scheduling-mcp" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
@@ -46,7 +48,8 @@ trap 'rm -rf "$root"' EXIT
 git init -q -b main "${root}/kubemoot"
 git -C "${root}/kubemoot" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
 for t in code-sandbox-v0.14.4 code-sandbox-v0.17.0 code-sandbox-v0.18.0-rc.126 \
-  artifact-access-v0.342.1 artifact-access-v0.343.0 artifact-access-v0.344.0-rc.126 v0.99.0; do
+  artifact-access-v0.342.1 artifact-access-v0.343.0 artifact-access-v0.344.0-rc.126 \
+  scheduling-mcp-v0.1.0 scheduling-mcp-v0.2.0-rc.3 v0.99.0; do
   git -C "${root}/kubemoot" tag "$t"
 done
 git clone -q --bare "${root}/kubemoot" "${root}/kubemoot.git"
@@ -54,7 +57,10 @@ export KUBEMOOT_REMOTE="${root}/kubemoot.git"
 
 stamp() { bash "${here}/stamp-crew.sh" "$@" > "${root}/stamp.log" 2>&1; }
 copy_crew() { rm -rf "${root:?}/${1:?}"; cp -r "${repo}/$1" "${root}/$1"; }
-rendered_images() { helm template t "${root}/$1" --set vectorStore.host=db | sed -n 's/^ *image: //p' | tr -d '"' | sort -u; }
+rendered_images() {
+  helm template t "${root}/$1" --set vectorStore.host=db --set mcpServers.scheduling.enabled=true \
+    | sed -n 's/^ *image: //p' | tr -d '"' | sort -u
+}
 
 # A release candidate build: chart version and the latest final Kubemoot images.
 copy_crew homelab-pilot-crew
@@ -66,6 +72,7 @@ check "candidate chart version" "0.47.0-rc.4|0.47.0-rc.4" \
 images="$(rendered_images homelab-pilot-crew)"
 check "renders the latest final code-sandbox" 1 "$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.17.0' <<<"$images")"
 check "renders the latest final artifact-access" 1 "$(grep -cx 'ghcr.io/kubemoot/artifact-access:0.343.0' <<<"$images")"
+check "renders the latest final scheduling-mcp" 1 "$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.1.0' <<<"$images")"
 check "renders no candidate or 0.0.0 Kubemoot image" 0 "$(grep -cE 'kubemoot/[a-z-]+:(0\.0\.0|.*-rc\.)' <<<"$images" || true)"
 check "the stamped chart lints" 0 "$(helm lint "${root}/homelab-pilot-crew" >/dev/null 2>&1; echo $?)"
 check "the repository copy is untouched" "0.0.0" "$(sed -n 's/^version: //p' "${repo}/homelab-pilot-crew/Chart.yaml")"
@@ -101,10 +108,11 @@ done
 copy_crew homelab-pilot-crew
 KUBEMOOT_REMOTE="${root}/missing.git" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
 check "refuses when Kubemoot's tags cannot be read" 1 "$((status != 0))"
-check "leaves the images unstamped then" 2 "$(rl_image_placeholders "${root}/homelab-pilot-crew/values.yaml" | wc -l | tr -d ' ')"
+check "leaves the images unstamped then" 3 "$(rl_image_placeholders "${root}/homelab-pilot-crew/values.yaml" | wc -l | tr -d ' ')"
 git init -q -b main "${root}/empty"
 git -C "${root}/empty" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
 git -C "${root}/empty" tag artifact-access-v0.343.0
+git -C "${root}/empty" tag scheduling-mcp-v0.1.0
 git -C "${root}/empty" tag code-sandbox-v0.18.0-rc.1
 KUBEMOOT_REMOTE="${root}/empty" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
 check "refuses a Kubemoot image with no final release" 1 "$((status != 0))"
