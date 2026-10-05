@@ -1,57 +1,23 @@
 {{/*
-Fitness scenario CRs — one CrewFitness per ADL script under fitness/.
-
-DEFAULT OFF.
-
-Today the operator unconditionally runs a Job the moment a CrewFitness
-CR exists, so deploying a baseline suite via the chart fires the whole
-suite at once — a thundering herd against the crew that was never
-intended. Until the operator supports a "visible-without-auto-run"
-annotation, this template stays gated; run scenarios on demand instead
-(kmctl fitness run, or a CrewFitnessSuite).
-
-Enable via values when the operator-side guard is in place:
-
-  fitness:
-    deployBaselineScenarios: true
-
-That will re-create the per-scenario CrewFitness CRs from fitness/*.adl
-with a stable name (scenario-{filename}) and an annotation telling the
-operator not to start a Job automatically.
+The crew's fitness scenarios, deployed with it so the live crew carries its tests.
+One ConfigMap, <crew>-fitness, labeled kubemoot.ai/crew=<crew> and
+kubemoot.ai/fitness-kind=scenarios, holds every script under fitness/ (*.adl and
+*.md, except README.md), one key per scenario named after its file. CrewForge and
+the dashboard list the scenarios from it and start a run on demand; a ConfigMap
+starts nothing on its own.
 */}}
-{{/*
-Emit one CrewFitness CR. Shared by the .adl and .md ranges below so a scenario
-declared in ADL or in prose Markdown renders identically — only the file form
-differs, never the resulting CR. dict: name, bytes, root.
-*/}}
-{{- define "homelab-pilot-crew.fitnessScenario" -}}
----
-apiVersion: kubemoot.ai/v1alpha1
-kind: CrewFitness
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: scenario-{{ .name }}
-  namespace: {{ .root.Release.Namespace }}
+  name: {{ .Values.crew.name }}-fitness
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "homelab-pilot-crew.labels" .root | nindent 4 }}
-    kubemoot.ai/crew: {{ .root.Values.crew.name }}
-    kubemoot.ai/fitness-kind: baseline-scenario
-  annotations:
-    # Honored only once the operator supports a manual trigger; without that
-    # guard the operator still runs the Job.
-    kubemoot.ai/fitness-trigger: manual
-spec:
-  crewRef: {{ .root.Values.crew.name | quote }}
-  testRef: {{ .name | quote }}
-  testContent: |
-{{ .bytes | toString | indent 4 }}
-{{- end }}
-{{- if .Values.fitness.deployBaselineScenarios }}
-{{- range $path, $bytes := .Files.Glob "fitness/*.adl" }}
-{{- include "homelab-pilot-crew.fitnessScenario" (dict "name" (base $path | trimSuffix ".adl") "bytes" $bytes "root" $) }}
-{{- end }}
-{{- range $path, $bytes := .Files.Glob "fitness/*.md" }}
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: {{ .Values.crew.name }}
+    kubemoot.ai/fitness-kind: scenarios
+data:
+{{- range $path, $bytes := .Files.Glob "fitness/*.{adl,md}" }}
 {{- if ne (base $path) "README.md" }}
-{{- include "homelab-pilot-crew.fitnessScenario" (dict "name" (base $path | trimSuffix ".md") "bytes" $bytes "root" $) }}
-{{- end }}
+  {{ base $path | quote }}: {{ toString $bytes | quote }}
 {{- end }}
 {{- end }}

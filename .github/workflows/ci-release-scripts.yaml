@@ -1,4 +1,4 @@
-# Tests for the release scripts, the fitness suite builder, and the brand copies; lints the Python. Not a release gate.
+# Tests for the release scripts, the fitness scenarios each chart deploys, the fitness suite builder, and the brand copies; lints the Python. Not a release gate.
 name: CI Release Scripts
 
 on:
@@ -9,6 +9,8 @@ on:
       - '.github/workflows/*-release.yaml'
       - '*/Chart.yaml'
       - '*/values.yaml'
+      - '*/templates/**'
+      - '*/fitness/**'
       - 'scripts/**'
       - 'ruff.toml'
       - 'brand.lock'
@@ -21,6 +23,8 @@ on:
       - '.github/workflows/*-release.yaml'
       - '*/Chart.yaml'
       - '*/values.yaml'
+      - '*/templates/**'
+      - '*/fitness/**'
       - 'scripts/**'
       - 'ruff.toml'
       - 'brand.lock'
@@ -49,6 +53,7 @@ jobs:
         run: |
           bash .github/scripts/test-publish-release.sh
           bash .github/scripts/test-stamp-crew.sh
+          bash .github/scripts/test-fitness-scenarios.sh
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
