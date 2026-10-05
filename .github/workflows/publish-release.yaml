@@ -82,7 +82,7 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Set up the release helpers
-        uses: kubemoot/release-actions/setup@73fdfa313081f82c79758dfba3f8b4bb1e106dcf # v0.6.2
+        uses: kubemoot/release-actions/setup@916e0bb62dadab8a4ee770ffb2a74e8ae414e40a # agent/shared-signing
 
       - name: Test the release scripts
         run: |
