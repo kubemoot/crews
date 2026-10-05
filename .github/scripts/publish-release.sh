@@ -10,7 +10,7 @@
 # Harbor and the release registry, and tags the candidate's commit <crew>-vX.Y.Z.
 # Every chart is packaged and checked before anything is pushed; each chart pushed to
 # the release registry is signed there by digest with cosign, keyless, under the
-# workflow's GitHub OIDC identity (sign-release.sh), and recorded in
+# workflow's GitHub OIDC identity (rl_sign_artifact of release-lib.sh), and recorded in
 # ${OUT_DIR}/subjects.tsv and the `subjects` output for the workflow's attest job
 # (a chart already signed by this workflow is not signed again). A
 # signing failure stops the run before any tag, so no GitHub Release is written. All
@@ -43,8 +43,6 @@ OUT_DIR="$(mkdir -p "${OUT_DIR:-release-files}" && cd "${OUT_DIR:-release-files}
 : "${RELEASE_REGISTRY:?RELEASE_REGISTRY required}"
 
 here="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=SCRIPTDIR/sign-release.sh
-source "${here}/sign-release.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 trap rl_remove_worktrees EXIT
 
@@ -82,9 +80,9 @@ package_crew() {
 push_chart() {
   local tgz="$1" repo out digest
   echo "chart $(basename "$tgz")"
-  repo="$(sign_release_chart_repo "$tgz")"
+  repo="$(rl_chart_repo "$tgz")"
   if rl_is_dry; then
-    sign_release_artifact "$repo" "<digest after the push>"
+    rl_sign_artifact "$repo" "<digest after the push>"
     return 0
   fi
   helm push --insecure-skip-tls-verify "$tgz" "oci://${REGISTRY}/crews"
@@ -93,7 +91,7 @@ push_chart() {
   out=$(helm push "$tgz" "oci://${RELEASE_REGISTRY}/charts" 2>&1) || { echo "$out" >&2; die "pushing $(basename "$tgz") to ${RELEASE_REGISTRY} failed"; }
   echo "$out"
   digest=$(sed -n 's/^Digest: //p' <<<"$out")
-  sign_release_artifact "$repo" "$digest"
+  rl_sign_artifact "$repo" "$digest"
 }
 
 write_notes() {
@@ -131,7 +129,7 @@ main() {
   local point crew tgz
   point=$(rl_resolve_point "$RC_TAG")
   echo "Publishing crew charts from ${RC_TAG} (commit ${point}); dry run: ${DRY_RUN:-true}"
-  sign_release_preflight "${OUT_DIR}"
+  rl_sign_preflight "${OUT_DIR}"
   : > "${OUT_DIR}/releases.tsv"
   for crew in ${CREWS}; do
     publish_crew "$crew" "$point"
@@ -142,7 +140,7 @@ main() {
     push_chart "$tgz"
   done
   rl_push_new_tags
-  [ -z "${GITHUB_OUTPUT:-}" ] || echo "subjects=$(sign_release_subjects_json)" >> "$GITHUB_OUTPUT"
+  [ -z "${GITHUB_OUTPUT:-}" ] || echo "subjects=$(rl_sign_subjects_json)" >> "$GITHUB_OUTPUT"
 }
 
 main "$@"
