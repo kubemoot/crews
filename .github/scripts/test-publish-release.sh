@@ -19,6 +19,9 @@ check() {
 }
 
 root="$(mktemp -d)"
+# Pushes into the scratch repositories start git's automatic gc in the background,
+# which races the cleanup below ("Directory not empty"); the test needs no gc.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=gc.auto GIT_CONFIG_VALUE_0=0
 trap 'rm -rf "$root"' EXIT
 export LOG="${root}/calls.log" SIGNED_STATE="${root}/signed"
 mkdir -p "${root}/bin" "$SIGNED_STATE"
