@@ -1,0 +1,22 @@
+{{/*
+The judge's own fitness scenarios, deployed with it so the live crew carries its
+tests. One ConfigMap, <crew>-fitness, labeled kubemoot.ai/crew=<crew> (from the
+common labels) and kubemoot.ai/fitness-kind=scenarios, holds every script under
+fitness/ (*.adl and *.md, except README.md), one key per scenario named after its
+file. CrewForge and the dashboard list the scenarios from it and start a run on
+demand; a ConfigMap starts nothing on its own.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.crew.name }}-fitness
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
+    kubemoot.ai/fitness-kind: scenarios
+data:
+{{- range $path, $bytes := .Files.Glob "fitness/*.{adl,md}" }}
+{{- if ne (base $path) "README.md" }}
+  {{ base $path | quote }}: {{ toString $bytes | quote }}
+{{- end }}
+{{- end }}

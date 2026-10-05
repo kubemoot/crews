@@ -11,14 +11,6 @@ crew:
   discussion:
     enabled: true
 
-# Baseline fitness-scenario CRs deployed alongside the crew.
-# Default OFF: the operator starts a Job as soon as a CrewFitness exists, so
-# deploying the baseline suite through the chart runs every scenario at once
-# against the crew. Keep this off and run scenarios on demand (kmctl fitness
-# run, or a CrewFitnessSuite).
-fitness:
-  deployBaselineScenarios: false
-
 # Model CRs for this crew. Each entry becomes a Model in the crew namespace,
 # labeled with capability / family / params / latencyClass so the
 # CrewSchedulingPolicy rules can pick a model per phase by label.

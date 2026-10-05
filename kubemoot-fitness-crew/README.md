@@ -38,7 +38,7 @@ models:
 
 ## Fitness
 
-`fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
+`fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question. The chart deploys them with the crew as one ConfigMap, `kubemoot-fitness-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`, so CrewForge and the dashboard list them; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
 ```bash
 python3 scripts/build-suite.py kubemoot-fitness-crew/fitness \
