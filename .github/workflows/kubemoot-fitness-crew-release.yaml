@@ -24,6 +24,9 @@ on:
   repository_dispatch:
     types: [kubemoot-published]
 
+permissions:
+  contents: read
+
 env:
   REGISTRY: ${{ vars.REGISTRY }}
   CHART_NAME: kubemoot-fitness-crew
@@ -33,7 +36,7 @@ jobs:
   release:
     runs-on: homelab-runners
     permissions:
-      contents: write
+      contents: write # pushes the release candidate tag
 
     steps:
       - name: Checkout repository
