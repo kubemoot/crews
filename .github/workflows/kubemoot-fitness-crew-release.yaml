@@ -3,6 +3,10 @@ name: kubemoot-fitness-crew Release
 # Path-filtered per-crew release pipeline. Triggers only when files under
 # kubemoot-fitness-crew/ change so each crew's version stream stays independent.
 # Modeled on homelab-pilot's release.yaml; one workflow per crew.
+#
+# A Kubemoot Publish Release sends the kubemoot-published event when it succeeds; the
+# crew then builds a forced candidate, as force_release does, so the chart takes the new
+# Kubemoot finals (stamp-crew.sh) and the crews Publish Release needs nothing by hand.
 
 on:
   push:
@@ -17,6 +21,8 @@ on:
         required: false
         default: 'false'
         type: boolean
+  repository_dispatch:
+    types: [kubemoot-published]
 
 env:
   REGISTRY: ${{ vars.REGISTRY }}
@@ -40,11 +46,11 @@ jobs:
 
       - name: Calculate the release candidate version
         id: version
-        uses: kubemoot/release-actions/release-candidate-version@73fdfa313081f82c79758dfba3f8b4bb1e106dcf # v0.6.2
+        uses: kubemoot/release-actions/release-candidate-version@f2585afb79cf9234d30135888158c647d834fcba # v0.10.0
         with:
           tag_prefix: "kubemoot-fitness-crew-v"
           change_path: "kubemoot-fitness-crew"
-          force: ${{ inputs.force_release }}
+          force: ${{ inputs.force_release || github.event_name == 'repository_dispatch' }}
 
       - name: Install Helm
         if: steps.version.outputs.release_created == 'true'
