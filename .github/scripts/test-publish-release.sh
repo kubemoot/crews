@@ -145,6 +145,7 @@ check "dry run checks cosign and the signing identity" 1 \
 check "dry run plans signing each chart" 2 "$(grep -cE '^sign ghcr.test/kubemoot/charts/(alpha|beta)@.*\(dry run: not signed\)$' <<<"$out")"
 check "dry run signs nothing" 0 "$(grep -cE '^cosign (sign|login)' "$LOG" || true)"
 check "dry run records no signed subject" "[]" "$(sed -n 's/^subjects=//p' "${root}/gh-dry")"
+check "dry run maps no provenance" 0 "$(wc -l < "${root}/out-dry/provenance.tsv" | tr -d ' ')"
 GITHUB_ACTIONS=true ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=true run_publish nooidc && status=0 || status=$?
 check "a dry run in GitHub Actions without an OIDC token fails" "1|1" "${status}|$(grep -c 'needs permissions id-token: write' "${root}/run-nooidc.log")"
 : > "$LOG"
@@ -235,6 +236,11 @@ done
 check "signs nothing by tag" 0 "$(grep '^cosign sign' "$LOG" | grep -vc '@sha256:' || true)"
 check "outputs the signed charts as the attest matrix" "2|ghcr.test/kubemoot/charts/alpha" \
   "$(sed -n 's/^subjects=//p' "${root}/gh-real" | python3 -c 'import json,sys; s=json.load(sys.stdin); print(len(s), s[0]["name"], sep="|")')"
+for crew in alpha-0.5.0 beta-0.30.1; do
+  check "maps the ${crew%-*} chart's provenance to its own release" \
+    "${crew%-*}-v${crew##*-}|${crew%-*}_${crew##*-}.intoto.jsonl|ghcr.test/kubemoot/charts/${crew%-*}|sha256:$(sha256sum "${root}/out-real/${crew}.tgz" | cut -d' ' -f1)" \
+    "$(grep "^${crew%-*}-v" "${root}/out-real/provenance.tsv" | tr '\t' '|')"
+done
 
 # Nothing left to publish.
 DRY_RUN=false run_publish again && status=0 || status=$?

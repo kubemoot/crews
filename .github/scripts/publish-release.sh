@@ -15,7 +15,9 @@
 # (a chart already signed by this workflow is not signed again). A
 # signing failure stops the run before any tag, so no GitHub Release is written. All
 # the tags are pushed together (atomic). Each published crew gets its own release
-# notes (${OUT_DIR}/<crew>.md) and a line in ${OUT_DIR}/releases.tsv.
+# notes (${OUT_DIR}/<crew>.md) and a line in ${OUT_DIR}/releases.tsv, and
+# ${OUT_DIR}/provenance.tsv maps each signed chart to its crew's release, which carries the
+# chart's provenance as <crew>_X.Y.Z.intoto.jsonl (create-github-releases.sh).
 #
 # A crew chart that pins a Kubemoot release candidate image is refused: publish
 # Kubemoot first, then build a new crew candidate, which resolves Kubemoot's finals.
@@ -125,6 +127,21 @@ publish_crew() {
   rl_add_release "${OUT_DIR}" "${prefix}${final}" "${crew} ${final}" "${crew}.md"
 }
 
+# write_provenance_map: each signed chart's provenance goes on its crew's GitHub Release.
+write_provenance_map() {
+  local name digest crew tag
+  : > "${OUT_DIR}/provenance.tsv"
+  while IFS=$'\t' read -r name digest; do
+    crew="${name##*/}"
+    tag="$(awk -F'\t' -v p="^${crew}-v[0-9]+\\.[0-9]+\\.[0-9]+$" '$1 ~ p { print $1 }' "${OUT_DIR}/releases.tsv")"
+    if [ -z "$tag" ] || [ "$(wc -l <<<"$tag")" -ne 1 ]; then
+      die "no single GitHub Release for the signed chart ${name}"
+    fi
+    printf '%s\t%s\t%s\t%s\n' "$tag" "${crew}_${tag#"${crew}-v"}.intoto.jsonl" "$name" "$digest" \
+      >> "${OUT_DIR}/provenance.tsv"
+  done < "${OUT_DIR}/subjects.tsv"
+}
+
 main() {
   local point crew tgz
   point=$(rl_resolve_point "$RC_TAG")
@@ -139,6 +156,7 @@ main() {
   for tgz in "${OUT_DIR}"/*.tgz; do
     push_chart "$tgz"
   done
+  write_provenance_map
   rl_push_new_tags
   [ -z "${GITHUB_OUTPUT:-}" ] || echo "subjects=$(rl_sign_subjects_json)" >> "$GITHUB_OUTPUT"
 }
