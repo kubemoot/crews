@@ -38,6 +38,13 @@ for crew in "${crews[@]}"; do
   # shellcheck disable=SC2016 # the workflow text itself, not an expansion
   check "${crew} release workflow tags the built commit" "1" \
     "$(grep -c 'git tag -a "\$TAG" -m "Release candidate \$TAG" "\${GITHUB_SHA}"' "${repo}/.github/workflows/${crew}-release.yaml")"
+  # Kubemoot's Publish Release sends exactly this event; a dispatch with no listener
+  # succeeds and builds nothing, so the name must match on both sides.
+  check "${crew} release workflow listens for kubemoot-published" "1" \
+    "$(grep -cE '^[[:space:]]+types: \[kubemoot-published\]$' "${repo}/.github/workflows/${crew}-release.yaml")"
+  # shellcheck disable=SC2016 # the workflow text itself, not an expansion
+  check "${crew} release workflow forces the candidate on that event" "1" \
+    "$(grep -cF "force: \${{ inputs.force_release || github.event_name == 'repository_dispatch' }}" "${repo}/.github/workflows/${crew}-release.yaml")"
 done
 check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox scheduling-mcp" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
