@@ -77,7 +77,7 @@ check "renders no candidate or 0.0.0 Kubemoot image" 0 "$(grep -cE 'kubemoot/[a-
 check "the stamped chart lints" 0 "$(helm lint "${root}/homelab-pilot-crew" >/dev/null 2>&1; echo $?)"
 check "the repository copy is untouched" "0.0.0" "$(sed -n 's/^version: //p' "${repo}/homelab-pilot-crew/Chart.yaml")"
 
-# A promotion: the final version and the image tags the candidate chart ran, even when
+# A final release: the final version and the image tags the candidate chart ran, even when
 # Kubemoot has released newer finals since.
 cp "${root}/homelab-pilot-crew/values.yaml" "${root}/candidate-values.yaml"
 git -C "${root}/kubemoot" tag code-sandbox-v0.19.0

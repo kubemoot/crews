@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Tests for promote-release.sh (crews): a throwaway repository with crew charts as git
+# Tests for publish-release.sh (crews): a throwaway repository with crew charts as git
 # holds them (0.0.0 versions and image tags), release-candidate tags on the built
 # commits, and a bare origin; `helm push`, `helm registry`, and cosign are stubbed, `helm
 # show values` reads the candidate charts' values from a stub Harbor, `helm package` is
 # real.
-# Usage: RELEASE_LIB=<release-actions>/release-lib.sh bash .github/scripts/test-promote-release.sh
+# Usage: RELEASE_LIB=<release-actions>/release-lib.sh bash .github/scripts/test-publish-release.sh
 #        (exit 0 = all passed; in CI the release-actions setup action sets RELEASE_LIB)
 set -euo pipefail
 
@@ -112,14 +112,14 @@ main_before=$(git rev-parse origin/main)
 export REGISTRY=harbor.test RELEASE_REGISTRY=ghcr.test/kubemoot GHCR_USERNAME=u GHCR_TOKEN=t
 export CREWS="alpha beta gamma"
 # The variables GitHub Actions sets for a job with id-token: write.
-export ACTIONS_ID_TOKEN_REQUEST_URL=https://oidc.test ACTIONS_ID_TOKEN_REQUEST_TOKEN=t GITHUB_WORKFLOW_REF=kubemoot/crews/.github/workflows/promote-release.yaml@refs/heads/main
-run_promote() {
+export ACTIONS_ID_TOKEN_REQUEST_URL=https://oidc.test ACTIONS_ID_TOKEN_REQUEST_TOKEN=t GITHUB_WORKFLOW_REF=kubemoot/crews/.github/workflows/publish-release.yaml@refs/heads/main
+run_publish() {
   : > "${root}/gh-$1"
-  GITHUB_OUTPUT="${root}/gh-$1" OUT_DIR="${root}/out-$1" bash "${here}/promote-release.sh" > "${root}/run-$1.log" 2>&1
+  GITHUB_OUTPUT="${root}/gh-$1" OUT_DIR="${root}/out-$1" bash "${here}/publish-release.sh" > "${root}/run-$1.log" 2>&1
 }
 
 # Dry run.
-DRY_RUN=true run_promote dry && status=0 || status=$?
+DRY_RUN=true run_publish dry && status=0 || status=$?
 check "dry run succeeds" 0 "$status"
 out="$(cat "${root}/run-dry.log")"
 check "plans alpha" 1 "$(grep -c 'alpha: alpha-v0.5.0-rc.0 -> alpha-v0.5.0' <<<"$out")"
@@ -138,18 +138,18 @@ check "alpha notes list its feature" 1 "$(grep -c '^- New scenario (' "${root}/o
 check "dry run pushes nothing" 0 "$(grep -c '^helm push' "$LOG" || true)"
 check "dry run tags nothing" "" "$(git tag -l alpha-v0.5.0)"
 check "dry run checks cosign and the signing identity" 1 \
-  "$(grep -c '^signing: cosign v3.0.2, identity https://github.com/kubemoot/crews/.github/workflows/promote-release.yaml@refs/heads/main, issuer https://token.actions.githubusercontent.com$' <<<"$out")"
+  "$(grep -c '^signing: cosign v3.0.2, identity https://github.com/kubemoot/crews/.github/workflows/publish-release.yaml@refs/heads/main, issuer https://token.actions.githubusercontent.com$' <<<"$out")"
 check "dry run plans signing each chart" 2 "$(grep -cE '^sign ghcr.test/kubemoot/charts/(alpha|beta)@.*\(dry run: not signed\)$' <<<"$out")"
 check "dry run signs nothing" 0 "$(grep -cE '^cosign (sign|login)' "$LOG" || true)"
 check "dry run records no signed subject" "[]" "$(sed -n 's/^subjects=//p' "${root}/gh-dry")"
-GITHUB_ACTIONS=true ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=true run_promote nooidc && status=0 || status=$?
+GITHUB_ACTIONS=true ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=true run_publish nooidc && status=0 || status=$?
 check "a dry run in GitHub Actions without an OIDC token fails" "1|1" "${status}|$(grep -c 'needs permissions id-token: write' "${root}/run-nooidc.log")"
 : > "$LOG"
-ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=false run_promote nooidcreal && status=0 || status=$?
+ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=false run_publish nooidcreal && status=0 || status=$?
 check "a real run without an OIDC token fails before any push" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
-GHCR_TOKEN='' DRY_RUN=false run_promote notoken && status=0 || status=$?
+GHCR_TOKEN='' DRY_RUN=false run_publish notoken && status=0 || status=$?
 check "a real run without a registry token fails before any push" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
-COSIGN_BROKEN=1 DRY_RUN=true run_promote nocosign && status=0 || status=$?
+COSIGN_BROKEN=1 DRY_RUN=true run_publish nocosign && status=0 || status=$?
 check "a run where cosign does not run fails" "1|1" "${status}|$(grep -c 'cosign is required' "${root}/run-nocosign.log")"
 
 # Unexpected input: a crew pinning a release-candidate image is refused before any push.
@@ -158,7 +158,7 @@ echo "# gamma" > gamma/README.md; git add gamma; git commit -q -m "fix(gamma): w
 git tag -a gamma-v0.2.1-rc.0 -m rc
 harbor_candidate gamma 0.2.1-rc.0 0.16.32-rc.1
 git push -q origin pin:main --tags 2>/dev/null; git fetch -q origin
-DRY_RUN=false run_promote rcpin && status=0 || status=$?
+DRY_RUN=false run_publish rcpin && status=0 || status=$?
 check "refuses a crew that pins a candidate image" 1 "$status"
 check "says why" 1 "$(grep -c 'pins a release candidate image' "${root}/run-rcpin.log")"
 check "pushes no chart when one crew is refused" 0 "$(grep -c '^helm push' "$LOG" || true)"
@@ -170,7 +170,7 @@ git checkout -q -b missing main
 echo "# gamma" > gamma/README.md; git add gamma; git commit -q -m "fix(gamma): wording"
 git tag -a gamma-v0.2.1-rc.1 -m rc
 git push -q origin missing:main --tags 2>/dev/null; git fetch -q origin
-DRY_RUN=true run_promote nochart && status=0 || status=$?
+DRY_RUN=true run_publish nochart && status=0 || status=$?
 check "refuses a candidate missing from Harbor" 1 "$status"
 check "names the missing chart" 1 "$(grep -c 'cannot read the candidate chart gamma 0.2.1-rc.1' "${root}/run-nochart.log")"
 git push -q -f origin main:main 2>/dev/null; git push -q origin --delete gamma-v0.2.1-rc.1 2>/dev/null
@@ -182,7 +182,7 @@ echo "# gamma" > gamma/README.md; git add gamma; git commit -q -m "fix(gamma): w
 git tag -a gamma-v0.2.1-rc.2 -m rc
 printf 'global:\n  imageRegistry: ghcr.io/kubemoot\n' > "${root}/harbor/gamma-0.2.1-rc.2.values.yaml"
 git push -q origin noimage:main --tags 2>/dev/null; git fetch -q origin
-DRY_RUN=true run_promote noimage && status=0 || status=$?
+DRY_RUN=true run_publish noimage && status=0 || status=$?
 check "refuses a candidate chart without the image" 1 "$status"
 git push -q -f origin main:main 2>/dev/null; git push -q origin --delete gamma-v0.2.1-rc.2 2>/dev/null
 git tag -d gamma-v0.2.1-rc.2 >/dev/null; git checkout -q main; git fetch -q --prune origin
@@ -194,29 +194,29 @@ crew_chart gamma 0.14.4; git commit -q -am "fix(gamma): typed pin"
 git tag -a gamma-v0.2.1-rc.3 -m rc
 git push -q origin legacy:main --tags 2>/dev/null; git fetch -q origin
 : > "$LOG"
-DRY_RUN=true run_promote legacy && status=0 || status=$?
-check "promotes a candidate with a typed final pin" 0 "$status"
+DRY_RUN=true run_publish legacy && status=0 || status=$?
+check "publishes a candidate with a typed final pin" 0 "$status"
 check "keeps the typed pin" 1 "$(tar -xzOf "${root}/out-legacy/gamma-0.2.1.tgz" gamma/values.yaml | grep -c '"code-sandbox:0.14.4"')"
 check "reads no Harbor values for it" 0 "$(grep -c 'crews/gamma' "$LOG" || true)"
 git push -q -f origin main:main 2>/dev/null; git push -q origin --delete gamma-v0.2.1-rc.3 2>/dev/null
 git tag -d gamma-v0.2.1-rc.3 >/dev/null; git checkout -q main; git fetch -q --prune origin
 : > "$LOG"
 
-# A signing failure stops the promotion before any tag, so no GitHub Release is written.
-COSIGN_FAIL=charts/beta DRY_RUN=false run_promote signfail && status=0 || status=$?
-check "a signing failure fails the promotion" "1|1" "${status}|$(grep -c 'signing ghcr.test/kubemoot/charts/beta@sha256:.* failed' "${root}/run-signfail.log")"
+# A signing failure stops the release before any tag, so no GitHub Release is written.
+COSIGN_FAIL=charts/beta DRY_RUN=false run_publish signfail && status=0 || status=$?
+check "a signing failure fails the release" "1|1" "${status}|$(grep -c 'signing ghcr.test/kubemoot/charts/beta@sha256:.* failed' "${root}/run-signfail.log")"
 check "and pushes no final tag" 0 "$(git ls-remote --tags origin | grep -cE 'refs/tags/(alpha-v0.5.0|beta-v0.30.1)$' || true)"
 : > "$LOG"
-HELM_NO_DIGEST=1 DRY_RUN=false run_promote nodigest && status=0 || status=$?
+HELM_NO_DIGEST=1 DRY_RUN=false run_publish nodigest && status=0 || status=$?
 check "a push that reports no digest fails" "1|1" "${status}|$(grep -c 'refusing to sign ghcr.test/kubemoot/charts/alpha without a sha256 digest' "${root}/run-nodigest.log")"
 check "and signs nothing" 0 "$(grep -c '^cosign sign' "$LOG" || true)"
 # Forget the signatures of the failed runs: a repackaged chart can have the same digest.
 rm -f "$SIGNED_STATE"/*
 : > "$LOG"
 
-# Real promotion.
-DRY_RUN=false run_promote real && status=0 || status=$?
-check "promotion succeeds" 0 "$status"
+# A real release.
+DRY_RUN=false run_publish real && status=0 || status=$?
+check "the release succeeds" 0 "$status"
 [ "$status" -eq 0 ] || sed 's/^/    /' "${root}/run-real.log"
 git fetch -q origin --tags
 check "final tag on the candidate commit" "$alpha_rc" "$(git rev-list -n 1 alpha-v0.5.0 2>/dev/null)"
@@ -233,9 +233,9 @@ check "signs nothing by tag" 0 "$(grep '^cosign sign' "$LOG" | grep -vc '@sha256
 check "outputs the signed charts as the attest matrix" "2|ghcr.test/kubemoot/charts/alpha" \
   "$(sed -n 's/^subjects=//p' "${root}/gh-real" | python3 -c 'import json,sys; s=json.load(sys.stdin); print(len(s), s[0]["name"], sep="|")')"
 
-# Nothing left to promote.
-DRY_RUN=false run_promote again && status=0 || status=$?
+# Nothing left to publish.
+DRY_RUN=false run_publish again && status=0 || status=$?
 check "refuses when nothing is new" 1 "$status"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
-echo "all promote-release tests passed"
+echo "all publish-release tests passed"

@@ -121,7 +121,7 @@ Each crew chart is independently versioned. CI runs per crew:
 - `.github/workflows/<crew-name>-release.yaml` triggers on `<crew-name>/**`
 - The version comes from conventional commits scoped to the changed crew's path
 - Each crew has its own tag stream (for example `homelab-pilot-crew-v1.2.3`)
-- Each merge to `main` builds a release candidate for the maintainers' registry; a maintainer runs Promote Release to tag the final version and push the chart to `oci://ghcr.io/kubemoot/charts/<crew-name>`
+- Each merge to `main` builds a release candidate for the maintainers' registry; a maintainer runs Publish Release to tag the final version and push the chart to `oci://ghcr.io/kubemoot/charts/<crew-name>`
 
 ## Consumers
 
@@ -138,4 +138,4 @@ To add a crew:
 
 1. Create a new subdirectory `<your-crew>/` with the layout above.
 2. Add a per-crew workflow `.github/workflows/<your-crew>-release.yaml` modeled on the existing ones.
-3. Commit with a conventional-commit message. CI builds a release candidate of the chart; a maintainer promotes a tested candidate to a public release.
+3. Commit with a conventional-commit message. CI builds a release candidate of the chart; a maintainer publishes a tested candidate as a public release.

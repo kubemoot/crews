@@ -1,4 +1,4 @@
-# Tests for the release and promotion scripts, the fitness suite builder, and the brand copies; lints the Python. Not a release gate.
+# Tests for the release scripts, the fitness suite builder, and the brand copies; lints the Python. Not a release gate.
 name: CI Release Scripts
 
 on:
@@ -47,7 +47,7 @@ jobs:
         run: shellcheck -x .github/scripts/*.sh
       - name: Tests
         run: |
-          bash .github/scripts/test-promote-release.sh
+          bash .github/scripts/test-publish-release.sh
           bash .github/scripts/test-stamp-crew.sh
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

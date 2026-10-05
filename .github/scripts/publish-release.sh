@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Promote the tested crew chart release candidates to public releases.
+# Publish the tested crew chart release candidates as public releases.
 #
 # main builds release candidates only: each crew chart X.Y.Z-rc.N goes to Harbor, and
 # the homelab runs it. For every crew chart, this script takes the highest
@@ -14,10 +14,10 @@
 # ${OUT_DIR}/subjects.tsv and the `subjects` output for the workflow's attest job
 # (a chart already signed by this workflow is not signed again). A
 # signing failure stops the run before any tag, so no GitHub Release is written. All
-# the tags are pushed together (atomic). Each promoted crew gets its own release
+# the tags are pushed together (atomic). Each published crew gets its own release
 # notes (${OUT_DIR}/<crew>.md) and a line in ${OUT_DIR}/releases.tsv.
 #
-# A crew chart that pins a Kubemoot release candidate image is refused: promote
+# A crew chart that pins a Kubemoot release candidate image is refused: publish
 # Kubemoot first, then build a new crew candidate, which resolves Kubemoot's finals.
 #
 # Env:
@@ -29,7 +29,7 @@
 #   RELEASE_REGISTRY  registry plus namespace, e.g. ghcr.io/kubemoot (charts at .../charts)
 #   GHCR_USERNAME, GHCR_TOKEN  (the caller logs helm in to Harbor)
 #   CREWS             crew chart directories (default below)
-#   OUT_DIR           where packaged charts and notes land (default: promotion)
+#   OUT_DIR           where packaged charts and notes land (default: release-files)
 #   RELEASE_LIB       release-lib.sh of kubemoot/release-actions (its actions set it)
 set -euo pipefail
 
@@ -38,7 +38,7 @@ source "${RELEASE_LIB:?RELEASE_LIB must point to release-lib.sh from kubemoot/re
 
 RC_TAG="${RC_TAG:-latest}"
 CREWS="${CREWS:-homelab-pilot-crew kubemoot-fitness-crew}"
-OUT_DIR="$(mkdir -p "${OUT_DIR:-promotion}" && cd "${OUT_DIR:-promotion}" && pwd)"
+OUT_DIR="$(mkdir -p "${OUT_DIR:-release-files}" && cd "${OUT_DIR:-release-files}" && pwd)"
 : "${REGISTRY:?REGISTRY required}"
 : "${RELEASE_REGISTRY:?RELEASE_REGISTRY required}"
 
@@ -72,7 +72,7 @@ package_crew() {
   bash "${here}/stamp-crew.sh" "${wt}/${crew}" "${final}" "${pins[@]}"
   [ -z "${candidate:-}" ] || rm -f "$candidate"
   if grep -nE -- ':[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${wt}/${crew}/values.yaml"; then
-    die "${crew} at ${rc_tag} pins a release candidate image; promote Kubemoot first, then promote a crew candidate built after it"
+    die "${crew} at ${rc_tag} pins a release candidate image; publish Kubemoot first, then publish a crew candidate built after it"
   fi
   helm package "${wt}/${crew}" --destination "${OUT_DIR}"
 }
@@ -109,9 +109,9 @@ write_notes() {
   } > "${OUT_DIR}/${crew}.md"
 }
 
-# promote_crew CREW POINT: package the crew's latest unreleased candidate, if any, and
+# publish_crew CREW POINT: package the crew's latest unreleased candidate, if any, and
 # record its final tag and release. Nothing is pushed here.
-promote_crew() {
+publish_crew() {
   local crew="$1" point="$2" prefix rc_tag final src prev
   prefix="${crew}-v"
   rc_tag=$(rl_latest_rc "$prefix" "$point")
@@ -130,13 +130,13 @@ promote_crew() {
 main() {
   local point crew tgz
   point=$(rl_resolve_point "$RC_TAG")
-  echo "Promoting crew charts from ${RC_TAG} (commit ${point}); dry run: ${DRY_RUN:-true}"
+  echo "Publishing crew charts from ${RC_TAG} (commit ${point}); dry run: ${DRY_RUN:-true}"
   sign_release_preflight "${OUT_DIR}"
   : > "${OUT_DIR}/releases.tsv"
   for crew in ${CREWS}; do
-    promote_crew "$crew" "$point"
+    publish_crew "$crew" "$point"
   done
-  [ "${#RL_NEW_TAGS[@]}" -gt 0 ] || die "nothing to promote: every crew's latest candidate is already released"
+  [ "${#RL_NEW_TAGS[@]}" -gt 0 ] || die "nothing to publish: every crew's latest candidate is already released"
   # Every chart is packaged and checked before the first push.
   for tgz in "${OUT_DIR}"/*.tgz; do
     push_chart "$tgz"

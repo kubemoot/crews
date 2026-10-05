@@ -1,4 +1,4 @@
-# Promote Release: publish tested crew chart release candidates as public releases.
+# Publish Release: publish tested crew chart release candidates as public releases.
 #
 # Every push to main builds a release candidate (X.Y.Z-rc.N) of each changed crew
 # chart into Harbor, and the homelab runs it. When the candidates have passed their
@@ -7,29 +7,29 @@
 # candidate, packages the chart from that candidate's commit with the final version and
 # the Kubemoot image tags the candidate ran, pushes it to Harbor (the homelab moves to
 # the final) and the release registry, tags the commit <crew>-vX.Y.Z, and
-# writes one GitHub Release per crew (.github/scripts/promote-release.sh). A crew that
-# pins a Kubemoot release candidate image is refused: promote Kubemoot first.
+# writes one GitHub Release per crew (.github/scripts/publish-release.sh). A crew that
+# pins a Kubemoot release candidate image is refused: publish Kubemoot first.
 #
 # Each chart pushed to the release registry is signed there by digest with cosign,
 # keyless (no stored key), and the attest job records SLSA build provenance for it in
 # the registry and the repository's attestations. The certificates name this workflow:
 #   cosign verify ghcr.io/kubemoot/charts/<crew>:<version> \
-#     --certificate-identity https://github.com/kubemoot/crews/.github/workflows/promote-release.yaml@refs/heads/main \
+#     --certificate-identity https://github.com/kubemoot/crews/.github/workflows/publish-release.yaml@refs/heads/main \
 #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
 #   gh attestation verify oci://ghcr.io/kubemoot/charts/<crew>:<version> --repo kubemoot/crews
-# A signing failure stops promote before any tag, so no GitHub Release is written.
+# A signing failure stops the publish job before any tag, so no GitHub Release is written.
 #
 # The default is a dry run: it plans, packages, and shows the release notes in the run
 # summary, and publishes and signs nothing; it checks that cosign runs and that the job
 # can mint the OIDC token the signatures need. If the attest or release job fails after
-# promote succeeded, use "Re-run failed jobs".
-name: Promote Release
+# the publish job succeeded, use "Re-run failed jobs".
+name: Publish Release
 
 on:
   workflow_dispatch:
     inputs:
       rc_tag:
-        description: '"latest", or a release-candidate tag on main to promote up to'
+        description: '"latest", or a release-candidate tag on main to publish up to'
         required: true
         default: latest
         type: string
@@ -40,7 +40,7 @@ on:
         type: boolean
 
 concurrency:
-  group: promote-release
+  group: publish-release
   cancel-in-progress: false
 
 permissions:
@@ -50,8 +50,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  promote:
-    # Harbor is reachable only in-cluster, so promotion runs on the homelab runners,
+  publish:
+    # Harbor is reachable only in-cluster, so publishing runs on the homelab runners,
     # and only from main.
     if: github.ref == 'refs/heads/main'
     runs-on: homelab-runners
@@ -59,7 +59,7 @@ jobs:
       contents: write
       id-token: write # cosign keyless signing of the published charts
     outputs:
-      subjects: ${{ steps.promote.outputs.subjects }}
+      subjects: ${{ steps.publish.outputs.subjects }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,7 +86,7 @@ jobs:
 
       - name: Test the release scripts
         run: |
-          bash .github/scripts/test-promote-release.sh
+          bash .github/scripts/test-publish-release.sh
           bash .github/scripts/test-stamp-crew.sh
 
       - name: Log in to Harbor
@@ -96,8 +96,8 @@ jobs:
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
         run: echo "${HARBOR_PASSWORD}" | helm registry login --insecure "${REGISTRY}" -u "${HARBOR_USERNAME}" --password-stdin
 
-      - name: Promote
-        id: promote
+      - name: Publish
+        id: publish
         env:
           RC_TAG: ${{ inputs.rc_tag }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -105,26 +105,26 @@ jobs:
           RELEASE_REGISTRY: ${{ vars.RELEASE_REGISTRY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          OUT_DIR: promotion
+          OUT_DIR: release-files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          bash .github/scripts/promote-release.sh
+          bash .github/scripts/publish-release.sh
 
       - name: Release notes to the run summary
-        run: cat promotion/*.md >> "$GITHUB_STEP_SUMMARY"
+        run: cat release-files/*.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Keep the promotion output
+      - name: Keep the release files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: promotion
-          path: promotion/
+          name: release-files
+          path: release-files/
           retention-days: 30
 
   # One job per signed chart: actions/attest pushes provenance to the registry only for
   # a single subject. GitHub-hosted, since it needs GHCR and not Harbor.
   attest:
-    needs: promote
+    needs: publish
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
@@ -133,7 +133,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        subject: ${{ fromJSON(needs.promote.outputs.subjects) }}
+        subject: ${{ fromJSON(needs.publish.outputs.subjects) }}
     steps:
       - name: Log in to the release registry
         env:
@@ -151,28 +151,28 @@ jobs:
           create-storage-record: false
 
   release:
-    needs: [promote, attest]
+    needs: [publish, attest]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download the promotion output
+      - name: Download the release files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: promotion
-          path: promotion
+          name: release-files
+          path: release-files
 
       - name: Create the GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # promotion/releases.tsv: tag, title, notes file (one release per line).
+          # release-files/releases.tsv: tag, title, notes file (one release per line).
           while IFS=$'\t' read -r tag title notes; do
             if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
               echo "${tag} already has a release"
               continue
             fi
             gh release create "${tag}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
-              --title "${title}" --notes-file "promotion/${notes}"
-          done < promotion/releases.tsv
+              --title "${title}" --notes-file "release-files/${notes}"
+          done < release-files/releases.tsv

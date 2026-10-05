@@ -6,7 +6,7 @@
 #
 # Usage: stamp-crew.sh CHART_DIR VERSION [CANDIDATE_VALUES]
 #   VERSION            the chart version (X.Y.Z-rc.N for a candidate, X.Y.Z for a final)
-#   CANDIDATE_VALUES   promotion: the values.yaml of the tested candidate chart; each
+#   CANDIDATE_VALUES   final release: the values.yaml of the tested candidate chart; each
 #                      Kubemoot image gets the tag the candidate ran. Without it (a
 #                      release candidate build) each image gets the latest final
 #                      <image>-vX.Y.Z tag of Kubemoot.
