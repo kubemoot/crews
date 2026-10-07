@@ -18,7 +18,7 @@ spec:
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Lists, installs, and uninstalls Helm chart releases and inspects Flux HelmRelease/HelmRepository CRDs."
+  triageSummary: "Lists, installs, and uninstalls Helm chart releases."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
   # helm_* tools exist only with the helm toolset (kubernetesAccess.secretRead);
   # install and uninstall also need writeAccess.
@@ -34,8 +34,6 @@ spec:
     - uninstall
     - values
     - repository
-    - flux
-    - helmrelease
   temperature: "0.3"
   maxTokens: 4096
   deployment:

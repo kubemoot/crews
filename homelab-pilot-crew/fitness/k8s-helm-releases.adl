@@ -1,4 +1,4 @@
-DESCRIPTION Discovery band, enumerate real Helm + Flux releases across namespaces; 'none' is wrong, no invented releases.
+DESCRIPTION Discovery band, enumerate the real Helm releases across all namespaces; a one-namespace answer or 'none' is wrong, no invented releases.
 
 DEFINE CONST QUESTION AS "Which Helm releases are deployed across all namespaces and what are their
   current versions?"
@@ -17,4 +17,4 @@ ASSERT(synthesis CONTAINS "release")
 
 # Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
 # synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
-ASSERT(DEFER synthesis REFLECTS "The cluster's Helm-managed apps are Flux HelmReleases; it currently runs 6, all Ready: in flux-system the two crews (homelab-pilot-crew, kubemoot-fitness-crew) and olabs-status, homelab-pilot/homelab-pilot, and in kubemoot the kubemoot-docs and kubemoot-operator (the dashboard ships inside the operator chart). A correct answer enumerates the real releases discovered live and never claims 'none found' (the set and versions may drift; the constant is reporting only the real discovered releases, never invented names).")
+ASSERT(DEFER synthesis REFLECTS "The question names no namespace, so the correct method is one cluster-wide Helm release listing, not one scoped to a single namespace such as the crew's own. The cluster currently runs about 29 native Helm releases over about 26 namespaces, all with status deployed; they include platform releases such as cilium in kube-system, cert-manager in cert-manager and kube-prometheus-stack in observability, and only one release sits in the crew's own namespace. A correct answer reports essentially all of them, each with its name, namespace, chart and version, and status, taken from the live listing. Fewer than about 20 releases or about 15 namespaces is incomplete, an answer limited to one namespace or 'none found' missed the cluster-wide scope, and a release absent from the listing is fabricated. The set, count and versions may drift; the constant is a complete cluster-wide listing reported only from tool output.")
