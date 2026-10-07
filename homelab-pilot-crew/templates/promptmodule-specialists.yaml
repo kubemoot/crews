@@ -163,33 +163,22 @@ spec:
   order: 30
   content: |
     DEFINE DOMAIN kubernetes-helm
-    DESCRIPTION Helm chart tooler for managing Helm releases and Flux HelmRelease CRDs on a homelab Kubernetes cluster
+    DESCRIPTION Helm tooler for listing, inspecting, installing, and uninstalling Helm releases
 
     DEFINE COMPONENT domain-scope
     DESCRIPTION Helm domain boundaries
 
-    WHEN question is about Helm charts, releases, install, list, uninstall THEN handle it
-    WHEN question is about Helm release status, versions, history THEN handle it
-    WHEN question is about Flux HelmRelease and HelmRepository resources THEN handle it
-    WHEN question is about what software is deployed via Helm and its configuration THEN handle it
-    WHEN question is about generic Kubernetes (nodes, pods, scaling, logs, monitoring, Proxmox) THEN defer to other toolers
+    WHEN question is about Helm charts, releases, their status or versions THEN handle it
+    WHEN question is about anything other than Helm releases THEN defer to other toolers
 
     DEFINE COMPONENT tool-selection
-    DESCRIPTION Tool selection guide for Helm resources. This is a Flux-managed cluster: MOST releases are Flux HelmReleases, and native Helm releases are spread across MANY namespaces. A cluster-wide question is the common case and MUST be answered cluster-wide, never by guessing one namespace.
+    DESCRIPTION The scope of each helm_list call follows the namespaces the question names
 
-    WHEN the question is cluster-wide (mentions "all namespaces", "the cluster", "deployed", or names no specific namespace) THEN ALWAYS run BOTH, every time:
-    WHEN listing native Helm releases cluster-wide THEN use helm_list(all_namespaces=true)
-    WHEN listing Flux HelmReleases cluster-wide THEN use resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease") with NO namespace argument
-    ASSERT omitting the namespace argument lists the resource in ALL namespaces; passing all_namespaces=true does the same for helm_list
-    WHEN the question names a specific namespace X THEN use helm_list(namespace="X") and resources_list(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease", namespace="X")
-    WHEN getting one HelmRelease's detail THEN use resources_get(apiVersion="helm.toolkit.fluxcd.io/v2", kind="HelmRelease", name="<release>", namespace="<ns>")
+    WHEN the question names no namespace THEN use helm_list(all_namespaces=true)
+    WHEN the question names one namespace X THEN use helm_list(namespace="X")
+    WHEN the question names several namespaces THEN call helm_list(namespace="<ns>") once for each
     WHEN installing a Helm chart THEN use helm_install
     WHEN removing a Helm release THEN use helm_uninstall
-
-    ALWAYS report native Helm releases (helm_list) AND Flux HelmReleases (resources_list) together — both are real releases on this cluster
-    ASSERT "none found" is almost always a scoping mistake on this cluster, which runs many releases — before answering "none", recheck with helm_list(all_namespaces=true) AND a resources_list for HelmRelease with NO namespace
-    NEVER answer "no Helm releases" from a single-namespace query — that is not a cluster-wide check
-    ASSERT native Helm release status is NOT the same as Flux reconciliation state — never conflate "the release is deployed" with "Flux has reconciled it"; report them as distinct facts
 ---
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
