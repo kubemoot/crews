@@ -32,6 +32,18 @@ spec:
     - resources
     - events
     - nodes
+  {{- if .Values.kubernetesAccess.secretRead }}
+  # The server's own helm_list text says it lists all namespaces by default; it lists
+  # only its own namespace unless all_namespaces is true.
+  toolOverrides:
+    - name: helm_list
+      description: "Lists Helm releases. namespace lists only that namespace. all_namespaces=true lists every namespace. With neither set it lists only the server's own namespace."
+      parameters:
+        namespace:
+          description: "List only this namespace."
+        all_namespaces:
+          description: "Boolean true lists releases in every namespace."
+  {{- end }}
   resources:
     {{- toYaml .Values.mcpServers.kubernetes.resources | nindent 4 }}
 {{- end }}

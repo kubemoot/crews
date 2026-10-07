@@ -21,8 +21,9 @@ spec:
   triageSummary: "Lists, installs, and uninstalls Helm chart releases."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
   # helm_* tools exist only with the helm toolset (kubernetesAccess.secretRead);
-  # install and uninstall also need writeAccess.
-  enabledTools: [{{ with $.Values.kubernetesAccess }}{{ if .secretRead }}helm_list, {{ if .writeAccess }}helm_install, helm_uninstall, {{ end }}{{ end }}{{ end }}resources_list, resources_get]
+  # install and uninstall also need writeAccess. An empty list would enable every
+  # tool, so without the helm toolset the agent keeps the read-only resource tools.
+  enabledTools: [{{ if .Values.kubernetesAccess.secretRead }}helm_list{{ if .Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}{{ else }}resources_list, resources_get{{ end }}]
   discussKeywords:
     - helm
     - chart
