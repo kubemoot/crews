@@ -26,7 +26,7 @@ See the [repository README](../README.md#install) for prerequisites and the inst
 
 The Kubernetes MCP servers (`kubernetes-mcp`, `kubernetes-legacy-mcp`, and k8sgpt) share one ServiceAccount. By default it is read-only: the built-in `view` ClusterRole plus get/list/watch on Flux, storage, networking, metrics, and Kubemoot resources, and the servers run in their read-only modes.
 
-- `kubernetesAccess.secretRead: true` adds cluster-wide Secret reads. `helm_list` needs it, because Helm stores release state in Secrets; without it the `k8s-helm` agent still reads Flux HelmReleases but `helm_list` returns a forbidden error.
+- `kubernetesAccess.secretRead: true` adds cluster-wide Secret reads. `helm_list` needs it, because Helm stores release state in Secrets; without it the `k8s-helm` agent has no Helm tools and falls back to the read-only resource tools.
 - `kubernetesAccess.writeAccess: true` adds `pods/exec`, patch and scale on workloads, and the `pods_exec`, `resources_scale`, `helm_install`, and `helm_uninstall` agent tools.
 
 Agents act on text they read from tools and the web, so treat either setting as giving that access to anyone who can put text in front of the crew.
