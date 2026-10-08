@@ -9,8 +9,9 @@ metadata:
 spec:
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.scheduling.image) | quote }}
   transport: stdio
+  # Buildpacks image: the launcher /cnb/process/web starts the binary.
   command:
-    - "/scheduling-mcp"
+    - "/cnb/process/web"
   port: 3000
   replicas: 1
   env:
