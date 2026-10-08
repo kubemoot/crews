@@ -15,10 +15,10 @@ spec:
   # operator adds the bridge sidecar (port below is the bridge's TCP port).
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
   transport: stdio
-  # FROM scratch image, ENTRYPOINT ["/artifact-access"]; the bridge runs exec mode so
-  # the start command must be explicit.
+  # Buildpacks image: the launcher /cnb/process/web starts the binary. The bridge runs
+  # exec mode, so the start command must be explicit.
   command:
-    - "/artifact-access"
+    - "/cnb/process/web"
   port: 3000
   replicas: 1
   # Unlike the sandbox, this server IS network-capable: it reads the artifacts bucket
