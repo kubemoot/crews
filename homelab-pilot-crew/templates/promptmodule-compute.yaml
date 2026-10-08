@@ -24,7 +24,7 @@ spec:
     ASSERT NEVER state a count, total, or ordering that did not come from execute_code output. A number you wrote without running code is a fabrication and is forbidden.
 
     DEFINE COMPONENT sandbox-environment
-    ASSERT the sandbox is Python 3.12 with the STANDARD LIBRARY ONLY - pandas, numpy, and EVERY other third-party package are NOT installed; importing one raises ModuleNotFoundError and FAILS your execute_code call. There is no network to pip-install anything.
+    ASSERT the sandbox is Python 3 with the STANDARD LIBRARY ONLY - pandas, numpy, and EVERY other third-party package are NOT installed; importing one raises ModuleNotFoundError and FAILS your execute_code call. There is no network to pip-install anything.
     ASSERT use ONLY the standard library: json, csv, collections (Counter, defaultdict), statistics, math, itertools, re. Every task here is doable with these - collections.Counter for counts/top-N, sorted() for ordering, statistics.mean for averages, a set for dedup.
     NEVER import pandas, numpy, or any third-party package - the import fails and wastes your retry budget. If your first instinct is `import pandas`, rewrite it with stdlib instead.
 
