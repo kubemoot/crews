@@ -8,7 +8,7 @@ This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on 
 
 | Value | Default | What to set |
 |---|---|---|
-| `models` | one `qwen3:8b` Model on provider `ollama-local` | The Models your Ollama servers serve, each with the `providerRef` of a ModelProvider in the operator namespace. The reference cluster runs qwen3 8B, 14B, and 32B on each of two providers. |
+| `models` | one `qwen3:8b` Model on provider `ollama-local` | The Models your Ollama servers serve, each with the `providerRef` of a ModelProvider in the operator namespace. The reference cluster runs qwen3 8B, 14B, and 32B on each of two GPU providers, and qwen3 8B on a CPU provider. A Model on a CPU provider sets `vramMib` to the host RAM the model takes there and `contextWindow` to that server's context length. |
 | `embeddingModel.providerRef` | `ollama-local` | The ModelProvider that serves `nomic-embed-text`. |
 | `vectorStore.host`, `.database`, `.existingSecret` | empty (required) | Your pgvector database and a Secret with its credentials. Or set `ragSources.enabled=false` and `mcpGateway.toolIndex=null` to run without RAG. |
 | `mcpGateway.toolIndex.embeddingModel.endpoint` | `http://ollama.ollama:11434` | An Ollama URL that serves the embedding model. |
