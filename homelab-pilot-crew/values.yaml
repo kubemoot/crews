@@ -24,6 +24,13 @@ crew:
 # reasoning]) and a medium tool-calling model; the policy then routes synthesis to
 # the large model and tool work to the medium one. The maintainer's reference
 # cluster runs qwen3 8B, 14B, and 32B on two GPUs.
+#
+# A CPU-only model server is a provider like any other: declare the same model
+# again with providerRef naming it, contextWindow set to that server's
+# OLLAMA_CONTEXT_LENGTH, and vramMib set to the host RAM the model takes there
+# (weights plus the KV cache for every parallel slot). Keep the labels the model
+# has elsewhere; add no policy rule or prompt naming the CPU provider. The
+# scheduler decides per call which provider serves it.
 models:
   - name: qwen3-8b
     model: "qwen3:8b"
