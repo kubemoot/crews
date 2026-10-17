@@ -23,6 +23,9 @@ metadata:
 spec:
   crewRef: {{ .Values.crew.name | quote }}
   archetypeRef: consent-3
+  {{- with .Values.crew.placementPolicy }}
+  placementPolicy: {{ . | quote }}
+  {{- end }}
   # Per-capability quality bias. Each scalar in [0.0, 1.0]: low → speed-lean
   # (latencyClass:low, qwen3:8b), high → quality-lean (latencyClass:high,
   # qwen3:32b), and the MIDDLE band (~0.33-0.67) now lands on the medium tier

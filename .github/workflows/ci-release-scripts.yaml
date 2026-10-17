@@ -10,6 +10,7 @@ on:
       - '*/Chart.yaml'
       - '*/values.yaml'
       - '*/templates/**'
+      - '*/tests/**'
       - '*/fitness/**'
       - 'scripts/**'
       - 'ruff.toml'
@@ -24,6 +25,7 @@ on:
       - '*/Chart.yaml'
       - '*/values.yaml'
       - '*/templates/**'
+      - '*/tests/**'
       - '*/fitness/**'
       - 'scripts/**'
       - 'ruff.toml'
@@ -55,6 +57,7 @@ jobs:
           bash .github/scripts/test-stamp-crew.sh
           bash .github/scripts/test-create-github-releases.sh
           bash .github/scripts/test-fitness-scenarios.sh
+          bash homelab-pilot-crew/tests/test-placement-policy.sh
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
