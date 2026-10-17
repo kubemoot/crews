@@ -68,6 +68,14 @@ python3 scripts/build-suite.py homelab-pilot-crew/fitness \
   --namespace crew-homelab-pilot --crew-ref homelab-pilot --name baseline-n10 --iterations 10
 ```
 
+## Placement policy
+
+`crew.placementPolicy` chooses how Kubemoot places this crew's model calls: `algorithm`,
+`learned` (each call goes where it is predicted to finish soonest, from the providers'
+calibrated and observed speeds), or `shadow` (`algorithm` places; the learned choice is
+logged beside it). Empty, the default, inherits the cluster's default. See the Kubemoot
+scheduler documentation, section "Placement policy".
+
 ## Deployment
 
 The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` on each release commit to `main`.

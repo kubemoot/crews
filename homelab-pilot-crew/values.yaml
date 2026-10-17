@@ -10,6 +10,10 @@ crew:
   description: AI-powered homelab infrastructure consultation crew
   discussion:
     enabled: true
+  # How Kubemoot places this crew's model calls: algorithm, learned (where each call
+  # is predicted to finish soonest), or shadow (algorithm places; learned is logged
+  # beside it). Empty inherits the cluster default (KubemootConfig).
+  placementPolicy: ""
 
 # Model CRs for this crew. Each entry becomes a Model in the crew namespace,
 # labeled with capability / family / params / latencyClass so the
