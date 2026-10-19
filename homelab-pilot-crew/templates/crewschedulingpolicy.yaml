@@ -1,17 +1,17 @@
 {{/*
 CrewSchedulingPolicy for the homelab-pilot crew.
 
-Declares per-phase Model selection rules. Agents in this crew get their
-(model, provider) for each phase by matching against these rules.
+The crew ships no Model objects and names no model provider. The cluster
+owner's model catalog supplies the models (Model objects in the operator
+namespace plus the models each ModelProvider reports), and the scheduler
+matches these per-phase rules against the catalog's labels:
+kubemoot.ai/size (small, medium, large), capability/tool-calling,
+capability/reasoning, kubemoot.ai/context-tokens. No Agent names a model or a
+size; the same chart runs on a cluster with one small model and on one with
+several accelerators.
 
-The mulling and triage rules omit the explicit `prefer` block: with
-`qualityBias` set below, the scheduler auto-derives per-Model weights from
-each agent's declared spec.capabilities. The agent's most demanding
-capability sets the bias (max combiner). Loose coupling preserved — no
-Agent CR names a model size; the scheduler matches at reconcile time.
-
-See the Kubemoot scheduler documentation, section "Quality bias", for the
-design and worked-example bindings.
+See the Kubemoot scheduler documentation, sections "Quality bias",
+"Selecting from the model catalog", and "Preferring the faster model".
 */}}
 apiVersion: kubemoot.ai/v1alpha1
 kind: CrewSchedulingPolicy
@@ -26,17 +26,17 @@ spec:
   {{- with .Values.crew.placementPolicy }}
   placementPolicy: {{ . | quote }}
   {{- end }}
-  # Per-capability quality bias. Each scalar in [0.0, 1.0]: low → speed-lean
-  # (latencyClass:low, qwen3:8b), high → quality-lean (latencyClass:high,
-  # qwen3:32b), and the MIDDLE band (~0.33-0.67) now lands on the medium tier
-  # (qwen3:14b) via the scheduler's tent curve - medium peaks at bias 0.5. The
-  # agent's effectiveBias = max(qualityBias[c] for c in agent.spec.capabilities),
-  # falling back to qualityBias.default when none match. Strings — the CRD
-  # field is map[string]string to dodge the OpenAPI float-precision foot-gun.
+  # Per-capability quality bias, read against each model's size class. Each
+  # scalar is in [0.0, 1.0]: low leans to small models, high to large ones, and
+  # the middle band (about 0.33 to 0.67) lands on medium, whose score peaks at
+  # 0.5. An agent's effective bias is the max of qualityBias[c] over its
+  # declared spec.capabilities, falling back to default when none match.
+  # Strings, because the CRD field is map[string]string (no float precision
+  # surprises in OpenAPI).
   qualityBias:
-    reasoning: "0.7"        # synthesis / multi-step reasoning → push quality (32B)
-    tool-calling: "0.5"     # land toolers on the 14B medium tier: the 8B mis-formulates resource queries and under-reports; 0.5 is the tent apex, medium is the strict win
-    observability: "0.4"    # slight quality nudge → also reaches the 14B medium tier
+    reasoning: "0.7"        # synthesis and multi-step reasoning lean to large models
+    tool-calling: "0.5"     # toolers land on medium: small models mis-formulate resource queries and under-report
+    observability: "0.4"    # a slight quality nudge, still medium
     kubernetes: "0.4"
     default: "0.4"          # for capabilities not listed above
   rules:
@@ -44,23 +44,27 @@ spec:
       require:
         matchLabels:
           capability/tool-calling: "true"
-      # No prefer block — auto-derived from qualityBias above. To override
-      # the auto-derivation for an edge-case crew, re-add an explicit prefer
-      # list here and it will take precedence for this rule.
+      # No prefer block, so each agent's score comes from qualityBias (size)
+      # plus the abilities it declares. An explicit prefer list here would
+      # replace both for this rule.
     - phase: triage
       require:
         matchLabels:
           capability/tool-calling: "true"
-      # Triage is one LLM call by the coordinator (per
-      # kubemoot/docs/agentic-consensus.md "Triage Subcommittee Selection") — a
-      # classification task, not reasoning. Pin it to a fast (latencyClass:low)
-      # Model with an explicit prefer block so it does NOT inherit the
-      # coordinator's reasoning bias via qualityBias auto-derivation. Explicit
-      # prefer wins (scheduler.md "Override semantics"). The advisory call shares
-      # this triage model (agent-runtime DiscussionOrchestrator.runAdvisoryPhase);
-      # only synthesis stays on the reasoning tier.
+      # Triage, the advisory call, and LLM relevance checks are short
+      # classification calls: their need is speed, and size is not a proxy
+      # for it (a small model on a CPU can be far slower than a medium one on
+      # an accelerator). preferFaster adds up to 50 points to each candidate
+      # in proportion to its measured generation speed relative to the
+      # fastest candidate, applied by the agent runtime on each call.
+      preferFaster: 50
+      # This prefer term matches every model the rule admits, so it adds the
+      # same weight to each and ranks nothing. It is here because any explicit
+      # prefer turns off the qualityBias and ability scores for the rule;
+      # without it the coordinator's reasoning bias would rank the large model
+      # first before speed is considered, and bind triage to it.
       prefer:
-        - weight: 100
+        - weight: 1
           selector:
             matchLabels:
-              latencyClass: low
+              capability/tool-calling: "true"
