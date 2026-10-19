@@ -7,7 +7,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/kubemoot/crews?sort=semver&filter=homelab-pilot-crew-v*)](https://github.com/kubemoot/crews/releases) [![Build status](https://github.com/kubemoot/crews/actions/workflows/homelab-pilot-crew-release.yaml/badge.svg?branch=main)](https://github.com/kubemoot/crews/actions/workflows/homelab-pilot-crew-release.yaml?query=branch%3Amain) [![License: Apache 2.0](https://img.shields.io/github/license/kubemoot/crews)](https://github.com/kubemoot/crews/blob/main/LICENSE) [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/kubemoot/crews?label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/kubemoot/crews)
 
-Each subdirectory is an independently versioned Helm chart for a Kubemoot agent crew. Crews are the deployable unit of agent collaboration on the [Kubemoot](https://github.com/kubemoot/kubemoot) operator: a chart installs the Agents, PromptModules, MCP tool servers, Models, and the Crew resource that binds them, and the operator runs them.
+Each subdirectory is an independently versioned Helm chart for a Kubemoot agent crew. Crews are the deployable unit of agent collaboration on the [Kubemoot](https://github.com/kubemoot/kubemoot) operator: a chart installs the Agents, PromptModules, MCP tool servers, the CrewSchedulingPolicy that says what models each phase needs, and the Crew resource that binds them, and the operator runs them.
 
 ## Crews in this repository
 
@@ -23,9 +23,9 @@ The reference crew was built for the maintainer's homelab: a Talos Kubernetes cl
 ### Prerequisites
 
 - Kubernetes 1.30 or later and Helm 3.8 or later (OCI chart support).
-- The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. The crews in this repository are tested against operator chart 0.92.x; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
+- The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. `homelab-pilot-crew` needs an operator that selects models from the cluster's model catalog and accepts `preferFaster` on a scheduling rule; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
 - NATS JetStream, which carries the discussions. The operator docs and the quickstart install it as release `nats` in namespace `nats`; if yours differs, set `nats.url` and `nats.namespace`.
-- At least one Ollama server registered as a `ModelProvider` (created through the operator chart's `modelProviders` values), with the models your crew's `models` values name already pulled. The Kubemoot quickstart creates one called `ollama-local`, which is the default `providerRef` in these charts.
+- At least one model server registered as a `ModelProvider` (created through the operator chart's `modelProviders` values). The Kubemoot quickstart creates one called `ollama-local`, which is the default `providerRef` in these charts. `homelab-pilot-crew` ships no Model objects: it selects chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelProvider reports), so it needs at least one chat model with tool-calling there. The fitness judge ships its own Model, from its `models` values.
 - For `homelab-pilot-crew`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
 
 ### Install a crew
@@ -40,17 +40,9 @@ helm upgrade --install homelab-pilot \
   -f my-values.yaml
 ```
 
-A minimal `my-values.yaml` for one Ollama server and one pgvector database:
+A minimal `my-values.yaml` for one Ollama server and one pgvector database. It names no chat model; the crew takes those from the cluster's model catalog:
 
 ```yaml
-models:
-  - name: qwen3-8b
-    model: "qwen3:8b"
-    providerRef: ollama-local        # the ModelProvider name in the operator namespace
-    family: qwen3
-    params: "8B"
-    latencyClass: low
-    capabilities: [tool-calling, reasoning]
 embeddingModel:
   providerRef: ollama-local          # serves nomic-embed-text
 vectorStore:
@@ -66,7 +58,7 @@ mcpServers:
     endpoint: http://kube-prometheus-stack-prometheus.monitoring:9090
 ```
 
-The fitness judge needs only a model. Its default is `qwen3:8b` on the `ollama-local` provider; override `models` the same way to point it at your strongest reasoning model:
+The fitness judge needs only a model. Its default is `qwen3:8b` on the `ollama-local` provider; set the fitness crew's `models` value to point it at your strongest reasoning model (see the [fitness crew README](kubemoot-fitness-crew/README.md)):
 
 ```bash
 helm upgrade --install kubemoot-fitness \

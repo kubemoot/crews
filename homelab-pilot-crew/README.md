@@ -4,11 +4,10 @@ The Kubemoot reference crew: a coordinator and up to 22 specialists that answer 
 
 ## Before you install
 
-This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on Proxmox VE, with two GPU nodes that each run an Ollama server, kube-prometheus-stack, and a pgvector database. The chart defaults are generic; this is what you supply or change for your cluster:
+This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on Proxmox VE, with two GPU nodes that each run a model server, kube-prometheus-stack, and a pgvector database. The chart defaults are generic; this is what you supply or change for your cluster:
 
 | Value | Default | What to set |
 |---|---|---|
-| `models` | one `qwen3:8b` Model on provider `ollama-local` | The Models your Ollama servers serve, each with the `providerRef` of a ModelProvider in the operator namespace. The reference cluster runs qwen3 8B, 14B, and 32B on each of two GPU providers, and qwen3 8B on a CPU provider. A Model on a CPU provider sets `vramMib` to the host RAM the model takes there and `contextWindow` to that server's context length. |
 | `embeddingModel.providerRef` | `ollama-local` | The ModelProvider that serves `nomic-embed-text`. |
 | `vectorStore.host`, `.database`, `.existingSecret` | empty (required) | Your pgvector database and a Secret with its credentials. Or set `ragSources.enabled=false` and `mcpGateway.toolIndex=null` to run without RAG. |
 | `mcpGateway.toolIndex.embeddingModel.endpoint` | `http://ollama.ollama:11434` | An Ollama URL that serves the embedding model. |
@@ -33,10 +32,19 @@ Agents act on text they read from tools and the web, so treat either setting as 
 
 ## Topology
 
-- **1 coordinator** (`homelab-coordinator`) declares the `reasoning` capability and binds to a quality-tier model.
-- **Up to 22 specialists** (19 with the chart defaults, which leave Proxmox VE and scheduling off) cover Kubernetes (`k8s-*`, `k8sgpt`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), computation (`compute`), scheduling, and internet search. They declare `tool-calling` plus their domain capability, and bind to faster models through `CrewSchedulingPolicy.spec.qualityBias`.
+- **1 coordinator** (`homelab-coordinator`) declares the `reasoning` capability and leans to a large model.
+- **Up to 22 specialists** (19 with the chart defaults, which leave Proxmox VE and scheduling off) cover Kubernetes (`k8s-*`, `k8sgpt`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), computation (`compute`), scheduling, and internet search. They declare `tool-calling` plus their domain capability, and lean to medium models through `CrewSchedulingPolicy.spec.qualityBias`.
 
-Model selection is loosely coupled: no Agent names a model. See the Kubemoot scheduler documentation, section "Quality bias", for the mechanism.
+## Models
+
+The chart ships no Model objects and names no provider for its chat models. The cluster owner's model catalog supplies them: the Model objects in the operator namespace plus the models each ModelProvider reports. The crew's CrewSchedulingPolicy says what each phase needs, by the labels the catalog carries:
+
+- **Mulling** (the agents' tool work and answers) requires `capability/tool-calling`. Size follows each agent's declared capabilities through `qualityBias`: the coordinator, which declares `reasoning`, leans to `kubemoot.ai/size: large`, and the specialists to `medium`.
+- **Triage** (subcommittee selection, the advisory, and relevance checks) requires `capability/tool-calling` and prefers the model measured fastest (`preferFaster: 50`). Speed is measured on each provider, so the cluster decides which model that is; a small model on a CPU is not assumed to be fast.
+
+One chat model with tool-calling is enough to run the crew: every phase falls back to it. The policy's status condition `CatalogMode` reports `Cluster` once the crew selects from the catalog. After an upgrade from a release that shipped Models, the upgrade removes them; if `CatalogMode` still reads `CrewLocal`, Models remain in the crew namespace and the crew uses only those. See the Kubemoot scheduler documentation, sections "Quality bias", "Selecting from the model catalog", and "Preferring the faster model".
+
+The embedding model still names its provider, in `embeddingModel.providerRef`.
 
 ## Layout
 
@@ -50,7 +58,6 @@ homelab-pilot-crew/
     mcpserver-*.yaml          # tool servers (kubernetes, prometheus, proxmox, web search, ...)
     crewschedulingpolicy.yaml # phase rules and qualityBias
     crew.yaml                 # top-level Crew resource
-    models.yaml               # Model resources labeled by family/params/latencyClass
   fitness/                    # CrewFitness scenarios in ADL
   mcp-smoke/                  # MCP tool smoke-test definitions
 ```

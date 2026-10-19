@@ -15,42 +15,18 @@ crew:
   # beside it). Empty inherits the cluster default (KubemootConfig).
   placementPolicy: ""
 
-# Model CRs for this crew. Each entry becomes a Model in the crew namespace,
-# labeled with capability / family / params / latencyClass so the
-# CrewSchedulingPolicy rules can pick a model per phase by label.
-#
-# providerRef names a ModelProvider (an Ollama server) that the Kubemoot operator
-# chart creates in its own namespace. The default below matches the provider the
-# Kubemoot quickstart creates (ollama-local); change it to the name of yours.
-#
-# One model is enough: every phase falls back to it. For better answers, add a
-# larger reasoning model (latencyClass: high, capabilities [tool-calling,
-# reasoning]) and a medium tool-calling model; the policy then routes synthesis to
-# the large model and tool work to the medium one. The maintainer's reference
-# cluster runs qwen3 8B, 14B, and 32B on two GPUs.
-#
-# A CPU-only model server is a provider like any other: declare the same model
-# again with providerRef naming it, contextWindow set to that server's
-# OLLAMA_CONTEXT_LENGTH, and vramMib set to the host RAM the model takes there
-# (weights plus the KV cache for every parallel slot). Keep the labels the model
-# has elsewhere; add no policy rule or prompt naming the CPU provider. The
-# scheduler decides per call which provider serves it.
-models:
-  - name: qwen3-8b
-    model: "qwen3:8b"
-    providerRef: ollama-local
-    family: qwen3
-    params: "8B"
-    contextWindow: "32768"
-    latencyClass: low
-    vramMib: 5120
-    capabilities: [tool-calling, reasoning]
+# Chat models: this chart ships none and names no provider for them. The cluster
+# owner's model catalog supplies them (Model objects in the operator namespace
+# plus the models each ModelProvider reports), and the crew's
+# CrewSchedulingPolicy (templates/crewschedulingpolicy.yaml) says what each
+# phase needs. One chat model with tool-calling is enough; with a range of
+# sizes, synthesis leans to the large model and tool work to medium.
 
 # Embedding model configuration
 embeddingModel:
   name: nomic-embed
   modelId: nomic-embed-text
-  # ModelProvider that serves the embedding model (see models above).
+  # ModelProvider, in the operator namespace, that serves the embedding model.
   providerRef: ollama-local
 
 # Vector store for RAG sources and the MCP gateway tool index. REQUIRED when
