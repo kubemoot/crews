@@ -13,9 +13,9 @@ Each subdirectory is an independently versioned Helm chart for a Kubemoot agent 
 
 | Crew | What it is | Chart |
 |---|---|---|
-| [homelab-pilot-crew](./homelab-pilot-crew/) | The reference crew: a coordinator and up to 22 specialists that answer operational questions about a Kubernetes cluster, its observability stack, NVIDIA GPUs, and optionally Proxmox VE. Its prompts are written in ADL. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` |
-| [kubemoot-fitness-crew](./kubemoot-fitness-crew/) | A one-agent judge crew that scores fitness-scenario answers against a reference (the `REFLECTS` assertion). Install it once per cluster if you run fitness suites. | `oci://ghcr.io/kubemoot/charts/kubemoot-fitness-crew` |
-| [ocrew-crew](./ocrew-crew/) | O'crew: four agents that find, compare, rank, and link O'Reilly library material through the O'Reilly MCP server. Results are catalog metadata with reader links. Bring your own O'Reilly subscriber key. | `oci://ghcr.io/kubemoot/charts/ocrew-crew` |
+| [homelab-pilot-crew](./homelab-pilot-crew/) | Answers cluster operators' questions about their Kubernetes cluster, its observability stack, its GPUs, and optionally Proxmox VE; the reference crew for the others. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` |
+| [kubemoot-fitness-crew](./kubemoot-fitness-crew/) | Scores crews' fitness-scenario answers against a reference (the `REFLECTS` assertion); install it once per cluster if you run fitness suites. | `oci://ghcr.io/kubemoot/charts/kubemoot-fitness-crew` |
+| [ocrew-crew](./ocrew-crew/) | O'crew finds, ranks, and links O'Reilly library material for subscribers, as catalog metadata with reader links; bring your own O'Reilly key. | `oci://ghcr.io/kubemoot/charts/ocrew-crew` |
 
 The reference crew was built for the maintainer's homelab: a Talos Kubernetes cluster on Proxmox VE with two GPU nodes, each serving Ollama. The chart defaults are generic, but read [Before you install](./homelab-pilot-crew/README.md#before-you-install) in its README for what you have to supply.
 
@@ -28,6 +28,7 @@ The reference crew was built for the maintainer's homelab: a Talos Kubernetes cl
 - NATS JetStream, which carries the discussions. The operator docs and the quickstart install it as release `nats` in namespace `nats`; if yours differs, set `nats.url` and `nats.namespace`.
 - At least one model server registered as a `ModelServer` (created through the operator chart's `modelServers` values). The Kubemoot quickstart creates one called `ollama-local`, which is the default `serverRef` in these charts. `homelab-pilot-crew` ships no Model objects: it selects chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports), so it needs at least one chat model with tool-calling there. The fitness judge ships its own Model, from its `models` values.
 - For `homelab-pilot-crew`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
+- For `ocrew-crew`: an O'Reilly subscription and a Secret with your own O'Reilly key in the crew namespace; see [Add your O'Reilly key](./ocrew-crew/README.md#add-your-oreilly-key).
 
 ### Install a crew
 
