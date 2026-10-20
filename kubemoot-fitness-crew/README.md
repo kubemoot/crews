@@ -4,42 +4,47 @@ A small judge crew that scores fitness results. When a fitness scenario asserts 
 
 - **Who it is for:** whoever measures crews with fitness scenarios or suites on the cluster; the `REFLECTS` assertions of every crew in this repository need it.
 - **What it does:** it scores how closely a crew's answer matches a reference answer, and flags fabrication, for the operator. People do not talk to it.
-- **What it needs from the cluster:** a strong reasoning chat model on a ModelServer, named in its `models` value (this crew ships its own Model objects, so it points at a model server by name), and NATS JetStream. No MCP server, no database, and no Secret.
+- **What it needs from the cluster:** at least one chat model with reasoning in the cluster's model catalog, ideally a large one, and NATS JetStream. The crew ships no Model objects and names no model server; see [The judge's model](#the-judges-model). No MCP server, no database, and no Secret.
 - **What it does not do:** it does not answer questions, call tools, start fitness runs, or choose the references; it scores what the operator hands it.
 
 ## What it deploys
 
 - **fitness-coordinator**, a coordinator that relays the judging task and returns the verdict. It never answers on its own.
 - **fitness-judge**, a reasoning agent with no tools. It reads the comparison document the operator hands it and returns a JSON verdict per answer: a score, plus flags such as fabrication.
-- The Crew, its CrewSchedulingPolicy, PromptModules, and the Model resources from `models`.
+- The Crew, its CrewSchedulingPolicy, and PromptModules.
 
 The Crew carries the label `kubemoot.ai/adl-keyword: REFLECTS`, which is how the operator finds the judge for that assertion. To judge a different keyword, change `crew.adlKeyword` and the judge prompt together.
 
 ## Install
 
-Prerequisites are the same as for the other crews (the Kubemoot operator, NATS, and an Ollama `ModelServer`); see the [repository README](../README.md#install). No database or MCP server is needed.
+Prerequisites are the same as for the other crews (the Kubemoot operator, NATS, and a `ModelServer`); see the [repository README](../README.md#install). The operator must select models from the cluster's model catalog. No database or MCP server is needed.
 
 ```bash
 helm upgrade --install kubemoot-fitness \
   oci://ghcr.io/kubemoot/charts/kubemoot-fitness-crew \
   --version <version> \
-  -n crew-kubemoot-fitness --create-namespace \
-  -f judge-values.yaml
+  -n crew-kubemoot-fitness --create-namespace
 ```
 
-`models` defaults to `qwen3:8b` on the model server `ollama-local`. A judge's scores are only as steady as its model, so point it at the strongest reasoning model you run:
+## The judge's model
+
+The judge takes its model from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports), as the other crews do. Its CrewSchedulingPolicy asks the catalog for:
+
+- **Reasoning, as a hard need.** Every phase requires `capability/reasoning: "true"`. A cluster with no reasoning model cannot schedule the crew: the scheduler reports `FailedScheduling` on the CrewSchedulingPolicy and the Agents, naming the missing label.
+- **The largest model, as a preference.** `qualityBias` 0.9 scores a large model 90, a medium one 20, and a small one 10, so the judge binds to the largest reasoning model in the catalog. A judge's scores are only as steady as its model; on a cluster with only small models the crew still runs, on the best of them.
+- **The same model on every run.** Fitness scores are comparable only when the same model judged them. The policy reads only catalog labels (no `preferFaster`, because measured speed changes from run to run), the operator breaks ties by the smaller declared `vramMib` (an entry that declares none after those that do) and then by name, and both agents set `KUBEMOOT_MODEL_CANDIDATE_TOLERANCE` to 0, so a call never runs on a lower-scoring model that happens to be loaded. While the catalog does not change, the judge uses the same model.
+
+One case needs a value. When the catalog holds more than one large reasoning model, they score the same, and a call may run on whichever is loaded. Label the one that should judge, on its Model in the operator namespace, and require that label:
 
 ```yaml
-models:
-  - name: qwen3-32b
-    model: "qwen3:32b"
-    serverRef: my-gpu-ollama
-    family: qwen3
-    params: "32B"
-    latencyClass: high
-    vramMib: 20480
-    capabilities: [reasoning]
+scheduling:
+  requireLabels:
+    kubemoot.ai/fitness-judge: "true"
 ```
+
+Then only that model is a candidate. If it leaves the catalog, the crew cannot be scheduled instead of scoring with another model.
+
+To change the judge's model, change the catalog: add the model to the cluster (a larger reasoning model takes over on its own) or move the label. Compare fitness results only between runs judged by the same model; the model each call ran on is recorded on its signal as `metadata.model`.
 
 ## Fitness
 

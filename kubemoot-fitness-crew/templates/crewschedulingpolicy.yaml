@@ -1,8 +1,35 @@
 {{/*
-CrewSchedulingPolicy for the fitness crew. One reasoning model (qwen3:32b) backs
-every phase — the judge is a pure-reasoning scorer. qualityBias is high so the
-strong model is always chosen.
+CrewSchedulingPolicy for the fitness crew.
+
+The crew ships no Model objects and names no model server. The cluster
+owner's model catalog supplies the models (Model objects in the operator
+namespace plus the models each ModelServer reports), and the scheduler
+matches these rules against the catalog's labels.
+
+The judge needs the strongest reasoning model the cluster has, and the same
+one on every run, because fitness scores are comparable only when the same
+model judged them:
+- Every phase requires capability/reasoning and nothing else, so the crew
+  installs on any cluster with one reasoning model.
+- qualityBias 0.9 ranks the catalog by size: large 90, medium 20, small 10,
+  far more than the 10-point candidate tolerance apart, so the agent stays on
+  the largest model, and on a cluster without one medium still ranks above
+  small.
+- No prefer list and no preferFaster: measured speed changes between runs,
+  and the pick must depend only on the catalog's labels.
+- scheduling.requireLabels narrows every phase to catalog entries carrying a
+  label of the cluster owner's, for a cluster with more than one large
+  reasoning model (see the README).
+
+See the Kubemoot scheduler documentation, sections "Quality bias" and
+"Selecting from the model catalog".
 */}}
+{{- $labels := dict "capability/reasoning" "true" }}
+{{- range $key, $value := .Values.scheduling.requireLabels }}
+{{- if ne $key "capability/reasoning" }}
+{{- $_ := set $labels $key (toString $value) }}
+{{- end }}
+{{- end }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: CrewSchedulingPolicy
 metadata:
@@ -17,15 +44,9 @@ spec:
     reasoning: "0.9"
     default: "0.9"
   rules:
-    - phase: triage
+    {{- range $phase := list "triage" "mulling" "synthesis" }}
+    - phase: {{ $phase }}
       require:
         matchLabels:
-          capability/reasoning: "true"
-    - phase: mulling
-      require:
-        matchLabels:
-          capability/reasoning: "true"
-    - phase: synthesis
-      require:
-        matchLabels:
-          capability/reasoning: "true"
+          {{- toYaml $labels | nindent 10 }}
+    {{- end }}

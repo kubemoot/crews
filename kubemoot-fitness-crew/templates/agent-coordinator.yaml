@@ -41,3 +41,6 @@ spec:
         value: "120"
       - name: QUARKUS_LANGCHAIN4J_OLLAMA_TIMEOUT
         value: "300s"
+      # Same model on every run, as for the fitness-judge.
+      - name: KUBEMOOT_MODEL_CANDIDATE_TOLERANCE
+        value: "0"
