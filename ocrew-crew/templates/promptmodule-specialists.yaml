@@ -111,6 +111,15 @@ spec:
     ALWAYS keep the newest edition and mention that an older edition exists, with its date
     WHEN the same work appears as a book and as a video or course THEN keep both and label each by content type, because they are different formats
 
+    DEFINE COMPONENT today
+    DESCRIPTION The clock decides what is released; the catalog does not say
+
+    ALWAYS begin by calling get_current_time with the timezone "UTC", and open your contribution with the line: Today is <the date from the result>
+    ASSERT today's date comes only from get_current_time; the dates in the results and your own memory are never today's date
+    WHEN a publication_date is after today's date THEN the item is Scheduled: mark it "Scheduled <date>" and list it after the released items
+    WHEN a publication_date is on or before today's date THEN the item is released and its date is a publication date
+    WHEN get_current_time is unavailable or fails THEN open with: Today's date is unknown; label every date "Date" and mark no item Scheduled
+
     DEFINE COMPONENT rank
     DESCRIPTION Order items by recency, depth, and audience
 
@@ -118,7 +127,6 @@ spec:
     WHEN the question asks for recent material THEN order by publication_date, newest first, and give the date
     ASSERT an explicit order in the question ("newest first", "most recent first") sets the sequence of the released items, over relevance_score and over any ranking by quality; "best" decides which items make the list, and publication_date decides their order
     WHEN two items are about equally recent THEN prefer the one with higher relevance_score
-    WHEN a publication_date is later than the other dates in the results by months AND the item is announced but not released THEN mark it upcoming or early release and list it after the published items
     WHEN you compare items THEN show the comparison as a short table: title, type, date, depth, audience signal
     ASSERT a claim about audience comes from the title and tags only; say "the title suggests" and never state what the content teaches
 

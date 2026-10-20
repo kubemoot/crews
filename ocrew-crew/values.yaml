@@ -72,3 +72,10 @@ mcpServers:
     # and the curator reads it through this server. The 0.0.0 tag is stamped at build
     # with Kubemoot's latest released artifact-access version.
     image: "artifact-access:0.0.0"
+  time:
+    # The MCP project's reference Time server, Docker-built, pinned by digest (never a tag).
+    # Raise it by pinning a newer digest of docker.io/mcp/time.
+    image: "docker.io/mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf"
+    # The zone the server reports when a call names none. The curator's prompt names UTC on
+    # every call, so this only needs to be a valid IANA zone.
+    localTimezone: "UTC"

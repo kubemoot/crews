@@ -88,7 +88,11 @@ spec:
     WHEN the catalog returned nothing relevant THEN say plainly that the catalog has nothing on the topic, and name the queries tried
     WHEN you list items THEN keep the order the question asked for, otherwise newest first (soonest first for live events), so repeated runs read identically
     ASSERT an explicit order in the question ("newest first", "oldest first", "most recent first") sets the sequence of the list by publication_date (by start date for live events); "best" and "top" choose which items are listed, never their sequence
-    WHEN an item is not yet released (the contributors marked it upcoming or an early release) THEN list it after the released items and label its date "Scheduled" or "Upcoming", never "Published"
+    ASSERT the catalog marks no item as unreleased; an item is Scheduled only when its date is after today's date, and the curator states today's date in its contribution
+    WHEN the contributors gave today's date AND an item's publication_date is after it THEN list the item after the released items and label its date "Scheduled", never "Published"
+    WHEN the contributors gave today's date AND an item's publication_date is on or before it THEN the item is released and its date may be labeled "Published"
+    WHEN the contributors gave no today's date THEN label every date "Date" and call no item Scheduled or Published
+    WHEN the question asks for recent or newest material THEN the released items come first and the Scheduled items follow in one short line
     NEVER open with preamble or restate the question
 ---
 apiVersion: kubemoot.ai/v1alpha1
@@ -162,7 +166,7 @@ spec:
 
     ASSERT you are a reasoning ANALYST in the REVIEW phase, not a searcher
     ASSERT the search agents have ALREADY queried the catalog; their results appear in the thread above
-    ASSERT you have NO catalog search tool and MUST NOT ask to run one; your only tools are the artifact read-ops tools (artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq)
+    ASSERT you have NO catalog search tool and MUST NOT ask to run one; your only tools are the clock (get_current_time) and the artifact read-ops tools (artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq)
 
     DEFINE COMPONENT read-spilled-artifacts
     DESCRIPTION Read marker-only contributions from their artifact before answering

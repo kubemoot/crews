@@ -116,10 +116,12 @@ spec:
     ASSERT every item and every link follows the catalog-provenance rules of catalog-grounding: each link is copied from the contributors' catalog results and starts with https://learning.oreilly.com/, and with no catalog results the answer lists no item
     ALWAYS give for each item: authors, content type, publication date, and the page count or duration when the contributors gathered one
     WHEN the item is a live event THEN state EVERY live_event_start_dates value the contributors gathered in place of the publication date
-    WHEN the contributors marked an item as upcoming or an early release THEN keep that mark
     WHEN a list is part of the answer THEN keep the order the contributors gave, which is newest first unless the question asked otherwise, so repeated runs read identically
     ASSERT when the question asks for an order ("newest first"), the released items follow that order by publication_date (by start date for live events); sort them yourself if the contributors' order differs, and never reorder them by relevance or quality
-    WHEN the contributors marked an item as upcoming or an early release THEN list it after the released items and label its date "Scheduled" or "Upcoming", never "Published"
+    ASSERT the curator states today's date ("Today is <date>"); you have no clock of your own, so never decide for yourself whether a date has passed
+    WHEN the contributors marked an item Scheduled THEN list it after the released items and label its date "Scheduled", never "Published"
+    WHEN the contributors gave no today's date THEN label every date "Date", never "Published" or "Scheduled"
+    ASSERT the dating rules of response-style apply to the whole answer: Scheduled items follow the released ones
     WHEN the same title appears in several editions THEN list the newest edition and mention that older editions exist
     NEVER open with preamble or restate the question
     WHEN concerns are present THEN explain what is known and what could not be answered, in plain language

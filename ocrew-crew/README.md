@@ -85,9 +85,9 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 | ocrew-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
 | library-search | Turns the question into several focused keyword searches with filters (content type, author, publisher, recency) | `search_oreilly_content` |
 | events-scout | Finds upcoming live events and live courses on a topic, with every session date | `search_oreilly_content` |
-| curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops only |
+| curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops and `get_current_time` |
 
-Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint, no deployment), the artifact read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint, no deployment), the artifact read-ops MCPServer that lets the curator read large search results, the Time MCPServer (the MCP project's reference Time server) that gives the curator today's date (a question the coordinator answers without the curator, such as a plain lookup, carries no date, so its items read "Date" and none is called Scheduled), and the fitness scenarios ConfigMap.
 
 The chart ships no Model objects. The coordinator and the curator declare `reasoning` and lean to the largest chat model in the cluster's model catalog; the search agents declare `tool-calling` and land on a medium one. One chat model with tool-calling is enough to run it.
 
@@ -114,6 +114,8 @@ helm upgrade --install ocrew \
 | `oreilly.auth.header` | empty | With `api-key` only: the header that carries it |
 | `global.imageRegistry` | `ghcr.io/kubemoot` | Registry for the Kubemoot-built artifact-access image |
 | `imagePullSecrets` | `[]` | Pull secrets for the gateway, for a private mirror |
+| `mcpServers.time.image` | `docker.io/mcp/time@sha256:...` | The Time server, pinned by digest; pin a newer digest to update it |
+| `mcpServers.time.localTimezone` | `UTC` | The zone the Time server reports when a call names none |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the artifact store |
 | `crew.name` | `ocrew` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |

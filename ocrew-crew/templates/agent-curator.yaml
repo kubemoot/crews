@@ -18,7 +18,7 @@ spec:
     - general
   triageSummary: "Ranks and compares O'Reilly search results by recency, depth, and audience, drops older editions, and builds reading and learning paths."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, curator-system, analyst-review-protocol]
-  enabledTools: [artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
+  enabledTools: [get_current_time, artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
   discussKeywords:
     - rank
     - compare
@@ -39,7 +39,7 @@ spec:
     port: 8080
     env:
       # The gateway is on, but enabledTools limits the curator to the artifact read-ops
-      # tools that read spilled search results; it has no catalog search tool.
+      # tools that read spilled search results and the clock; it has no catalog search tool.
       - name: KUBEMOOT_GATEWAY_ENABLED
         value: "true"
       # Analyst triage: contribute on library questions, stand aside otherwise.
