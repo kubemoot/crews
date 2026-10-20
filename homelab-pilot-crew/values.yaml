@@ -15,9 +15,9 @@ crew:
   # beside it). Empty inherits the cluster default (KubemootConfig).
   placementPolicy: ""
 
-# Chat models: this chart ships none and names no provider for them. The cluster
+# Chat models: this chart ships none and names no model server for them. The cluster
 # owner's model catalog supplies them (Model objects in the operator namespace
-# plus the models each ModelProvider reports), and the crew's
+# plus the models each ModelServer reports), and the crew's
 # CrewSchedulingPolicy (templates/crewschedulingpolicy.yaml) says what each
 # phase needs. One chat model with tool-calling is enough; with a range of
 # sizes, synthesis leans to the large model and tool work to medium.
@@ -26,8 +26,8 @@ crew:
 embeddingModel:
   name: nomic-embed
   modelId: nomic-embed-text
-  # ModelProvider, in the operator namespace, that serves the embedding model.
-  providerRef: ollama-local
+  # ModelServer, in the operator namespace, that serves the embedding model.
+  serverRef: ollama-local
 
 # Vector store for RAG sources and the MCP gateway tool index. REQUIRED when
 # ragSources.enabled is true: a pgvector (PostgreSQL) database this chart does not

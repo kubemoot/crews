@@ -1,6 +1,6 @@
 {{/*
 Model CRs for the fitness crew. Labeled with capability/family/params so the
-CrewSchedulingPolicy can select per phase. ProviderRef points at ModelProvider
+CrewSchedulingPolicy can select per phase. serverRef points at ModelServer
 CRs in the kubemoot namespace (cluster-shared).
 */}}
 {{- range .Values.models }}
@@ -21,7 +21,7 @@ metadata:
     {{- end }}
 spec:
   model: {{ .model | quote }}
-  providerRef: {{ .providerRef | quote }}
+  serverRef: {{ required "each models entry needs serverRef: the ModelServer that serves it" .serverRef | quote }}
   {{- if .vramMib }}
   vramMib: {{ .vramMib }}
   {{- end }}
