@@ -24,9 +24,9 @@ The reference crew was built for the maintainer's homelab: a Talos Kubernetes cl
 ### Prerequisites
 
 - Kubernetes 1.30 or later and Helm 3.8 or later (OCI chart support).
-- The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. `homelab-pilot-crew` needs an operator that registers model servers as the `ModelServer` kind, selects models from the cluster's model catalog, and treats `preferFaster` on a scheduling rule as an explicit preference; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
+- The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. `homelab-pilot-crew` and `kubemoot-fitness-crew` need an operator that registers model servers as the `ModelServer` kind and selects models from the cluster's model catalog, and `homelab-pilot-crew` one that treats `preferFaster` on a scheduling rule as an explicit preference; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
 - NATS JetStream, which carries the discussions. The operator docs and the quickstart install it as release `nats` in namespace `nats`; if yours differs, set `nats.url` and `nats.namespace`.
-- At least one model server registered as a `ModelServer` (created through the operator chart's `modelServers` values). The Kubemoot quickstart creates one called `ollama-local`, which is the default `serverRef` in these charts. `homelab-pilot-crew` ships no Model objects: it selects chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports), so it needs at least one chat model with tool-calling there. The fitness judge ships its own Model, from its `models` values.
+- At least one model server registered as a `ModelServer` (created through the operator chart's `modelServers` values). The Kubemoot quickstart creates one called `ollama-local`, which is the default `serverRef` in these charts. `homelab-pilot-crew` and `kubemoot-fitness-crew` ship no Model objects: they select chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports). `homelab-pilot-crew` needs at least one chat model with tool-calling there, and the fitness judge at least one with reasoning.
 - For `homelab-pilot-crew`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
 - For `ocrew-crew`: an O'Reilly subscription and a Secret with your own O'Reilly key in the crew namespace; see [Add your O'Reilly key](./ocrew-crew/README.md#add-your-oreilly-key).
 
@@ -60,7 +60,7 @@ mcpServers:
     endpoint: http://kube-prometheus-stack-prometheus.monitoring:9090
 ```
 
-The fitness judge needs only a model. Its default is `qwen3:8b` on the `ollama-local` model server; set the fitness crew's `models` value to point it at your strongest reasoning model (see the [fitness crew README](kubemoot-fitness-crew/README.md)):
+The fitness judge needs no values. It binds to the largest reasoning model in the catalog and keeps the same one while the catalog does not change (see [The judge's model](kubemoot-fitness-crew/README.md#the-judges-model)):
 
 ```bash
 helm upgrade --install kubemoot-fitness \

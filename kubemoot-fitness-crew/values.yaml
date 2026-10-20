@@ -9,21 +9,15 @@ crew:
   discussion:
     enabled: true
 
-# The judge's Model CRs. serverRef names a ModelServer (an Ollama server) that
-# the Kubemoot operator chart creates in its own namespace; the default matches the
-# model server the Kubemoot quickstart creates (ollama-local). Give the judge the
-# strongest reasoning model you run: scores from a small judge are noisy. The
-# maintainer's reference cluster judges with qwen3:32b.
-models:
-  - name: qwen3-8b
-    model: "qwen3:8b"
-    serverRef: ollama-local
-    family: qwen3
-    params: "8B"
-    contextWindow: "32768"
-    latencyClass: high
-    vramMib: 5120
-    capabilities: [reasoning]
+# The crew ships no Model objects: the judge selects from the cluster's model
+# catalog, requiring capability/reasoning and leaning to the largest model.
+scheduling:
+  # Extra labels every phase requires, added to capability/reasoning. Leave it
+  # empty unless the catalog has more than one large reasoning model: then label
+  # the one that should judge (a label on its Model in the operator namespace,
+  # for example kubemoot.ai/fitness-judge: "true") and name the label here, so
+  # every run is judged by that one model.
+  requireLabels: {}
 
 # No MCP server or gateway: the judge calls no tools. The operator assembles the
 # comparison document and hands it to the judge in the dispatch message.

@@ -2,7 +2,6 @@
 # Tests that each crew chart deploys its fitness scenarios as one labeled ConfigMap by
 # default, so CrewForge and the dashboard list them without running anything, and that
 # it renders no CrewFitness or CrewFitnessSuite (either would start a run on install).
-# Also checks that the fitness judge's Model names its ModelServer in serverRef.
 # Usage: bash .github/scripts/test-fitness-scenarios.sh   (exit 0 = all passed)
 set -euo pipefail
 
@@ -62,13 +61,6 @@ out="$(render "${repo}/homelab-pilot-crew" --set fitness.deployBaselineScenarios
 check "the old toggle renders no fitness run" 0 \
   "$(yq -N 'select(.kind == "CrewFitness") | .metadata.name' <<<"$out" | grep -c . || true)"
 check "the old toggle is gone from values" "" "$(grep -rn deployBaselineScenarios "${repo}"/*/values.yaml "${repo}"/*/templates || true)"
-
-# The fitness judge's Model names its ModelServer in serverRef.
-out="$(render "${repo}/kubemoot-fitness-crew")"
-check "the judge Model names its ModelServer" ollama-local "$(yq -N 'select(.kind == "Model") | .spec.serverRef' <<<"$out")"
-check "the judge Model has no providerRef" false "$(yq -N 'select(.kind == "Model") | .spec | has("providerRef")' <<<"$out")"
-check "a models entry without serverRef fails the render" 1 \
-  "$(render "${repo}/kubemoot-fitness-crew" --set 'models[0].name=x' --set 'models[0].model=x' 2>&1 >/dev/null | grep -c 'needs serverRef' || true)"
 
 # A prose scenario (.md) is carried like an ADL one; other files are not.
 cp -r "${repo}/homelab-pilot-crew" "${root}/chart"

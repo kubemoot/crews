@@ -33,3 +33,8 @@ spec:
         value: "true"
       - name: QUARKUS_LANGCHAIN4J_OLLAMA_TIMEOUT
         value: "300s"
+      # Every call runs on the model the operator bound, or on one that scores
+      # the same under the policy, never on a lower-scoring model that happens
+      # to be loaded: scores from different judges are not comparable.
+      - name: KUBEMOOT_MODEL_CANDIDATE_TOLERANCE
+        value: "0"
