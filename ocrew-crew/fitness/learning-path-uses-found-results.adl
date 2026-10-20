@@ -1,0 +1,26 @@
+DESCRIPTION Learning-path band, a plain request whose search results must reach the answer, never a report that nothing usable came back.
+
+DEFINE CONST QUESTION AS "Plan a two-week learning path to understand vector databases."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+# The catalog holds many vector database titles. The search agent may send a parameter in the
+# wrong type on its first calls (the catalog answers "is not of type"); whether it does varies
+# per run, so a pass shows the answer uses the results, and the render tests show the rules.
+# The link count below counts links, not distinct items.
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Every link is a reader link: matches only when each "http" begins https://learning.oreilly.com/ (see the README).
+ASSERT(synthesis matches "\A(?:[^h]|h(?:h|th|tth)*(?:[^ht]|t[^ht]|tt[^hp]|ttps://learning\.oreilly\.com/))*(?:h(?:h|th|tth)*(?:t|tt)?)?\z" at least 1 times)
+ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
+
+# The plan holds several catalog items, each linked, and none of the give-up wording.
+ASSERT(synthesis matches "https://learning\.oreilly\.com/[a-z-]+/" at least 3 times)
+ASSERT(synthesis does NOT CONTAIN "no usable data" AND "tooling error" AND "is not of type" AND "Input validation")
+
+ASSERT(DEFER synthesis REFLECTS "The answer is a staged two-week plan about vector databases built from catalog items, each stage naming one or more items with a learning.oreilly.com reader link. It does not say that the catalog returned no data, that a tool failed, or that the plan cannot be built, and it shows no tool error text. Items are catalog results, with none invented. (the items drift; the constant is a plan made of linked catalog items, not a report of failure.)")

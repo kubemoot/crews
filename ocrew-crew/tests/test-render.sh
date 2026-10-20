@@ -135,7 +135,7 @@ check "a missing search tool is NO_DATA" 1 \
 check "an empty search is NO_DATA" 1 \
   "$(has tooler-discipline 'WHEN every search returned nothing THEN respond NO_DATA')"
 check "a failing search is NO_DATA" 1 \
-  "$(has tooler-discipline 'WHEN a search call fails with an error twice THEN respond NO_DATA: the O'"'"'Reilly catalog could not be searched')"
+  "$(has tooler-discipline 'WHEN a search call fails again after you changed it THEN respond NO_DATA: the O'"'"'Reilly catalog could not be searched')"
 check "both search agents defer to those rules" 2 \
   "$(yq -N 'select(.kind == "PromptModule" and (.metadata.name == "library-search-system" or .metadata.name == "events-scout-system")) | .spec.content' <<<"$out" | grep -cF 'handled by the tool-unavailable and drill-on-empty-or-error rules')"
 check "the curator ranks nothing without catalog results" 1 \
@@ -184,6 +184,33 @@ for f in "${chart}"/fitness/*.adl; do
   check "$(basename "$f") link pattern passes reader links" "${#good_answers[@]}" "$passed"
   check "$(basename "$f") link pattern fails other links" "${#bad_answers[@]}" "$caught"
 done
+
+# Argument types and artifact reading: the search agents send typed parameters, and the curator
+# reads past error lines at the head of an artifact before it concludes anything.
+check "the tooler states n_items is a bare integer" 1 \
+  "$(has tooler-discipline 'ASSERT n_items is a bare integer')"
+check "the tooler states list parameters are JSON arrays" 1 \
+  "$(has tooler-discipline 'ASSERT content_types, languages, and every other list parameter is a JSON array of strings')"
+check "the tooler shows a correctly typed call" 1 \
+  "$(has tooler-discipline '"content_types": ["books", "videos"], "n_items": 8')"
+check "the tooler corrects a type error instead of resending" 1 \
+  "$(has tooler-discipline 'NEVER resend the call unchanged')"
+check "the curator never concludes from the head of an artifact" 1 \
+  "$(has analyst-review-protocol 'NEVER conclude that the search agents found no data, or that the data is unusable, from the head of an artifact')"
+check "the curator reads past error lines" 1 \
+  "$(has analyst-review-protocol 'THEN read past them before you answer, with artifact_grep')"
+check "an explicit order sets the sequence in the curator" 1 \
+  "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
+check "an explicit order sets the sequence in the coordinator" 1 \
+  "$(has synthesis-prompt 'the released items follow that order by publication_date')"
+check "response-style labels an unreleased item Scheduled or Upcoming" 1 "$(has response-style 'never "Published"')"
+check "the coordinator labels an unreleased item Scheduled or Upcoming" 1 "$(has synthesis-prompt 'never "Published"')"
+check "the curator reads artifact_tail and artifact_count past error lines" 1 \
+  "$(has analyst-review-protocol 'with artifact_tail, or with artifact_count')"
+# These checks guard the rendered rules; whether the models follow them shows in the fitness scenarios.
+check "the typed-argument learning-path scenario ships" 1 "$(yq -N 'has("learning-path-uses-found-results.adl")' <<<"$scenarios" | grep -c true)"
+check "the typed-argument learning-path scenario forbids the give-up wording" 1 \
+  "$(grep -cF 'ASSERT(synthesis does NOT CONTAIN "no usable data" AND "tooling error"' "${chart}/fitness/learning-path-uses-found-results.adl")"
 
 check "the empty-catalog scenario ships" 1 "$(yq -N 'has("catalog-empty-no-titles.adl")' <<<"$scenarios" | grep -c true)"
 check "the empty-catalog scenario forbids every link" 1 \
