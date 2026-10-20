@@ -115,5 +115,81 @@ check "only the search agents have the catalog tool" "events-scout,library-searc
 check "the curator reads artifacts only" 0 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vc '^artifact_' || true)"
 
+# Grounding: no answer comes from model memory. Every agent reads the provenance rule, the
+# search agents fail on a missing, failing, or empty tool, and the answer lists nothing
+# without catalog results.
+module() { yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$1\") | .spec.content" <<<"$out"; }
+has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
+check "every Agent reads catalog-grounding" "curator,events-scout,library-search,ocrew-coordinator" \
+  "$(yq -N 'select(.kind == "Agent" and (.spec.promptRefs | contains(["catalog-grounding"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
+check "the search agents read tooler-discipline" "events-scout,library-search" \
+  "$(yq -N 'select(.kind == "Agent" and (.spec.promptRefs | contains(["tooler-discipline"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
+check "catalog-grounding names this turn's search results as the only source" 1 \
+  "$(has catalog-grounding 'ASSERT the ONLY source of items is the output of search_oreilly_content calls made in this turn')"
+check "catalog-grounding drops a link outside the reader" 1 \
+  "$(has catalog-grounding "WHEN an item's url does not start with https://learning.oreilly.com/ THEN drop the item")"
+check "catalog-grounding stops with no items when there are no results" 1 \
+  "$(has catalog-grounding 'list no title and no link, and stop')"
+check "a missing search tool is NO_DATA" 1 \
+  "$(has tooler-discipline 'WHEN search_oreilly_content is not among your tools THEN respond NO_DATA')"
+check "an empty search is NO_DATA" 1 \
+  "$(has tooler-discipline 'WHEN every search returned nothing THEN respond NO_DATA')"
+check "a failing search is NO_DATA" 1 \
+  "$(has tooler-discipline 'WHEN a search call fails with an error twice THEN respond NO_DATA: the O'"'"'Reilly catalog could not be searched')"
+check "both search agents defer to those rules" 2 \
+  "$(yq -N 'select(.kind == "PromptModule" and (.metadata.name == "library-search-system" or .metadata.name == "events-scout-system")) | .spec.content' <<<"$out" | grep -cF 'handled by the tool-unavailable and drill-on-empty-or-error rules')"
+check "the curator ranks nothing without catalog results" 1 \
+  "$(has analyst-review-protocol 'NEVER rank, plan, or list titles from memory')"
+check "the coordinator lists nothing without catalog results" 1 \
+  "$(has coordinator-decision-logic 'without catalog results there are no items')"
+check "the answer links only reader links" 1 \
+  "$(has synthesis-prompt 'starts with https://learning.oreilly.com/')"
+
+# Fitness: every scenario checks that each link is a reader link, and one scenario fails
+# an answer made from memory when the catalog has nothing.
+scenarios="$(yq -N 'select(.kind == "ConfigMap" and .metadata.labels."kubemoot.ai/fitness-kind" == "scenarios") | .data' <<<"$out")"
+total="$(find "${chart}/fitness" -maxdepth 1 -name '*.adl' | wc -l | tr -d ' ')"
+check "every scenario except the empty-catalog one checks the reader links" "$((total - 1))" \
+  "$(grep -c 'synthesis matches "\\A(?:\[^h\]|h(?:h|th|tth)\*(?:\[^ht\]|t\[^ht\]|tt\[^hp\]|ttps://learning\\.oreilly\\.com/))\*' "${chart}"/fitness/*.adl | grep -c ':1$')"
+# Run each scenario's link pattern against sample answers. The operator evaluates it with
+# Go's RE2, case-insensitive, and passes at one match; PCRE (grep -P) reads this pattern
+# the same way. -z makes the whole answer one record, so \A and \z are its two ends; the
+# trailing newline keeps an empty answer a record and changes no verdict.
+links_ok() { printf '%s\n' "$2" | grep -Pzq -- "(?i)$1"; }
+good_answers=(
+  ""
+  "The O'Reilly catalog found nothing for that author."
+  "see https://learning.oreilly.com/library/view/x/1/"
+  $'- [A](https://learning.oreilly.com/library/view/a/1/)\n- [B](https://learning.oreilly.com/videos/b/2/)'
+  "hh, ht, htt, hth, htth, ends with htt"
+)
+bad_answers=(
+  "http://x"
+  "https://www.oreilly.com/book/1"
+  "https://evil.com"
+  "[A](http://learning.oreilly.com/library/view/a/1/)"
+  "good https://learning.oreilly.com/x then bad https://evil.example/"
+  "hhttps://evil.example and HTTPS://EVIL.EXAMPLE"
+  "https://learning.oreilly.com.evil/x"
+  "https://learning-oreilly.com/x"
+  "hthttps://evil.example"
+  "htthttps://evil.example"
+)
+for f in "${chart}"/fitness/*.adl; do
+  pattern="$(sed -n 's/^ASSERT(synthesis matches "\(.*\)" at least 1 times)$/\1/p' "$f")"
+  [ -n "$pattern" ] || continue
+  passed=0; caught=0
+  for a in "${good_answers[@]}"; do links_ok "$pattern" "$a" && passed=$((passed + 1)); done
+  for a in "${bad_answers[@]}"; do links_ok "$pattern" "$a" || caught=$((caught + 1)); done
+  check "$(basename "$f") link pattern passes reader links" "${#good_answers[@]}" "$passed"
+  check "$(basename "$f") link pattern fails other links" "${#bad_answers[@]}" "$caught"
+done
+
+check "the empty-catalog scenario ships" 1 "$(yq -N 'has("catalog-empty-no-titles.adl")' <<<"$scenarios" | grep -c true)"
+check "the empty-catalog scenario forbids every link" 1 \
+  "$(grep -cF 'ASSERT(synthesis does NOT CONTAIN "http" AND "](" AND "oreilly.com/book/"' "${chart}/fitness/catalog-empty-no-titles.adl")"
+check "the empty-catalog scenario asserts no specialist agreement" 0 \
+  "$(grep -c 'specialist contributes' "${chart}/fitness/catalog-empty-no-titles.adl" || true)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'crew render tests passed"

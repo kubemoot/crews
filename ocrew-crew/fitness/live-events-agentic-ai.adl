@@ -9,6 +9,10 @@ ASSERT(discussion completes with "done" event within MAX_DURATION)
 ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
+
+# Every link is a reader link: matches only when each "http" begins https://learning.oreilly.com/ (see the README).
+ASSERT(synthesis matches "\A(?:[^h]|h(?:h|th|tth)*(?:[^ht]|t[^ht]|tt[^hp]|ttps://learning\.oreilly\.com/))*(?:h(?:h|th|tth)*(?:t|tt)?)?\z" at least 1 times)
+ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
 ASSERT(synthesis CONTAINS "learning.oreilly.com")
 
 ASSERT(DEFER synthesis REFLECTS "The answer lists upcoming O'Reilly live events or live courses on AI agents or agentic AI that the catalog search returned. Every event shows the dates its sessions take place (the live event start dates the catalog returns, in the future relative to the day of the question), its instructor, and a learning.oreilly.com link. An event's publication date is not given as its event date. If an event has several session dates, all of them appear. If the catalog listed no upcoming event, the answer says so. (the events drift; the constant is linked live events each with its session dates, taken from the catalog, with none invented.)")

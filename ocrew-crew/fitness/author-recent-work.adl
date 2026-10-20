@@ -9,6 +9,10 @@ ASSERT(discussion completes with "done" event within MAX_DURATION)
 ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
+
+# Every link is a reader link: matches only when each "http" begins https://learning.oreilly.com/ (see the README).
+ASSERT(synthesis matches "\A(?:[^h]|h(?:h|th|tth)*(?:[^ht]|t[^ht]|tt[^hp]|ttps://learning\.oreilly\.com/))*(?:h(?:h|th|tth)*(?:t|tt)?)?\z" at least 1 times)
+ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
 ASSERT(synthesis CONTAINS "Neal Ford" AND "learning.oreilly.com")
 
 ASSERT(DEFER synthesis REFLECTS "The answer lists items the O'Reilly catalog returns for the author Neal Ford, newest first, each with its co-authors, content type, publication date, and a learning.oreilly.com reader link. Titles announced but not yet released are marked upcoming. Older editions of one work appear once, as the newest edition. It describes titles and dates only and gives no summary of what an item argues or contains. (the items drift; the constant is catalog items by that author, newest first, linked, with none invented.)")
