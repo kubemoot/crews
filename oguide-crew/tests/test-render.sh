@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Render tests for the O'crew chart: no Model of its own, the per-phase model selection
+# Render tests for the O'guide chart: no Model of its own, the per-phase model selection
 # rules, the O'Reilly connection (endpoint, the Secret named and never a key), the
 # Kubemoot image stamping placeholder, and that every Agent's PromptModules ship with it.
 # Needs helm and yq.
-# Run from anywhere: ocrew-crew/tests/test-render.sh   (exit 0 = all passed)
+# Run from anywhere: oguide-crew/tests/test-render.sh   (exit 0 = all passed)
 set -euo pipefail
 chart="$(cd "$(dirname "$0")/.." && pwd)"
 command -v helm >/dev/null || { echo "helm is required"; exit 1; }
@@ -13,7 +13,7 @@ failures=0
 check() {
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: want [$2] got [$3]"; failures=$((failures + 1)); fi
 }
-render() { helm template t "$chart" -n crew-ocrew "$@"; }
+render() { helm template t "$chart" -n crew-oguide "$@"; }
 # render_err ARGS: the error a render fails with, empty when it succeeds.
 render_err() { { render "$@" >/dev/null; } 2>&1 || true; }
 # rule PHASE EXPR: evaluates yq EXPR against the scheduling rule for PHASE.
@@ -100,9 +100,9 @@ check "the NATS URL is a value" nats://n.test:4222 \
   "$(render --set nats.url=nats://n.test:4222 | yq -N 'select(.metadata.name == "artifact-readops-mcp") | .spec.env[] | select(.name == "NATS_URL") | .value')"
 
 # Agents: four, each labeled with the crew, each PromptModule it names shipped with it.
-check "renders four Agents" "curator,events-scout,library-search,ocrew-coordinator" \
+check "renders four Agents" "curator,events-scout,library-search,oguide-coordinator" \
   "$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$out" | sort | paste -sd,)"
-check "every Agent carries the crew label" "ocrew" \
+check "every Agent carries the crew label" "oguide" \
   "$(yq -N 'select(.kind == "Agent") | .metadata.labels."kubemoot.ai/crew"' <<<"$out" | sort -u)"
 check "a renamed crew relabels its Agents" "other" \
   "$(render --set crew.name=other | yq -N 'select(.kind == "Agent") | .metadata.labels."kubemoot.ai/crew"' | sort -u)"
@@ -145,7 +145,7 @@ check "the retired upcoming-label vocabulary is gone" 0 \
 # Grounding: no answer comes from model memory. Every agent reads the provenance rule, the
 # search agents fail on a missing, failing, or empty tool, and the answer lists nothing
 # without catalog results.
-check "every Agent reads catalog-grounding" "curator,events-scout,library-search,ocrew-coordinator" \
+check "every Agent reads catalog-grounding" "curator,events-scout,library-search,oguide-coordinator" \
   "$(yq -N 'select(.kind == "Agent" and (.spec.promptRefs | contains(["catalog-grounding"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
 check "the search agents read tooler-discipline" "events-scout,library-search" \
   "$(yq -N 'select(.kind == "Agent" and (.spec.promptRefs | contains(["tooler-discipline"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
@@ -244,4 +244,4 @@ check "the empty-catalog scenario asserts no specialist agreement" 0 \
   "$(grep -c 'specialist contributes' "${chart}/fitness/catalog-empty-no-titles.adl" || true)"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
-echo "all O'crew render tests passed"
+echo "all O'guide render tests passed"

@@ -12,7 +12,7 @@ metadata:
   name: {{ .Values.crew.name }}-fitness
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
     kubemoot.ai/crew: {{ .Values.crew.name }}
     kubemoot.ai/fitness-kind: scenarios
 data:

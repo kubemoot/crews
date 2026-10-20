@@ -31,8 +31,8 @@ scenario_files() {
   find "$1/fitness" -maxdepth 1 -type f \( -name '*.adl' -o -name '*.md' \) ! -name README.md -printf '%f\n' | sort
 }
 
-declare -A crew_names=([homelab-pilot-crew]=homelab-pilot [kubemoot-fitness-crew]=kubemoot-fitness [ocrew-crew]=ocrew)
-for chart in homelab-pilot-crew kubemoot-fitness-crew ocrew-crew; do
+declare -A crew_names=([homelab-pilot-crew]=homelab-pilot [kubemoot-fitness-crew]=kubemoot-fitness [oguide-crew]=oguide)
+for chart in homelab-pilot-crew kubemoot-fitness-crew oguide-crew; do
   crew="${crew_names[$chart]}"
   out="$(render "${repo}/${chart}")"
   maps="$(scenario_maps "$out")"

@@ -15,7 +15,7 @@ Each subdirectory is an independently versioned Helm chart for a Kubemoot agent 
 |---|---|---|
 | [homelab-pilot-crew](./homelab-pilot-crew/) | Answers cluster operators' questions about their Kubernetes cluster, its observability stack, its GPUs, and optionally Proxmox VE; the reference crew for the others. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` |
 | [kubemoot-fitness-crew](./kubemoot-fitness-crew/) | Scores crews' fitness-scenario answers against a reference (the `REFLECTS` assertion); install it once per cluster if you run fitness suites. | `oci://ghcr.io/kubemoot/charts/kubemoot-fitness-crew` |
-| [ocrew-crew](./ocrew-crew/) | O'crew finds, ranks, and links O'Reilly library material for subscribers, as catalog metadata with reader links; bring your own O'Reilly key. | `oci://ghcr.io/kubemoot/charts/ocrew-crew` |
+| [oguide-crew](./oguide-crew/) | O'guide finds, ranks, and links O'Reilly library material for subscribers, as catalog metadata with reader links; bring your own O'Reilly key. | `oci://ghcr.io/kubemoot/charts/oguide-crew` |
 
 The reference crew was built for the maintainer's homelab: a Talos Kubernetes cluster on Proxmox VE with two GPU nodes, each serving Ollama. The chart defaults are generic, but read [Before you install](./homelab-pilot-crew/README.md#before-you-install) in its README for what you have to supply.
 
@@ -28,7 +28,7 @@ The reference crew was built for the maintainer's homelab: a Talos Kubernetes cl
 - NATS JetStream, which carries the discussions. The operator docs and the quickstart install it as release `nats` in namespace `nats`; if yours differs, set `nats.url` and `nats.namespace`.
 - At least one model server registered as a `ModelServer` (created through the operator chart's `modelServers` values). The Kubemoot quickstart creates one called `ollama-local`, which is the default `serverRef` in these charts. `homelab-pilot-crew` and `kubemoot-fitness-crew` ship no Model objects: they select chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports). `homelab-pilot-crew` needs at least one chat model with tool-calling there, and the fitness judge at least one with reasoning.
 - For `homelab-pilot-crew`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
-- For `ocrew-crew`: an O'Reilly subscription and a Secret with your own O'Reilly key in the crew namespace; see [Add your O'Reilly key](./ocrew-crew/README.md#add-your-oreilly-key).
+- For `oguide-crew`: an O'Reilly subscription and a Secret with your own O'Reilly key in the crew namespace; see [Add your O'Reilly key](./oguide-crew/README.md#add-your-oreilly-key).
 
 ### Install a crew
 

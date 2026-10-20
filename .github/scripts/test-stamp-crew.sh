@@ -18,7 +18,7 @@ failures=0
 check() {
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: want [$2] got [$3]"; failures=$((failures + 1)); fi
 }
-crews=(homelab-pilot-crew kubemoot-fitness-crew ocrew-crew)
+crews=(homelab-pilot-crew kubemoot-fitness-crew oguide-crew)
 
 # The rule as git holds it.
 for crew in "${crews[@]}"; do
@@ -48,8 +48,8 @@ for crew in "${crews[@]}"; do
 done
 check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox scheduling-mcp" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "O'crew pins its Kubemoot image as a placeholder" "artifact-access" \
-  "$(rl_image_placeholders "${repo}/ocrew-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
+check "O'guide pins its Kubemoot image as a placeholder" "artifact-access" \
+  "$(rl_image_placeholders "${repo}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
 root="$(mktemp -d)"
@@ -106,15 +106,15 @@ copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.1-rc.0 && status=0 || status=$?
 check "a later candidate picks up the newer final" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.19.0')"
 
-# O'crew stamps its one Kubemoot image the same way.
-copy_crew ocrew-crew
-stamp "${root}/ocrew-crew" 0.1.0-rc.0 && status=0 || status=$?
-check "O'crew candidate stamp succeeds" 0 "$status"
-check "O'crew renders the latest final artifact-access" "ghcr.io/kubemoot/artifact-access:0.343.0" \
-  "$(rendered_images ocrew-crew | grep '^ghcr.io/kubemoot/')"
-check "O'crew keeps the Time server pinned by digest, unstamped" 1 \
-  "$(rendered_images ocrew-crew | grep -cE '^docker\.io/mcp/time@sha256:[0-9a-f]{64}$')"
-check "O'crew stamped chart lints" 0 "$(helm lint "${root}/ocrew-crew" >/dev/null 2>&1; echo $?)"
+# O'guide stamps its one Kubemoot image the same way.
+copy_crew oguide-crew
+stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
+check "O'guide candidate stamp succeeds" 0 "$status"
+check "O'guide renders the latest final artifact-access" "ghcr.io/kubemoot/artifact-access:0.343.0" \
+  "$(rendered_images oguide-crew | grep '^ghcr.io/kubemoot/')"
+check "O'guide keeps the Time server pinned by digest, unstamped" 1 \
+  "$(rendered_images oguide-crew | grep -cE '^docker\.io/mcp/time@sha256:[0-9a-f]{64}$')"
+check "O'guide stamped chart lints" 0 "$(helm lint "${root}/oguide-crew" >/dev/null 2>&1; echo $?)"
 
 # The fitness crew (no Kubemoot images) stamps the same way.
 copy_crew kubemoot-fitness-crew

@@ -1,7 +1,7 @@
-name: ocrew-crew Release
+name: oguide-crew Release
 
 # Path-filtered per-crew release pipeline. Triggers only when files under
-# ocrew-crew/ change so each crew's version stream stays independent.
+# oguide-crew/ change so each crew's version stream stays independent.
 # Modeled on homelab-pilot's release.yaml; one workflow per crew.
 #
 # A Kubemoot Publish Release sends the kubemoot-published event when it succeeds; the
@@ -12,8 +12,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'ocrew-crew/**'
-      - '.github/workflows/ocrew-crew-release.yaml'
+      - 'oguide-crew/**'
+      - '.github/workflows/oguide-crew-release.yaml'
   workflow_dispatch:
     inputs:
       force_release:
@@ -29,8 +29,8 @@ permissions:
 
 env:
   REGISTRY: ${{ vars.REGISTRY }}
-  CHART_NAME: ocrew-crew
-  CHART_PATH: ocrew-crew
+  CHART_NAME: oguide-crew
+  CHART_PATH: oguide-crew
 
 jobs:
   release:
@@ -51,8 +51,8 @@ jobs:
         id: version
         uses: kubemoot/release-actions/release-candidate-version@f2585afb79cf9234d30135888158c647d834fcba # v0.10.0
         with:
-          tag_prefix: "ocrew-crew-v"
-          change_path: "ocrew-crew"
+          tag_prefix: "oguide-crew-v"
+          change_path: "oguide-crew"
           force: ${{ inputs.force_release || github.event_name == 'repository_dispatch' }}
 
       - name: Install Helm

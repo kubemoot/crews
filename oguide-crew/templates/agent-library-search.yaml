@@ -4,7 +4,7 @@ metadata:
   name: library-search
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
+    {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
   annotations:
     kubemoot.ai/discuss-priority: medium
 spec:

@@ -1,13 +1,13 @@
 apiVersion: kubemoot.ai/v1alpha1
 kind: Agent
 metadata:
-  name: ocrew-coordinator
+  name: oguide-coordinator
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.agentLabels" (dict "root" $ "role" "coordinator") | nindent 4 }}
+    {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "coordinator") | nindent 4 }}
 spec:
   type: chat
-  description: "O'crew coordinator: plans the turn, convenes the subcommittee, and writes the answer with a reader link for every item"
+  description: "O'guide coordinator: plans the turn, convenes the subcommittee, and writes the answer with a reader link for every item"
   discussRole: coordinator
   capabilities:
     - tool-calling

@@ -1,6 +1,6 @@
-# ocrew-crew
+# oguide-crew
 
-O'crew is a Kubemoot crew for O'Reilly subscribers who want to find their way around the O'Reilly library: what to read or watch on a topic, in what order, and which live events are coming up.
+O'guide is a Kubemoot crew for O'Reilly subscribers who want to find their way around the O'Reilly library: what to read or watch on a topic, in what order, and which live events are coming up.
 
 - **Who it is for:** anyone with an O'Reilly subscription and an O'Reilly MCP key, running the Kubemoot operator.
 - **What it answers:** the best recent books, videos, and courses on a topic; a reading or learning path over days or weeks; upcoming live events with their session dates; what an author or publisher has published. Every item comes with its authors, content type, date, page count or duration, and a `learning.oreilly.com` reader link.
@@ -9,7 +9,7 @@ O'crew is a Kubemoot crew for O'Reilly subscribers who want to find their way ar
   - the O'Reilly MCP server, which the chart registers as an external MCPServer (O'Reilly hosts it; nothing is deployed for it), and the artifact read-ops MCP server, which the chart deploys;
   - a Secret with your own O'Reilly key (see [Add your O'Reilly key](#add-your-oreilly-key));
   - NATS JetStream, and outbound HTTPS from the MCP gateway to `api.oreilly.com`. No database.
-- **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'crew does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
+- **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'guide does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
 
 ## Add your O'Reilly key
 
@@ -20,11 +20,11 @@ The O'Reilly MCP server is for O'Reilly subscribers. Each call carries the subsc
 3. **Create the Secret** in the crew namespace, before or after installing the chart:
 
    ```bash
-   kubectl create namespace crew-ocrew
+   kubectl create namespace crew-oguide
    read -rs OREILLY_KEY   # paste the token; it is not echoed or kept in your shell history
    kubectl create secret generic oreilly-mcp-auth \
      --from-literal=bearer-token="$OREILLY_KEY" \
-     -n crew-ocrew
+     -n crew-oguide
    unset OREILLY_KEY
    ```
 
@@ -37,13 +37,13 @@ read -rs OREILLY_KEY
 kubectl create secret generic oreilly-mcp-auth \
   --from-literal=bearer-token="$OREILLY_KEY" -n kubemoot
 unset OREILLY_KEY
-kubectl annotate namespace crew-ocrew kubemoot.ai/replicate-secrets=oreilly-mcp-auth
+kubectl annotate namespace crew-oguide kubemoot.ai/replicate-secrets=oreilly-mcp-auth
 ```
 
 The annotation is a comma-separated list. If the namespace already replicates other Secrets (an image pull secret, for example), keep them in the list and overwrite it:
 
 ```bash
-kubectl annotate namespace crew-ocrew --overwrite \
+kubectl annotate namespace crew-oguide --overwrite \
   kubemoot.ai/replicate-secrets=my-pull-secret,oreilly-mcp-auth
 ```
 
@@ -52,7 +52,7 @@ kubectl annotate namespace crew-ocrew --overwrite \
 ```bash
 read -rs OREILLY_KEY   # the new token
 kubectl create secret generic oreilly-mcp-auth \
-  --from-literal=bearer-token="$OREILLY_KEY" -n crew-ocrew \
+  --from-literal=bearer-token="$OREILLY_KEY" -n crew-oguide \
   --dry-run=client -o yaml | kubectl apply -f -
 unset OREILLY_KEY
 ```
@@ -64,14 +64,14 @@ The operator watches the Secret and hands the new key to the gateway; a replicat
 **Check that it worked.** The O'Reilly MCPServer reports whether the operator could read the key in its `CredentialReady` condition:
 
 ```bash
-kubectl get mcpserver oreilly-mcp -n crew-ocrew \
+kubectl get mcpserver oreilly-mcp -n crew-oguide \
   -o jsonpath='{.status.conditions[?(@.type=="CredentialReady")].status} {.status.conditions[?(@.type=="CredentialReady")].reason}{"\n"}'
 ```
 
 It prints the condition's status and reason. `True` means the key was read and the server is registered with the gateway. The reason `SecretNotFound` means no Secret by that name is in the crew namespace (with replication, check the annotation); `KeyMissing` means the Secret has neither a `bearer-token` nor an `api-key` key; `InvalidHeader` means `oreilly.auth.header` is not a valid header name or the key spans several lines. A key that O'Reilly rejects shows as failed searches. Then ask a first question:
 
 ```bash
-kmctl conversation ask ocrew "What has Neal Ford published recently on O'Reilly?" -n crew-ocrew
+kmctl conversation ask oguide "What has Neal Ford published recently on O'Reilly?" -n crew-oguide
 ```
 
 A working key gives an answer that lists items with `learning.oreilly.com` links; an answer that says the catalog could not be searched points to the key.
@@ -82,7 +82,7 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 
 | Agent | Role | Tools |
 |---|---|---|
-| ocrew-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
+| oguide-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
 | library-search | Turns the question into several focused keyword searches with filters (content type, author, publisher, recency) | `search_oreilly_content` |
 | events-scout | Finds upcoming live events and live courses on a topic, with every session date | `search_oreilly_content` |
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops and `get_current_time` |
@@ -98,10 +98,10 @@ Prerequisites are the same as for the other crews (the Kubemoot operator, NATS J
 Create the Secret as in [Add your O'Reilly key](#add-your-oreilly-key), then:
 
 ```bash
-helm upgrade --install ocrew \
-  oci://ghcr.io/kubemoot/charts/ocrew-crew \
+helm upgrade --install oguide \
+  oci://ghcr.io/kubemoot/charts/oguide-crew \
   --version <version> \
-  -n crew-ocrew
+  -n crew-oguide
 ```
 
 ## Values
@@ -117,7 +117,7 @@ helm upgrade --install ocrew \
 | `mcpServers.time.image` | `docker.io/mcp/time@sha256:...` | The Time server, pinned by digest; pin a newer digest to update it |
 | `mcpServers.time.localTimezone` | `UTC` | The zone the Time server reports when a call names none |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the artifact store |
-| `crew.name` | `ocrew` | The Crew's name |
+| `crew.name` | `oguide` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |
 
 ## Example questions
@@ -129,11 +129,11 @@ helm upgrade --install ocrew \
 
 ## Fitness
 
-`fitness/` holds seven scenarios: recent material, a learning path, a second learning path whose answer must be built from the results the search found, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `ocrew-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
+`fitness/` holds seven scenarios: recent material, a learning path, a second learning path whose answer must be built from the results the search found, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `oguide-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
 ```bash
-python3 scripts/build-suite.py ocrew-crew/fitness \
-  --namespace crew-ocrew --crew-ref ocrew --name ocrew-smoke --iterations 1
+python3 scripts/build-suite.py oguide-crew/fitness \
+  --namespace crew-oguide --crew-ref oguide --name oguide-smoke --iterations 1
 ```
 
 The `REFLECTS` assertions need the [fitness crew](../kubemoot-fitness-crew/README.md).
@@ -141,5 +141,5 @@ The `REFLECTS` assertions need the [fitness crew](../kubemoot-fitness-crew/READM
 ## Tests
 
 ```bash
-bash ocrew-crew/tests/test-render.sh
+bash oguide-crew/tests/test-render.sh
 ```

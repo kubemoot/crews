@@ -4,7 +4,7 @@ metadata:
   name: oreilly-mcp
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   # The O'Reilly MCP server that O'Reilly provides to subscribers: one tool,
   # search_oreilly_content, a catalog keyword search. No deployment is created; the
@@ -20,7 +20,7 @@ spec:
       - library
     # The installer's own Secret in this namespace, holding their subscriber key under
     # {{ .Values.oreilly.auth.secretKey }}. The chart names it and never holds a key.
-    authSecretRef: {{ include "ocrew-crew.authSecretName" . | quote }}
+    authSecretRef: {{ include "oguide-crew.authSecretName" . | quote }}
     {{- with .Values.oreilly.auth.header }}
     authHeader: {{ . | quote }}
     {{- end }}

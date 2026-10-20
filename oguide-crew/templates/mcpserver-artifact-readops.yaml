@@ -4,14 +4,14 @@ metadata:
   name: artifact-readops-mcp
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   # Read-ops over spilled discussion artifacts (head, tail, grep, count, rows, select,
   # jq). A search result too large for the discussion bus is stored as an artifact, and
   # the curator reads it through this server, so the whole result never enters a model
   # context. The kubemoot/artifact-access image in mcp mode; pure stdio, so the operator
   # adds the bridge sidecar (port is the bridge's TCP port).
-  image: {{ include "ocrew-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
+  image: {{ include "oguide-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
   transport: stdio
   # Buildpacks image: the launcher /cnb/process/web starts the binary. The bridge runs
   # exec mode, so the start command must be explicit.

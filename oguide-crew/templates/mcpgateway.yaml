@@ -4,7 +4,7 @@ metadata:
   name: {{ .Values.mcpGateway.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   implementation: kubemoot
   port: {{ .Values.mcpGateway.port }}
