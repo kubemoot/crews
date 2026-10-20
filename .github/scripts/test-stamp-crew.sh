@@ -111,7 +111,9 @@ copy_crew ocrew-crew
 stamp "${root}/ocrew-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'crew candidate stamp succeeds" 0 "$status"
 check "O'crew renders the latest final artifact-access" "ghcr.io/kubemoot/artifact-access:0.343.0" \
-  "$(rendered_images ocrew-crew)"
+  "$(rendered_images ocrew-crew | grep '^ghcr.io/kubemoot/')"
+check "O'crew keeps the Time server pinned by digest, unstamped" 1 \
+  "$(rendered_images ocrew-crew | grep -cE '^docker\.io/mcp/time@sha256:[0-9a-f]{64}$')"
 check "O'crew stamped chart lints" 0 "$(helm lint "${root}/ocrew-crew" >/dev/null 2>&1; echo $?)"
 
 # The fitness crew (no Kubemoot images) stamps the same way.
