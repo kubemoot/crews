@@ -1,0 +1,14 @@
+DESCRIPTION Live-events band, the events agent searches live events and reports every session date.
+
+DEFINE CONST QUESTION AS "What upcoming O'Reilly live events are there on agentic AI, and when are they?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "learning.oreilly.com")
+
+ASSERT(DEFER synthesis REFLECTS "The answer lists upcoming O'Reilly live events or live courses on AI agents or agentic AI that the catalog search returned. Every event shows the dates its sessions take place (the live event start dates the catalog returns, in the future relative to the day of the question), its instructor, and a learning.oreilly.com link. An event's publication date is not given as its event date. If an event has several session dates, all of them appear. If the catalog listed no upcoming event, the answer says so. (the events drift; the constant is linked live events each with its session dates, taken from the catalog, with none invented.)")

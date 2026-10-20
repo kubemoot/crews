@@ -1,0 +1,14 @@
+DESCRIPTION Author-filter band, an author's recent work is found through the author filter, not through keywords.
+
+DEFINE CONST QUESTION AS "What has Neal Ford published recently on O'Reilly?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "Neal Ford" AND "learning.oreilly.com")
+
+ASSERT(DEFER synthesis REFLECTS "The answer lists items the O'Reilly catalog returns for the author Neal Ford, newest first, each with its co-authors, content type, publication date, and a learning.oreilly.com reader link. Titles announced but not yet released are marked upcoming. Older editions of one work appear once, as the newest edition. It describes titles and dates only and gives no summary of what an item argues or contains. (the items drift; the constant is catalog items by that author, newest first, linked, with none invented.)")

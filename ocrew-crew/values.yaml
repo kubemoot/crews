@@ -1,0 +1,74 @@
+global:
+  # Registry and namespace prefixed to the Kubemoot-built image below (artifact-access).
+  # Releases are published to GHCR; a private mirror sets its own registry, e.g.
+  # harbor.example.com/kubemoot. Image values that already contain a "/" are used as-is.
+  imageRegistry: ghcr.io/kubemoot
+
+crew:
+  name: ocrew
+  description: "O'crew: finds, compares, ranks and links O'Reilly library material (books, videos, courses, live events) through the O'Reilly catalog search"
+  discussion:
+    enabled: true
+  # How Kubemoot places this crew's model calls: algorithm, learned (where each call
+  # is predicted to finish soonest), or shadow (algorithm places; learned is logged
+  # beside it). Empty inherits the cluster default (KubemootConfig).
+  placementPolicy: ""
+
+# Chat models: this chart ships none and names no model server. The cluster owner's
+# model catalog supplies them (Model objects in the operator namespace plus the models
+# each ModelServer reports), and the crew's CrewSchedulingPolicy
+# (templates/crewschedulingpolicy.yaml) says what each phase needs. One chat model with
+# tool-calling is enough; with a range of sizes, the coordinator and the curator lean
+# to the large model and the search agents to medium.
+
+# The O'Reilly MCP server that O'Reilly provides to its subscribers. It offers one tool,
+# search_oreilly_content, a keyword search of the catalog that returns metadata (title,
+# authors, dates, page count or duration, a reader link) and no text from inside the
+# content.
+oreilly:
+  endpoint: https://api.oreilly.com/api/content-discovery/v1/mcp/
+  # The subscriber key. This chart never holds a key: the installer creates the Secret
+  # with their own O'Reilly key, in the crew namespace or in the operator namespace with
+  # the crew namespace's kubemoot.ai/replicate-secrets annotation naming it. The
+  # MCPServer names the Secret only, and the gateway sends the key on every call.
+  auth:
+    secretName: oreilly-mcp-auth
+    # The Secret key that holds the subscriber key, one of the two key names the
+    # operator reads:
+    #   bearer-token  sent as "Authorization: Bearer <key>" (what O'Reilly expects)
+    #   api-key       sent in the header named by `header` (the operator's default is X-API-Key)
+    secretKey: bearer-token
+    # Only with secretKey api-key: the header that carries the key.
+    header: ""
+
+# MCP gateway the search agents and the curator call their tools through. It registers
+# this release's MCPServers.
+mcpGateway:
+  name: ocrew-gateway
+  port: 8080
+  replicas: 1
+  # The Kubemoot gateway's JVM needs about 608Mi; 768Mi leaves headroom.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 768Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Pull secrets for the gateway, for a cluster that mirrors the Kubemoot images in a
+# private registry, e.g. [{name: my-registry-pull-secret}].
+imagePullSecrets: []
+
+# NATS JetStream that carries the discussion and the artifact store. The Kubemoot
+# quickstart and operator chart use release "nats" in namespace "nats".
+nats:
+  url: "nats://nats.nats.svc.cluster.local:4222"
+
+mcpServers:
+  artifactAccess:
+    # Read-ops over spilled discussion artifacts (head, tail, grep, count, rows, select,
+    # jq). A search result too large for the discussion bus is stored as an artifact,
+    # and the curator reads it through this server. The 0.0.0 tag is stamped at build
+    # with Kubemoot's latest released artifact-access version.
+    image: "artifact-access:0.0.0"

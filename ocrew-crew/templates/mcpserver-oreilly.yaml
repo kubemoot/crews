@@ -1,0 +1,26 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: oreilly-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ocrew-crew.labels" . | nindent 4 }}
+spec:
+  # The O'Reilly MCP server that O'Reilly provides to subscribers: one tool,
+  # search_oreilly_content, a catalog keyword search. No deployment is created; the
+  # gateway calls the endpoint with the subscriber key from the Secret below.
+  externalEndpoint: {{ required "oreilly.endpoint is required" .Values.oreilly.endpoint | quote }}
+  transport: http
+  capabilities:
+    - library-search
+    - catalog
+  registry:
+    enabled: true
+    categories:
+      - library
+    # The installer's own Secret in this namespace, holding their subscriber key under
+    # {{ .Values.oreilly.auth.secretKey }}. The chart names it and never holds a key.
+    authSecretRef: {{ include "ocrew-crew.authSecretName" . | quote }}
+    {{- with .Values.oreilly.auth.header }}
+    authHeader: {{ . | quote }}
+    {{- end }}
