@@ -7,8 +7,7 @@ metadata:
     {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   # The Model Context Protocol project's reference Time server (modelcontextprotocol/servers,
-  # src/time, MIT): get_current_time and convert_time. The curator reads today's date from it,
-  # because the catalog marks no item as unreleased and a model does not know the date.
+  # src/time, MIT): get_current_time and convert_time. The library search and events agents read today's date from it.
   # Pure stdio, so the operator adds the bridge sidecar (port is the bridge's TCP port).
   # The image is the Docker-built mcp/time, pinned by digest (see values.yaml).
   image: {{ .Values.mcpServers.time.image | quote }}

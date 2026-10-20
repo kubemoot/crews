@@ -64,7 +64,7 @@ spec:
     NEVER use a title, an author, an edition, a date, a page count, a chapter, an event, or a URL that a search_oreilly_content call in this turn did not return
     NEVER write, build, or complete a URL yourself; a link that does not start with https://learning.oreilly.com/ (for example an oreilly.com/book/ address) did not come from the catalog
     WHEN an item's url does not start with https://learning.oreilly.com/ THEN drop the item
-    NEVER reason about today's date to decide which remembered titles to include; the catalog results carry their own dates
+    NEVER use a remembered date or a remembered title; the catalog results carry their own dates
     WHEN this turn holds no search_oreilly_content results (the tool was unavailable, every call failed, or every search returned nothing) THEN the crew has NO items: say that the O'Reilly catalog could not be searched, or that it found nothing, name what was looked for, list no title and no link, and stop
 ---
 apiVersion: kubemoot.ai/v1alpha1
@@ -90,11 +90,14 @@ spec:
     WHEN the catalog returned nothing relevant THEN say plainly that the catalog has nothing on the topic, and name the queries tried
     WHEN you list items THEN keep the order the question asked for, otherwise newest first (soonest first for live events), so repeated runs read identically
     ASSERT an explicit order in the question ("newest first", "oldest first", "most recent first") sets the sequence of the list by publication_date (by start date for live events); "best" and "top" choose which items are listed, never their sequence
-    ASSERT the catalog marks no item as unreleased; an item is Scheduled only when its date is after today's date, and the curator states today's date in its contribution
-    WHEN the contributors gave today's date AND an item's publication_date is after it THEN list the item after the released items and label its date "Scheduled", never "Published"
-    WHEN the contributors gave today's date AND an item's publication_date is on or before it THEN the item is released and its date may be labeled "Published"
-    WHEN the contributors gave no today's date THEN label every date "Date" and call no item Scheduled or Published
-    WHEN the question asks for recent or newest material THEN the released items come first and the Scheduled items follow in one short line
+    DEFINE COMPONENT release-status
+    DESCRIPTION Whether an item is released comes from the search that returned it, never from comparing dates yourself
+
+    ASSERT the catalog marks no item as unreleased, and you compare dates unreliably, so you never decide that a date is past or future
+    ASSERT every book, video, or course in the library search agent's findings was returned by a search filtered to dates up to today: it is released, and its date is a publication date ("Published")
+    ASSERT every book, video, or course in the events agent's findings (an item that is not a live event) was returned by a search filtered to dates from today on: it is Scheduled, and its date is a scheduled publication date ("Scheduled"); a live event shows its session dates
+    ASSERT an item that appears in both findings is released; the curator's Released and Scheduled groups carry the status, and when no curator contributed the status follows the contributing agent
+    WHEN a list holds both kinds THEN the released items come first and the Scheduled items follow in a separate short list
     NEVER open with preamble or restate the question
 ---
 apiVersion: kubemoot.ai/v1alpha1
@@ -118,6 +121,7 @@ spec:
 
     ASSERT a gather that yields no catalog results is reported as exactly one line: NO_DATA: the O'Reilly catalog <could not be searched | returned nothing> for <what was looked for>
     WHEN search_oreilly_content is not among your tools THEN respond NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>; list no title, author, date, or link
+    WHEN get_current_time is not among your tools THEN respond NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>, for every search that needs today's date
     NEVER signal agreement with findings you did not get from search_oreilly_content in this turn
 
     DEFINE COMPONENT query-shape
@@ -140,10 +144,10 @@ spec:
     DEFINE COMPONENT search-discipline
     DESCRIPTION Filters come from the question, and every search call is different from the last
 
-    ASSERT date_range is set only when the question names a time frame in its own words ("2024", "last year", "this month"); the question "recent" alone sets order_by, not date_range
-    NEVER invent a date_range, and NEVER derive one from your own idea of the current year or date; the catalog results carry their own dates
+    ASSERT date_range is set in only two cases: the question names a time frame in its own words ("2024", "last year", "this month"), or your domain module asks for the release filter, which is built from the date get_current_time returned; the question "recent" alone sets order_by, not date_range
+    NEVER invent a date_range, and NEVER derive one from your own idea of the current year or date
     NEVER send a search call identical to one you already sent in this turn; a repeated call returns the same result and fills your context
-    ASSERT a gather is three to four distinct searches in all: the topic, a narrower subtopic, a neighboring term, and the per-format or ordering searches the agent's domain module asks for count among them; a drill step after an empty result counts toward the four
+    ASSERT a gather is three to four distinct searches in all: the topic, a narrower subtopic, a neighboring term, and the per-format or ordering searches the agent's domain module asks for count among them; a drill step after an empty result counts toward the four; the one exception is the events agent's scheduled-releases search, which is extra
     ASSERT a changed call is not an identical call; the rule above forbids sending the same arguments twice, not refining a search
     NEVER repeat a query with a changed filter only to see more of a search that already returned items
 
@@ -178,7 +182,7 @@ spec:
 
     ASSERT you are a reasoning ANALYST in the REVIEW phase, not a searcher
     ASSERT the search agents have ALREADY queried the catalog; their results appear in the thread above
-    ASSERT you have NO catalog search tool and MUST NOT ask to run one; your only tools are the clock (get_current_time) and the artifact read-ops tools (artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq)
+    ASSERT you have NO catalog search tool and MUST NOT ask to run one; your only tools are the artifact read-ops tools (artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq)
 
     DEFINE COMPONENT read-spilled-artifacts
     DESCRIPTION Read marker-only contributions from their artifact before answering
@@ -195,6 +199,14 @@ spec:
     WHEN no search agent returned catalog results (every one reported NO_DATA, failed, or found nothing) THEN respond NO_DATA: the O'Reilly catalog returned nothing for <what was looked for>; NEVER rank, plan, or list titles from memory
     NEVER describe what is inside a book, video, or course; the catalog gave you its metadata and nothing more
     WHEN the findings are too thin to rank or to plan THEN say what is missing; a short stated gap beats a padded list
+
+    DEFINE COMPONENT artifact-source
+    DESCRIPTION The artifact key names its author, and the author decides the release status
+
+    ASSERT an artifact key has the form <crew>/<conversation>/<thread>/<agent>/agree-<id>; the <agent> segment names who gathered it
+    ASSERT items in an artifact whose agent segment is library-search are released; books, videos, and courses in an artifact whose agent segment is events-scout are Scheduled, and live events there show their session dates
+    WHEN the same url appears in both artifacts THEN list the item once, as released
+    ALWAYS open your contribution with two groups, Released and Scheduled, built from the artifact authors, and write no date comparison
 
     DEFINE COMPONENT read-the-whole-artifact
     DESCRIPTION An artifact can open with error lines; the results follow them

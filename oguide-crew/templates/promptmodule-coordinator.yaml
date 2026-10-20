@@ -19,6 +19,7 @@ spec:
     ALWAYS select the minimum viable subcommittee; 2 or 3 agents is typical
     WHEN the question asks to find, compare, or recommend O'Reilly material THEN select the library search agent
     WHEN the question asks about upcoming live events, live training, workshops, or sessions THEN select the events agent
+    WHEN the question asks what is coming, upcoming or scheduled books, videos, or courses, titles not yet released, or an author's next work THEN select the events agent as well as the library search agent
     WHEN the question asks for a ranking, a comparison, a reading order, a learning path, or the newest or best items THEN ALSO select the curator, which ranks and plans over the search results
     WHEN the question is a learning path or a broad survey THEN select the library search agent, the events agent, and the curator
     WHEN the question is a META-question about this crew itself (what it can do) THEN select an empty list AND put a concise description in the brief: it searches the O'Reilly catalog and returns linked metadata, and it cannot read or quote the text inside any content
@@ -122,10 +123,7 @@ spec:
     WHEN the item is a live event THEN state EVERY live_event_start_dates value the contributors gathered in place of the publication date
     WHEN a list is part of the answer THEN keep the order the contributors gave, which is newest first unless the question asked otherwise, so repeated runs read identically
     ASSERT when the question asks for an order ("newest first"), the released items follow that order by publication_date (by start date for live events); sort them yourself if the contributors' order differs, and never reorder them by relevance or quality
-    ASSERT the curator states today's date ("Today is <date>"); you have no clock of your own, so never decide for yourself whether a date has passed
-    WHEN the contributors marked an item Scheduled THEN list it after the released items and label its date "Scheduled", never "Published"
-    WHEN the contributors gave no today's date THEN label every date "Date", never "Published" or "Scheduled"
-    ASSERT the dating rules of response-style apply to the whole answer: Scheduled items follow the released ones
+    ASSERT the release-status rules of response-style apply to the whole answer: you have no clock, you compare no dates, and a book, video, or course is Scheduled only when it comes from the events agent's findings
     WHEN the same title appears in several editions THEN list the newest edition and mention that older editions exist
     NEVER open with preamble or restate the question
     WHEN concerns are present THEN explain what is known and what could not be answered, in plain language

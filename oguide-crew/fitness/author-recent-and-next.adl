@@ -1,0 +1,19 @@
+DESCRIPTION Release-status band, an author's recent work and what is coming next; released titles come from the released search and Scheduled titles from the scheduled one.
+
+DEFINE CONST QUESTION AS "What has Neal Ford published recently on O'Reilly, and what is coming next?"
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Every link is a reader link: matches only when each "http" begins https://learning.oreilly.com/ (see the README).
+ASSERT(synthesis matches "\A(?:[^h]|h(?:h|th|tth)*(?:[^ht]|t[^ht]|tt[^hp]|ttps://learning\.oreilly\.com/))*(?:h(?:h|th|tth)*(?:t|tt)?)?\z" at least 1 times)
+ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
+ASSERT(synthesis CONTAINS "Neal Ford" AND "learning.oreilly.com")
+ASSERT(synthesis matches "https://learning\.oreilly\.com/[a-z-]+/" at least 3 times)
+
+ASSERT(DEFER synthesis REFLECTS "The answer lists items by Neal Ford that the catalog returned, in two groups: released items first, each with its publication date, and a separate Scheduled group of titles not yet released, each with its scheduled date, or a plain statement that none are scheduled. No Scheduled item has a date before today and no released item has a date after today. Each item has a learning.oreilly.com reader link. No item is invented. (the items drift; the constant is a released group and a Scheduled group, built from catalog items, with correct date status.)")

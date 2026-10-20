@@ -83,11 +83,11 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 | Agent | Role | Tools |
 |---|---|---|
 | oguide-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
-| library-search | Turns the question into several focused keyword searches with filters (content type, author, publisher, recency) | `search_oreilly_content` |
-| events-scout | Finds upcoming live events and live courses on a topic, with every session date | `search_oreilly_content` |
-| curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops and `get_current_time` |
+| library-search | Turns the question into several focused keyword searches with filters (content type, author, publisher, recency); returns released items only (every search is filtered to dates up to today) | `search_oreilly_content`, `get_current_time` |
+| events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses scheduled for release (searches filtered to dates from today) | `search_oreilly_content`, `get_current_time` |
+| curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops only |
 
-Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint, no deployment), the artifact read-ops MCPServer that lets the curator read large search results, the Time MCPServer (the MCP project's reference Time server) that gives the curator today's date (a question the coordinator answers without the curator, such as a plain lookup, carries no date, so its items read "Date" and none is called Scheduled), and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint, no deployment), the artifact read-ops MCPServer that lets the curator read large search results, the Time MCPServer (the MCP project's reference Time server) that gives the two search agents today's date, for the release filters of their searches, and the fitness scenarios ConfigMap.
 
 The chart ships no Model objects. The coordinator and the curator declare `reasoning` and lean to the largest chat model in the cluster's model catalog; the search agents declare `tool-calling` and land on a medium one. One chat model with tool-calling is enough to run it.
 
@@ -129,7 +129,7 @@ helm upgrade --install oguide \
 
 ## Fitness
 
-`fitness/` holds seven scenarios: recent material, a learning path, a second learning path whose answer must be built from the results the search found, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `oguide-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
+`fitness/` holds eight scenarios: recent material, an author's recent work and what is coming next, a learning path, a second learning path whose answer must be built from the results the search found, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `oguide-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
 ```bash
 python3 scripts/build-suite.py oguide-crew/fitness \
