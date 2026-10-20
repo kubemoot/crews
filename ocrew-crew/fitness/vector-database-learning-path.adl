@@ -9,6 +9,10 @@ ASSERT(discussion completes with "done" event within MAX_DURATION)
 ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
+
+# Every link is a reader link: matches only when each "http" begins https://learning.oreilly.com/ (see the README).
+ASSERT(synthesis matches "\A(?:[^h]|h(?:h|th|tth)*(?:[^ht]|t[^ht]|tt[^hp]|ttps://learning\.oreilly\.com/))*(?:h(?:h|th|tth)*(?:t|tt)?)?\z" at least 1 times)
+ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
 ASSERT(synthesis CONTAINS "learning.oreilly.com")
 
 ASSERT(DEFER synthesis REFLECTS "The answer is a plan spread over two weeks, in stages that move from foundations (embeddings, similarity search, and the idea of a vector database) to using and operating one, built only from items the O'Reilly catalog search returned. Each stage names one to three items with a learning.oreilly.com reader link and the item's content type, and the load of a stage is plausible for the page counts or durations the catalog gave. It does not list two editions of one title as separate steps. If the catalog held nothing for a stage, the answer says so instead of filling it. It does not describe chapters or contents that the catalog metadata does not show. (the items drift; the constant is a staged two-week path made of linked catalog items with no invented titles or content.)")

@@ -9,7 +9,7 @@ O'crew is a Kubemoot crew for O'Reilly subscribers who want to find their way ar
   - the O'Reilly MCP server, which the chart registers as an external MCPServer (O'Reilly hosts it; nothing is deployed for it), and the artifact read-ops MCP server, which the chart deploys;
   - a Secret with your own O'Reilly key (see [Add your O'Reilly key](#add-your-oreilly-key));
   - NATS JetStream, and outbound HTTPS from the MCP gateway to `api.oreilly.com`. No database.
-- **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'crew does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
+- **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'crew does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
 
 ## Add your O'Reilly key
 
@@ -127,7 +127,7 @@ helm upgrade --install ocrew \
 
 ## Fitness
 
-`fitness/` holds five scenarios: recent material, a learning path, live events, an author's recent work, and a request to quote a passage, which the crew declines. Their references name no title, so a catalog that changes does not fail them. The chart deploys them as one ConfigMap, `ocrew-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
+`fitness/` holds six scenarios: recent material, a learning path, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `ocrew-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
 ```bash
 python3 scripts/build-suite.py ocrew-crew/fitness \

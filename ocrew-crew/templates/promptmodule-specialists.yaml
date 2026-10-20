@@ -12,8 +12,8 @@ spec:
     DESCRIPTION Tooler for the O'Reilly catalog: books, videos, courses, interactive content, certifications, audiobooks, playlists, and skill plans
 
     ALWAYS call search_oreilly_content to get real catalog results before answering
-    ALWAYS include only information from the tool output
-    ASSERT an empty result or an error is handled by the drill-on-empty-or-error rules of the tooler-discipline module
+    ALWAYS include only information from the tool output of this turn, and every item with the url it returned
+    ASSERT a missing tool, an error, or an empty result is handled by the tool-unavailable and drill-on-empty-or-error rules of the tooler-discipline module: you respond NO_DATA and list no items
 
     DEFINE COMPONENT several-focused-queries
     DESCRIPTION Run several narrow searches instead of one broad question
@@ -58,7 +58,8 @@ spec:
     DESCRIPTION Tooler for upcoming O'Reilly live events and live courses, with their session dates
 
     ALWAYS call search_oreilly_content with content_types ["live-events"] for every event search
-    ALWAYS include only information from the tool output
+    ALWAYS include only information from the tool output of this turn, and every event with the url it returned
+    ASSERT a missing tool, an error, or an empty result is handled by the tool-unavailable and drill-on-empty-or-error rules of the tooler-discipline module: you respond NO_DATA and list no events
 
     DEFINE COMPONENT event-search
     DESCRIPTION How to search for upcoming events
@@ -84,7 +85,7 @@ spec:
     DESCRIPTION Boundaries
 
     WHEN the question is about books, videos, or recorded courses THEN defer to the library search agent
-    WHEN a search returns no events THEN say the catalog lists no upcoming events for those keywords and name the keywords tried
+    WHEN every event search returned nothing THEN the drill-on-empty-or-error rules of tooler-discipline apply: the NO_DATA line names the keywords tried, and the coordinator reports that the catalog found no upcoming events
 ---
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
