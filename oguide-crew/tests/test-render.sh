@@ -233,6 +233,17 @@ check "the coordinator never decides whether a date has passed" 1 "$(has synthes
 check "the curator reads artifact_tail and artifact_count past error lines" 1 \
   "$(has analyst-review-protocol 'with artifact_tail, or with artifact_count')"
 # These checks guard the rendered rules; whether the models follow them shows in the fitness scenarios.
+check "a date_range comes only from the question" 1 "$(has tooler-discipline 'ASSERT date_range is set only when the question names a time frame')"
+check "no rule demands more than four searches" 0 "$(grep -cF 'run at least three searches' <<<"$all_modules" || true)"
+check "the search budget counts the drill steps" 1 "$(has tooler-discipline 'a drill step after an empty result counts toward the four')"
+check "a date range is never invented" 1 "$(has tooler-discipline 'NEVER invent a date_range')"
+check "a reader link is written exactly as returned" 1 "$(has response-style 'ASSERT a reader link is written exactly as the catalog returned it')"
+check "the empty-catalog scenario forbids a plan from general knowledge" 1 "$(grep -cF '"common knowledge" AND "general knowledge")' "${chart}/fitness/catalog-empty-no-titles.adl")"
+check "a search is never sent twice" 1 "$(has tooler-discipline 'NEVER send a search call identical to one you already sent in this turn')"
+check "the survey search budget is stated" 1 "$(has tooler-discipline 'ASSERT a gather is three to four distinct searches in all')"
+check "the coordinator writes nothing of its own without results" 1 "$(has coordinator-decision-logic 'Write nothing else: no learning path, plan, reading list')"
+check "a learning-path request is a library question" 1 "$(has coordinator-decision-logic 'is a question about the O'"'"'Reilly library whether or not it names O'"'"'Reilly')"
+check "session dates are written in full" 1 "$(has response-style 'ASSERT every session date is written in full as the catalog returns it')"
 check "the typed-argument learning-path scenario ships" 1 "$(yq -N 'has("learning-path-uses-found-results.adl")' <<<"$scenarios" | grep -c true)"
 check "the typed-argument learning-path scenario forbids the give-up wording" 1 \
   "$(grep -cF 'ASSERT(synthesis does NOT CONTAIN "no usable data" AND "tooling error"' "${chart}/fitness/learning-path-uses-found-results.adl")"

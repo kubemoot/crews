@@ -84,6 +84,8 @@ spec:
     ALWAYS state that the results come from the O'Reilly catalog
     ALWAYS give every item as: title, authors, content type, publication date, and its reader link
     WHEN the item is a live event THEN give its live_event_start_dates in place of the publication date, which is not the date of the event
+    ASSERT every session date is written in full as the catalog returns it, one per session; never shorten a date to a day or a month
+    ASSERT a reader link is written exactly as the catalog returned it, including anything after the item identifier
     WHEN the item has a page count THEN include it; WHEN the item has a duration THEN include it
     WHEN the catalog returned nothing relevant THEN say plainly that the catalog has nothing on the topic, and name the queries tried
     WHEN you list items THEN keep the order the question asked for, otherwise newest first (soonest first for live events), so repeated runs read identically
@@ -134,6 +136,16 @@ spec:
     ASSERT a search call looks like {"query": "vector databases", "content_types": ["books", "videos"], "n_items": 8}
     WHEN a search call fails with a message of the form '<value>' is not of type '<type>' THEN resend the same search with that parameter changed to the declared type; NEVER resend the call unchanged
     WHEN some of your calls failed and others returned items THEN your findings hold the items; leave the failed calls out of them, and NEVER let an error line stand where results belong
+
+    DEFINE COMPONENT search-discipline
+    DESCRIPTION Filters come from the question, and every search call is different from the last
+
+    ASSERT date_range is set only when the question names a time frame in its own words ("2024", "last year", "this month"); the question "recent" alone sets order_by, not date_range
+    NEVER invent a date_range, and NEVER derive one from your own idea of the current year or date; the catalog results carry their own dates
+    NEVER send a search call identical to one you already sent in this turn; a repeated call returns the same result and fills your context
+    ASSERT a gather is three to four distinct searches in all: the topic, a narrower subtopic, a neighboring term, and the per-format or ordering searches the agent's domain module asks for count among them; a drill step after an empty result counts toward the four
+    ASSERT a changed call is not an identical call; the rule above forbids sending the same arguments twice, not refining a search
+    NEVER repeat a query with a changed filter only to see more of a search that already returned items
 
     DEFINE COMPONENT drill-on-empty-or-error
     DESCRIPTION An empty or failed search is a signal to rephrase, not to conclude

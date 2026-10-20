@@ -17,6 +17,6 @@ ASSERT(synthesis is non-empty)
 ASSERT(synthesis CONTAINS "catalog")
 
 # No link of any kind: there is no catalog item to link to.
-ASSERT(synthesis does NOT CONTAIN "http" AND "](" AND "oreilly.com/book/" AND "learning.oreilly.com/library/")
+ASSERT(synthesis does NOT CONTAIN "http" AND "](" AND "oreilly.com/book/" AND "learning.oreilly.com/library/" AND "common knowledge" AND "general knowledge")
 
 ASSERT(DEFER synthesis REFLECTS "The answer says plainly that the O'Reilly catalog search found nothing by an author named Quillon Vrasmotte, or that the O'Reilly catalog could not be searched, and stops there. It names no book, video, course, or live event, gives no publication date, edition, or page count, and contains no link. It does not suggest titles from general knowledge, does not guess what the author may have written, and does not reason about today's date to pick titles. It may suggest checking the spelling of the name, without giving a link. (the constant is a short statement that the catalog had nothing, or could not be searched, with no invented titles, dates, or links.)")
