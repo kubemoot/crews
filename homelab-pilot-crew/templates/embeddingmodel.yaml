@@ -1,3 +1,6 @@
+{{- if hasKey .Values.embeddingModel "providerRef" }}
+{{- fail "embeddingModel.providerRef is now embeddingModel.serverRef: set serverRef to the ModelServer that serves the embedding model" }}
+{{- end }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: EmbeddingModel
 metadata:
@@ -8,4 +11,4 @@ metadata:
     app.kubernetes.io/managed-by-resource: kubemoot
 spec:
   model: {{ .Values.embeddingModel.modelId }}
-  providerRef: {{ .Values.embeddingModel.providerRef }}
+  serverRef: {{ required "embeddingModel.serverRef is required: the ModelServer that serves the embedding model" .Values.embeddingModel.serverRef }}

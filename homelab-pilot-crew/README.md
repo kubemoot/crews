@@ -8,7 +8,7 @@ This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on 
 
 | Value | Default | What to set |
 |---|---|---|
-| `embeddingModel.providerRef` | `ollama-local` | The ModelProvider that serves `nomic-embed-text`. |
+| `embeddingModel.serverRef` | `ollama-local` | The ModelServer that serves `nomic-embed-text`. |
 | `vectorStore.host`, `.database`, `.existingSecret` | empty (required) | Your pgvector database and a Secret with its credentials. Or set `ragSources.enabled=false` and `mcpGateway.toolIndex=null` to run without RAG. |
 | `mcpGateway.toolIndex.embeddingModel.endpoint` | `http://ollama.ollama:11434` | An Ollama URL that serves the embedding model. |
 | `mcpServers.prometheus.endpoint` | `http://kube-prometheus-stack-prometheus.monitoring:9090` | Your Prometheus. |
@@ -37,14 +37,14 @@ Agents act on text they read from tools and the web, so treat either setting as 
 
 ## Models
 
-The chart ships no Model objects and names no provider for its chat models. The cluster owner's model catalog supplies them: the Model objects in the operator namespace plus the models each ModelProvider reports. The crew's CrewSchedulingPolicy says what each phase needs, by the labels the catalog carries:
+The chart ships no Model objects and names no model server for its chat models. The cluster owner's model catalog supplies them: the Model objects in the operator namespace plus the models each ModelServer reports. The crew's CrewSchedulingPolicy says what each phase needs, by the labels the catalog carries:
 
 - **Mulling** (the agents' tool work and answers) requires `capability/tool-calling`. Size follows each agent's declared capabilities through `qualityBias`: the coordinator, which declares `reasoning`, leans to `kubemoot.ai/size: large`, and the specialists to `medium`.
-- **Triage** (subcommittee selection, the advisory, and relevance checks) requires `capability/tool-calling` and prefers the model measured fastest (`preferFaster: 50`), with no size or ability scoring. Speed is measured on each provider, so the cluster decides which model that is; a small model on a CPU is not assumed to be fast.
+- **Triage** (subcommittee selection, the advisory, and relevance checks) requires `capability/tool-calling` and prefers the model measured fastest (`preferFaster: 50`), with no size or ability scoring. Speed is measured on each model server, so the cluster decides which model that is; a small model on a CPU is not assumed to be fast.
 
 One chat model with tool-calling is enough to run the crew: every phase falls back to it. The policy's status condition `CatalogMode` reports `Cluster` once the crew selects from the catalog. After an upgrade from a release that shipped Models, the upgrade removes them; if `CatalogMode` still reads `CrewLocal`, Models remain in the crew namespace and the crew uses only those. See the Kubemoot scheduler documentation, sections "Quality bias", "Selecting from the model catalog", and "Preferring the faster model".
 
-The embedding model still names its provider, in `embeddingModel.providerRef`.
+The embedding model still names its model server, in `embeddingModel.serverRef`.
 
 ## Layout
 
@@ -78,7 +78,7 @@ python3 scripts/build-suite.py homelab-pilot-crew/fitness \
 ## Placement policy
 
 `crew.placementPolicy` chooses how Kubemoot places this crew's model calls: `algorithm`,
-`learned` (each call goes where it is predicted to finish soonest, from the providers'
+`learned` (each call goes where it is predicted to finish soonest, from the model servers'
 calibrated and observed speeds), or `shadow` (`algorithm` places; the learned choice is
 logged beside it). Empty, the default, inherits the cluster's default. See the Kubemoot
 scheduler documentation, section "Placement policy".

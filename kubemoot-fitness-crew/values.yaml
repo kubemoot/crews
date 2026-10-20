@@ -9,15 +9,15 @@ crew:
   discussion:
     enabled: true
 
-# The judge's Model CRs. providerRef names a ModelProvider (an Ollama server) that
+# The judge's Model CRs. serverRef names a ModelServer (an Ollama server) that
 # the Kubemoot operator chart creates in its own namespace; the default matches the
-# provider the Kubemoot quickstart creates (ollama-local). Give the judge the
+# model server the Kubemoot quickstart creates (ollama-local). Give the judge the
 # strongest reasoning model you run: scores from a small judge are noisy. The
 # maintainer's reference cluster judges with qwen3:32b.
 models:
   - name: qwen3-8b
     model: "qwen3:8b"
-    providerRef: ollama-local
+    serverRef: ollama-local
     family: qwen3
     params: "8B"
     contextWindow: "32768"

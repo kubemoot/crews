@@ -1,9 +1,9 @@
 {{/*
 CrewSchedulingPolicy for the homelab-pilot crew.
 
-The crew ships no Model objects and names no model provider. The cluster
+The crew ships no Model objects and names no model server. The cluster
 owner's model catalog supplies the models (Model objects in the operator
-namespace plus the models each ModelProvider reports), and the scheduler
+namespace plus the models each ModelServer reports), and the scheduler
 matches these per-phase rules against the catalog's labels:
 kubemoot.ai/size (small, medium, large), capability/tool-calling,
 capability/reasoning, kubemoot.ai/context-tokens. No Agent names a model or a

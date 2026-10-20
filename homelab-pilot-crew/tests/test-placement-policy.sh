@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Render tests for the crew's CrewSchedulingPolicy: the placement policy value, the
-# per-phase model selection rules, and that the chart ships no Model of its own (the
-# cluster's model catalog supplies them). Needs helm and yq.
+# per-phase model selection rules, that the chart ships no Model of its own (the
+# cluster's model catalog supplies them), and the ModelServer the EmbeddingModel
+# names. Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-placement-policy.sh
 set -euo pipefail
 chart="$(cd "$(dirname "$0")/.." && pwd)"
@@ -54,3 +55,15 @@ echo "PASS: mulling rule"
 triage="$(rule triage '.')"
 ! grep -q 'kubemoot.ai/size' <<<"$triage" || fail "triage must not select on size"
 echo "PASS: triage rule"
+
+# The EmbeddingModel names its ModelServer in serverRef, and nothing names a ModelProvider.
+emb="$(yq -N -o=json -I=0 'select(.kind == "EmbeddingModel") | .spec' <<<"$out")"
+[ "$emb" = '{"model":"nomic-embed-text","serverRef":"ollama-local"}' ] || fail "EmbeddingModel spec changed: $emb"
+[ "$(render --set embeddingModel.serverRef=gpu-vllm | yq -N 'select(.kind == "EmbeddingModel") | .spec.serverRef')" = "gpu-vllm" ] || fail "embeddingModel.serverRef not rendered"
+err="$(render --set embeddingModel.serverRef= 2>&1 >/dev/null || true)"
+grep -q 'embeddingModel.serverRef is required' <<<"$err" || fail "an empty embeddingModel.serverRef must fail the render: $err"
+err="$(render --set embeddingModel.providerRef=ollama-local 2>&1 >/dev/null || true)"
+grep -q 'embeddingModel.providerRef is now embeddingModel.serverRef' <<<"$err" || fail "a stale embeddingModel.providerRef must fail the render: $err"
+! grep -qiE 'modelprovider|providerRef' <<<"$out" || fail "the rendered chart still names a ModelProvider or providerRef"
+grep -q '"modelservers"' <<<"$out" || fail "the Kubernetes MCP servers must be able to read ModelServers"
+echo "PASS: embedding model server reference"

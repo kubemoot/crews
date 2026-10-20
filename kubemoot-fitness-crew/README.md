@@ -12,7 +12,7 @@ The Crew carries the label `kubemoot.ai/adl-keyword: REFLECTS`, which is how the
 
 ## Install
 
-Prerequisites are the same as for the other crews (the Kubemoot operator, NATS, and an Ollama `ModelProvider`); see the [repository README](../README.md#install). No database or MCP server is needed.
+Prerequisites are the same as for the other crews (the Kubemoot operator, NATS, and an Ollama `ModelServer`); see the [repository README](../README.md#install). No database or MCP server is needed.
 
 ```bash
 helm upgrade --install kubemoot-fitness \
@@ -22,13 +22,13 @@ helm upgrade --install kubemoot-fitness \
   -f judge-values.yaml
 ```
 
-`models` defaults to `qwen3:8b` on the provider `ollama-local`. A judge's scores are only as steady as its model, so point it at the strongest reasoning model you run:
+`models` defaults to `qwen3:8b` on the model server `ollama-local`. A judge's scores are only as steady as its model, so point it at the strongest reasoning model you run:
 
 ```yaml
 models:
   - name: qwen3-32b
     model: "qwen3:32b"
-    providerRef: my-gpu-ollama
+    serverRef: my-gpu-ollama
     family: qwen3
     params: "32B"
     latencyClass: high
