@@ -82,7 +82,7 @@ check "values.yaml holds no key value" "" \
 # The MCP gateway registers this release's MCPServers.
 check "the gateway selects this release" '{"app.kubernetes.io/instance":"t"}' \
   "$(yq -N -o=json -I=0 'select(.kind == "MCPGateway") | .spec.mcpServerSelector.matchLabels' <<<"$out")"
-check "both MCPServers carry the release label" "t t" \
+check "all three MCPServers carry the release label" "t t t" \
   "$(yq -N 'select(.kind == "MCPServer") | .metadata.labels."app.kubernetes.io/instance"' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
 check "no pull secret by default" null "$(yq -N 'select(.kind == "MCPGateway") | .spec.imagePullSecrets' <<<"$out")"
 check "a pull secret is a value" '[{"name":"p"}]' \
@@ -112,14 +112,39 @@ check "every promptRef names a shipped PromptModule" "" \
   "$(yq -N 'select(.kind == "Agent") | .spec.promptRefs[]' <<<"$out" | sort -u | comm -23 - <(printf '%s\n' "$modules"))"
 check "only the search agents have the catalog tool" "events-scout,library-search" \
   "$(yq -N 'select(.kind == "Agent" and (.spec.enabledTools // [] | contains(["search_oreilly_content"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
-check "the curator reads artifacts only" 0 \
-  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vc '^artifact_' || true)"
+check "the curator reads artifacts and the clock only" "get_current_time" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -v '^artifact_' | paste -sd,)"
+
+module() { yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$1\") | .spec.content" <<<"$out"; }
+has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
+
+# The clock: the MCP reference Time server, pinned by digest, read by the curator.
+timesrv() { yq -N 'select(.kind == "MCPServer" and .metadata.name == "time-mcp") | '"$1" <<<"${2:-$out}"; }
+check "the Time server image is pinned by digest" 1 "$(timesrv .spec.image | grep -cE '^docker\.io/mcp/time@sha256:[0-9a-f]{64}$' || true)"
+check "the Time server runs stdio through its own command" "mcp-server-time,--local-timezone,UTC" \
+  "$(timesrv '.spec.command[]' | paste -sd,)"
+check "the Time server zone is a value" "Europe/London" \
+  "$(timesrv '.spec.command[2]' "$(render --set mcpServers.time.localTimezone=Europe/London)")"
+check "the Time server is contained" "false,[ALL]" \
+  "$(timesrv '.spec.securityContext.allowPrivilegeEscalation' ),$(timesrv '.spec.securityContext.capabilities.drop' | yq -o=json -I=0 '.' 2>/dev/null | tr -d '"' )"
+check "the curator opens with the date from get_current_time" 1 "$(has curator-system 'ALWAYS begin by calling get_current_time with the timezone "UTC"')"
+check "the curator sources today's date only from the clock" 1 "$(has curator-system "ASSERT today's date comes only from get_current_time")"
+check "recent material lists released items first, Scheduled after" 1 "$(has response-style 'THEN the released items come first and the Scheduled items follow in one short line')"
+check "the curator marks nothing Scheduled without the date" 1 "$(has curator-system 'THEN open with: Today'"'"'s date is unknown')"
+
+check "the curator's tool list names the clock" 1 "$(has analyst-review-protocol 'the clock (get_current_time) and the artifact read-ops tools')"
+check "the clock's server exists with the time capability" "time" \
+  "$(timesrv '.spec.capabilities[]')"
+check "the Time server filesystem is read-only" "true,RuntimeDefault" \
+  "$(timesrv '.spec.securityContext.readOnlyRootFilesystem'),$(timesrv '.spec.securityContext.seccompProfile.type')"
+check "the coordinator has a fallback without today's date" 1 "$(has synthesis-prompt 'label every date "Date"')"
+all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
+check "the retired upcoming-label vocabulary is gone" 0 \
+  "$(grep -cE 'Scheduled or Upcoming|upcoming or an early release|only tools are the artifact read-ops' <<<"$all_modules" || true)"
 
 # Grounding: no answer comes from model memory. Every agent reads the provenance rule, the
 # search agents fail on a missing, failing, or empty tool, and the answer lists nothing
 # without catalog results.
-module() { yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$1\") | .spec.content" <<<"$out"; }
-has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
 check "every Agent reads catalog-grounding" "curator,events-scout,library-search,ocrew-coordinator" \
   "$(yq -N 'select(.kind == "Agent" and (.spec.promptRefs | contains(["catalog-grounding"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
 check "the search agents read tooler-discipline" "events-scout,library-search" \
@@ -203,8 +228,8 @@ check "an explicit order sets the sequence in the curator" 1 \
   "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
 check "an explicit order sets the sequence in the coordinator" 1 \
   "$(has synthesis-prompt 'the released items follow that order by publication_date')"
-check "response-style labels an unreleased item Scheduled or Upcoming" 1 "$(has response-style 'never "Published"')"
-check "the coordinator labels an unreleased item Scheduled or Upcoming" 1 "$(has synthesis-prompt 'never "Published"')"
+check "response-style labels an item Scheduled only after today's date" 1 "$(has response-style 'AND an item'"'"'s publication_date is after it THEN list the item after the released items')"
+check "the coordinator never decides whether a date has passed" 1 "$(has synthesis-prompt 'never decide for yourself whether a date has passed')"
 check "the curator reads artifact_tail and artifact_count past error lines" 1 \
   "$(has analyst-review-protocol 'with artifact_tail, or with artifact_count')"
 # These checks guard the rendered rules; whether the models follow them shows in the fitness scenarios.
