@@ -1,0 +1,24 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPGateway
+metadata:
+  name: {{ .Values.mcpGateway.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ocrew-crew.labels" . | nindent 4 }}
+spec:
+  implementation: kubemoot
+  port: {{ .Values.mcpGateway.port }}
+  replicas: {{ .Values.mcpGateway.replicas }}
+  # Registers the MCPServers of this release: the O'Reilly server and the artifact read-ops.
+  mcpServerSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  adminUI: true
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.mcpGateway.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}

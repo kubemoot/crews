@@ -1,0 +1,16 @@
+DESCRIPTION Recent-material band, several focused searches across books and videos, newest first, every item linked.
+
+DEFINE CONST QUESTION AS "What is the best recent O'Reilly material on running LLM agents on Kubernetes? Include books and videos, newest first."
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Every item is linked to its reader page, so the answer holds the library host name.
+ASSERT(synthesis CONTAINS "learning.oreilly.com")
+
+ASSERT(DEFER synthesis REFLECTS "The answer comes from the O'Reilly catalog search and says so. It lists several items on LLM agents, AI agents, or agentic systems and on Kubernetes or cloud-native deployment, as books and as videos, ordered newest first, each with its authors, content type, publication date, and a learning.oreilly.com reader link. Items that are announced but not yet released may appear marked as upcoming. It presents titles, authors, and dates only, and does not describe what is inside any item beyond what its title shows. If the catalog held few items that match both topics, the answer says so and lists the closest ones. (the titles and dates drift as the catalog changes; the constant is linked catalog items with metadata, ordered newest first, and no invented titles or content.)")

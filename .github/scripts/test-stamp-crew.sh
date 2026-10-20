@@ -18,7 +18,7 @@ failures=0
 check() {
   if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: want [$2] got [$3]"; failures=$((failures + 1)); fi
 }
-crews=(homelab-pilot-crew kubemoot-fitness-crew)
+crews=(homelab-pilot-crew kubemoot-fitness-crew ocrew-crew)
 
 # The rule as git holds it.
 for crew in "${crews[@]}"; do
@@ -48,6 +48,8 @@ for crew in "${crews[@]}"; do
 done
 check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox scheduling-mcp" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
+check "O'crew pins its Kubemoot image as a placeholder" "artifact-access" \
+  "$(rl_image_placeholders "${repo}/ocrew-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
 root="$(mktemp -d)"
@@ -64,9 +66,14 @@ export KUBEMOOT_REMOTE="${root}/kubemoot.git"
 
 stamp() { bash "${here}/stamp-crew.sh" "$@" > "${root}/stamp.log" 2>&1; }
 copy_crew() { rm -rf "${root:?}/${1:?}"; cp -r "${repo}/$1" "${root}/$1"; }
+# rendered_images CREW: the images the stamped copy renders. The pilot needs its database
+# host, and its scheduling server enabled so all three Kubemoot images render.
 rendered_images() {
-  helm template t "${root}/$1" --set vectorStore.host=db --set mcpServers.scheduling.enabled=true \
-    | sed -n 's/^ *image: //p' | tr -d '"' | sort -u
+  local args=()
+  if [ "$1" = homelab-pilot-crew ]; then
+    args=(--set vectorStore.host=db --set mcpServers.scheduling.enabled=true)
+  fi
+  helm template t "${root}/$1" "${args[@]}" | sed -n 's/^ *image: //p' | tr -d '"' | sort -u
 }
 
 # A release candidate build: chart version and the latest final Kubemoot images.
@@ -98,6 +105,14 @@ check "final chart version" "0.47.0" "$(sed -n 's/^appVersion: //p' "${root}/hom
 copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.1-rc.0 && status=0 || status=$?
 check "a later candidate picks up the newer final" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.19.0')"
+
+# O'crew stamps its one Kubemoot image the same way.
+copy_crew ocrew-crew
+stamp "${root}/ocrew-crew" 0.1.0-rc.0 && status=0 || status=$?
+check "O'crew candidate stamp succeeds" 0 "$status"
+check "O'crew renders the latest final artifact-access" "ghcr.io/kubemoot/artifact-access:0.343.0" \
+  "$(rendered_images ocrew-crew)"
+check "O'crew stamped chart lints" 0 "$(helm lint "${root}/ocrew-crew" >/dev/null 2>&1; echo $?)"
 
 # The fitness crew (no Kubemoot images) stamps the same way.
 copy_crew kubemoot-fitness-crew

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: ocrew-crew
+description: O'crew, a Kubemoot crew that finds, compares, ranks, and links O'Reilly library material through the O'Reilly catalog search (bring your own subscriber key)
+type: application
+version: 0.0.0
+appVersion: 0.0.0
+home: https://github.com/kubemoot/crews
+sources:
+  - https://github.com/kubemoot/crews/tree/main/ocrew-crew
+maintainers:
+  - name: Kubemoot maintainers
+    email: moot@kubemoot.org

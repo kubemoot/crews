@@ -1,0 +1,37 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: events-scout
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ocrew-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+spec:
+  type: chat
+  description: "Finds upcoming O'Reilly live events and live courses on a topic and reports every session date."
+  discussRole: tooler
+  capabilities: [tool-calling]
+  discussChannels:
+    - library
+    - general
+  triageSummary: "Finds upcoming O'Reilly live events, live training, workshops, and conference sessions on a topic, with every session date and the reader link."
+  promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, events-scout-system]
+  enabledTools: [search_oreilly_content]
+  discussKeywords:
+    - live
+    - event
+    - events
+    - upcoming
+    - workshop
+    - training
+    - session
+    - sessions
+    - conference
+    - schedule
+  temperature: "0.3"
+  maxTokens: 4096
+  think: false
+  deployment:
+    replicas: 1
+    port: 8080

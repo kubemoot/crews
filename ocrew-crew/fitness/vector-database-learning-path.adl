@@ -1,0 +1,14 @@
+DESCRIPTION Learning-path band, the curator sequences gathered items into a two-week plan with reader links.
+
+DEFINE CONST QUESTION AS "Build me a two-week learning path to understand vector databases using O'Reilly material."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "learning.oreilly.com")
+
+ASSERT(DEFER synthesis REFLECTS "The answer is a plan spread over two weeks, in stages that move from foundations (embeddings, similarity search, and the idea of a vector database) to using and operating one, built only from items the O'Reilly catalog search returned. Each stage names one to three items with a learning.oreilly.com reader link and the item's content type, and the load of a stage is plausible for the page counts or durations the catalog gave. It does not list two editions of one title as separate steps. If the catalog held nothing for a stage, the answer says so instead of filling it. It does not describe chapters or contents that the catalog metadata does not show. (the items drift; the constant is a staged two-week path made of linked catalog items with no invented titles or content.)")

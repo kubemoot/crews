@@ -1,0 +1,41 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: library-search
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ocrew-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+spec:
+  type: chat
+  description: "Searches the O'Reilly catalog for books, videos, courses, interactive content, certifications, and audiobooks with several focused keyword queries and filters."
+  discussRole: tooler
+  capabilities: [tool-calling]
+  discussChannels:
+    - library
+    - general
+  triageSummary: "Finds O'Reilly books, videos, courses, audiobooks, and certifications on a topic or by an author or publisher, with titles, dates, page counts or durations, and reader links."
+  promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, library-search-system]
+  enabledTools: [search_oreilly_content]
+  discussKeywords:
+    - oreilly
+    - book
+    - books
+    - video
+    - videos
+    - course
+    - courses
+    - author
+    - publisher
+    - learning
+    - certification
+    - audiobook
+    - recent
+    - newest
+  temperature: "0.3"
+  maxTokens: 4096
+  think: false
+  deployment:
+    replicas: 1
+    port: 8080

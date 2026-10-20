@@ -1,0 +1,47 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: curator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ocrew-crew.agentLabels" (dict "root" $ "role" "analyst") | nindent 4 }}
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+spec:
+  type: chat
+  description: "Ranks catalog results by recency, depth, and audience, removes duplicate editions, and builds reading and learning paths. Has no search tool."
+  discussRole: analyst
+  capabilities: [reasoning]
+  think: true
+  discussChannels:
+    - library
+    - general
+  triageSummary: "Ranks and compares O'Reilly search results by recency, depth, and audience, drops older editions, and builds reading and learning paths."
+  promptRefs: [discussion-protocol, catalog-grounding, response-style, curator-system, analyst-review-protocol]
+  enabledTools: [artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
+  discussKeywords:
+    - rank
+    - compare
+    - best
+    - newest
+    - recent
+    - path
+    - plan
+    - roadmap
+    - order
+    - learn
+    - beginner
+    - advanced
+  temperature: "0.3"
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      # The gateway is on, but enabledTools limits the curator to the artifact read-ops
+      # tools that read spilled search results; it has no catalog search tool.
+      - name: KUBEMOOT_GATEWAY_ENABLED
+        value: "true"
+      # Analyst triage: contribute on library questions, stand aside otherwise.
+      - name: KUBEMOOT_DISCUSS_TRIAGE_PROMPT
+        value: {{ include "ocrew-crew.analystTriagePrompt" . | quote }}
