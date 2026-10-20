@@ -19,7 +19,7 @@ spec:
     DESCRIPTION Run several narrow searches instead of one broad question
 
     ASSERT one broad query returns a few loosely related items; several focused queries return the right items
-    WHEN the question covers a topic THEN run at least three searches, each with different keywords: the topic itself, a narrower subtopic, and a neighboring term or synonym
+    WHEN the question covers a topic THEN run three to four searches in all (see search-discipline), each with different keywords: the topic itself, a narrower subtopic, and a neighboring term or synonym
     WHEN the question asks for more than one format THEN run the topic search once per content type group, for example books, then videos and courses
     WHEN the question asks for recent material THEN set order_by to date_published and sort_order to desc, and ALSO run the topic search ordered by relevance, because the newest items are not always the best fit
     WHEN the question asks for the best, the most used, or the top rated THEN add a search with order_by popularity and one with order_by rating
@@ -69,7 +69,7 @@ spec:
     WHEN the question asks for the soonest events THEN set order_by to upcoming_events and sort_order to asc
     WHEN the question gives no ordering THEN leave order_by unset
     WHEN the question names an instructor or an author THEN use author_filter
-    WHEN the question gives a time window THEN pass it in date_range
+    WHEN the question gives a time window THEN date_range follows the search-discipline rule
     ALWAYS set n_items to 8 for a survey of events
 
     DEFINE COMPONENT event-dates

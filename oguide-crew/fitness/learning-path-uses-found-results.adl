@@ -21,6 +21,6 @@ ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
 
 # The plan holds several catalog items, each linked, and none of the give-up wording.
 ASSERT(synthesis matches "https://learning\.oreilly\.com/[a-z-]+/" at least 3 times)
-ASSERT(synthesis does NOT CONTAIN "no usable data" AND "tooling error" AND "is not of type" AND "Input validation")
+ASSERT(synthesis does NOT CONTAIN "no usable data" AND "tooling error" AND "is not of type" AND "Input validation" AND "common knowledge" AND "general knowledge")
 
 ASSERT(DEFER synthesis REFLECTS "The answer is a staged two-week plan about vector databases built from catalog items, each stage naming one or more items with a learning.oreilly.com reader link. It does not say that the catalog returned no data, that a tool failed, or that the plan cannot be built, and it shows no tool error text. Items are catalog results, with none invented. (the items drift; the constant is a plan made of linked catalog items, not a report of failure.)")
