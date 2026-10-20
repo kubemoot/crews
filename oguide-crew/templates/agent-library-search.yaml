@@ -17,7 +17,7 @@ spec:
     - general
   triageSummary: "Finds O'Reilly books, videos, courses, audiobooks, and certifications on a topic or by an author or publisher, with titles, dates, page counts or durations, and reader links."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, library-search-system]
-  enabledTools: [search_oreilly_content]
+  enabledTools: [get_current_time, search_oreilly_content]
   discussKeywords:
     - oreilly
     - book

@@ -9,20 +9,23 @@ metadata:
     kubemoot.ai/discuss-priority: medium
 spec:
   type: chat
-  description: "Finds upcoming O'Reilly live events and live courses on a topic and reports every session date."
+  description: "Finds upcoming O'Reilly live events and live courses on a topic and reports every session date, and finds books, videos, and courses scheduled for release."
   discussRole: tooler
   capabilities: [tool-calling]
   discussChannels:
     - library
     - general
-  triageSummary: "Finds upcoming O'Reilly live events, live training, workshops, and conference sessions on a topic, with every session date and the reader link."
+  triageSummary: "Finds upcoming O'Reilly live events, live training, workshops, and conference sessions on a topic, with every session date and the reader link, and books, videos, and courses announced for release."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, events-scout-system]
-  enabledTools: [search_oreilly_content]
+  enabledTools: [get_current_time, search_oreilly_content]
   discussKeywords:
     - live
     - event
     - events
     - upcoming
+    - scheduled
+    - forthcoming
+    - unreleased
     - workshop
     - training
     - session

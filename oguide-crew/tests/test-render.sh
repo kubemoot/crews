@@ -112,8 +112,6 @@ check "every promptRef names a shipped PromptModule" "" \
   "$(yq -N 'select(.kind == "Agent") | .spec.promptRefs[]' <<<"$out" | sort -u | comm -23 - <(printf '%s\n' "$modules"))"
 check "only the search agents have the catalog tool" "events-scout,library-search" \
   "$(yq -N 'select(.kind == "Agent" and (.spec.enabledTools // [] | contains(["search_oreilly_content"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
-check "the curator reads artifacts and the clock only" "get_current_time" \
-  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -v '^artifact_' | paste -sd,)"
 
 module() { yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$1\") | .spec.content" <<<"$out"; }
 has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
@@ -127,20 +125,36 @@ check "the Time server zone is a value" "Europe/London" \
   "$(timesrv '.spec.command[2]' "$(render --set mcpServers.time.localTimezone=Europe/London)")"
 check "the Time server is contained" "false,[ALL]" \
   "$(timesrv '.spec.securityContext.allowPrivilegeEscalation' ),$(timesrv '.spec.securityContext.capabilities.drop' | yq -o=json -I=0 '.' 2>/dev/null | tr -d '"' )"
-check "the curator opens with the date from get_current_time" 1 "$(has curator-system 'ALWAYS begin by calling get_current_time with the timezone "UTC"')"
-check "the curator sources today's date only from the clock" 1 "$(has curator-system "ASSERT today's date comes only from get_current_time")"
-check "recent material lists released items first, Scheduled after" 1 "$(has response-style 'THEN the released items come first and the Scheduled items follow in one short line')"
-check "the curator marks nothing Scheduled without the date" 1 "$(has curator-system 'THEN open with: Today'"'"'s date is unknown')"
 
-check "the curator's tool list names the clock" 1 "$(has analyst-review-protocol 'the clock (get_current_time) and the artifact read-ops tools')"
+check "the curator reads artifacts only" 0 \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vc '^artifact_' || true)"
+check "the search agents read the clock" "events-scout,library-search" \
+  "$(yq -N 'select(.kind == "Agent" and (.spec.enabledTools // [] | contains(["get_current_time"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
+check "library search calls get_current_time first" 1 "$(has library-search-system 'ALWAYS call get_current_time with the timezone "UTC" first')"
+check "library search returns released items only" 1 "$(has library-search-system 'ASSERT every search for recorded content carries date_range')"
+check "events agent searches scheduled releases from today" 1 "$(has events-scout-system 'start_date": "<today>"')"
+check "release status comes from the search, not from a date comparison" 1 "$(has response-style 'Whether an item is released comes from the search that returned it')"
+check "the coordinator takes status from the source" 1 "$(has synthesis-prompt 'you have no clock, you compare no dates')"
+check "the coordinator selects the events agent for what is coming" 1 "$(has advisory-prompt 'an author'"'"'s next work THEN select the events agent as well')"
+check "search-discipline names the release-filter exception in its ASSERT" 1 "$(has tooler-discipline 'ASSERT date_range is set in only two cases')"
+check "the scheduled search is outside the four-search budget" 1 "$(has tooler-discipline "the events agent's scheduled-releases search, which is extra")"
+check "the events agent calls the clock only for the scheduled search" 1 "$(has events-scout-system 'WHEN you run the scheduled-releases search THEN call get_current_time')"
+check "the events agent's live searches keep content_types, the scheduled one has none" 1 "$(has events-scout-system 'for every event search, except the scheduled-releases search below')"
+check "a missing clock is NO_DATA for the search agents" 1 "$(has tooler-discipline 'WHEN get_current_time is not among your tools THEN respond NO_DATA')"
+check "the curator names the artifact author as the source of status" 1 "$(has analyst-review-protocol 'the <agent> segment names who gathered it')"
+check "an item in both artifacts is released" 1 "$(has analyst-review-protocol 'WHEN the same url appears in both artifacts THEN list the item once, as released')"
+check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
+words=(zero one two three four five six seven eight nine ten)
+count="$(find "${chart}/fitness" -maxdepth 1 -name '*.adl' | wc -l | tr -d ' ')"
+check "the README states the scenario count" 1 "$(grep -cF "holds ${words[$count]} scenarios" "${chart}/README.md" || true)"
+check "author and recency searches use 25 items and no content_types" 1 "$(has library-search-system 'n_items 25, and NO content_types filter')"
 check "the clock's server exists with the time capability" "time" \
   "$(timesrv '.spec.capabilities[]')"
 check "the Time server filesystem is read-only" "true,RuntimeDefault" \
   "$(timesrv '.spec.securityContext.readOnlyRootFilesystem'),$(timesrv '.spec.securityContext.seccompProfile.type')"
-check "the coordinator has a fallback without today's date" 1 "$(has synthesis-prompt 'label every date "Date"')"
 all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
 check "the retired upcoming-label vocabulary is gone" 0 \
-  "$(grep -cE 'Scheduled or Upcoming|upcoming or an early release|only tools are the artifact read-ops' <<<"$all_modules" || true)"
+  "$(grep -cE 'Scheduled or Upcoming|upcoming or an early release|the curator states today|Today is <' <<<"$all_modules" || true)"
 
 # Grounding: no answer comes from model memory. Every agent reads the provenance rule, the
 # search agents fail on a missing, failing, or empty tool, and the answer lists nothing
@@ -228,12 +242,10 @@ check "an explicit order sets the sequence in the curator" 1 \
   "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
 check "an explicit order sets the sequence in the coordinator" 1 \
   "$(has synthesis-prompt 'the released items follow that order by publication_date')"
-check "response-style labels an item Scheduled only after today's date" 1 "$(has response-style 'AND an item'"'"'s publication_date is after it THEN list the item after the released items')"
-check "the coordinator never decides whether a date has passed" 1 "$(has synthesis-prompt 'never decide for yourself whether a date has passed')"
 check "the curator reads artifact_tail and artifact_count past error lines" 1 \
   "$(has analyst-review-protocol 'with artifact_tail, or with artifact_count')"
 # These checks guard the rendered rules; whether the models follow them shows in the fitness scenarios.
-check "a date_range comes only from the question" 1 "$(has tooler-discipline 'ASSERT date_range is set only when the question names a time frame')"
+check "a date_range comes only from the question" 1 "$(has tooler-discipline 'ASSERT date_range is set in only two cases')"
 check "no rule demands more than four searches" 0 "$(grep -cF 'run at least three searches' <<<"$all_modules" || true)"
 check "the search budget counts the drill steps" 1 "$(has tooler-discipline 'a drill step after an empty result counts toward the four')"
 check "a date range is never invented" 1 "$(has tooler-discipline 'NEVER invent a date_range')"
