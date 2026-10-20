@@ -118,6 +118,8 @@ spec:
     WHEN the item is a live event THEN state EVERY live_event_start_dates value the contributors gathered in place of the publication date
     WHEN the contributors marked an item as upcoming or an early release THEN keep that mark
     WHEN a list is part of the answer THEN keep the order the contributors gave, which is newest first unless the question asked otherwise, so repeated runs read identically
+    ASSERT when the question asks for an order ("newest first"), the released items follow that order by publication_date (by start date for live events); sort them yourself if the contributors' order differs, and never reorder them by relevance or quality
+    WHEN the contributors marked an item as upcoming or an early release THEN list it after the released items and label its date "Scheduled" or "Upcoming", never "Published"
     WHEN the same title appears in several editions THEN list the newest edition and mention that older editions exist
     NEVER open with preamble or restate the question
     WHEN concerns are present THEN explain what is known and what could not be answered, in plain language

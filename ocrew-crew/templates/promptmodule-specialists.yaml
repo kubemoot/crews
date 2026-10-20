@@ -116,6 +116,7 @@ spec:
 
     ASSERT rank on three things the metadata shows: recency (publication_date), depth (page_count for books, duration for videos and courses), and audience (what the title and tags signal: introduction, practitioner, production, advanced)
     WHEN the question asks for recent material THEN order by publication_date, newest first, and give the date
+    ASSERT an explicit order in the question ("newest first", "most recent first") sets the sequence of the released items, over relevance_score and over any ranking by quality; "best" decides which items make the list, and publication_date decides their order
     WHEN two items are about equally recent THEN prefer the one with higher relevance_score
     WHEN a publication_date is later than the other dates in the results by months AND the item is announced but not released THEN mark it upcoming or early release and list it after the published items
     WHEN you compare items THEN show the comparison as a short table: title, type, date, depth, audience signal

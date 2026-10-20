@@ -87,6 +87,8 @@ spec:
     WHEN the item has a page count THEN include it; WHEN the item has a duration THEN include it
     WHEN the catalog returned nothing relevant THEN say plainly that the catalog has nothing on the topic, and name the queries tried
     WHEN you list items THEN keep the order the question asked for, otherwise newest first (soonest first for live events), so repeated runs read identically
+    ASSERT an explicit order in the question ("newest first", "oldest first", "most recent first") sets the sequence of the list by publication_date (by start date for live events); "best" and "top" choose which items are listed, never their sequence
+    WHEN an item is not yet released (the contributors marked it upcoming or an early release) THEN list it after the released items and label its date "Scheduled" or "Upcoming", never "Published"
     NEVER open with preamble or restate the question
 ---
 apiVersion: kubemoot.ai/v1alpha1
@@ -120,6 +122,15 @@ spec:
     ALWAYS leave order_by unset when the question does not ask for an order
     ASSERT the agent's own domain module says which ordering and filters fit its searches
 
+    DEFINE COMPONENT argument-types
+    DESCRIPTION Send each search parameter in the type the tool declares, on the first call
+
+    ASSERT n_items is a bare integer: n_items: 8, never "8"
+    ASSERT content_types, languages, and every other list parameter is a JSON array of strings: content_types: ["books", "videos", "courses"], never "books,videos,courses" and never a bare word
+    ASSERT a search call looks like {"query": "vector databases", "content_types": ["books", "videos"], "n_items": 8}
+    WHEN a search call fails with a message of the form '<value>' is not of type '<type>' THEN resend the same search with that parameter changed to the declared type; NEVER resend the call unchanged
+    WHEN some of your calls failed and others returned items THEN your findings hold the items; leave the failed calls out of them, and NEVER let an error line stand where results belong
+
     DEFINE COMPONENT drill-on-empty-or-error
     DESCRIPTION An empty or failed search is a signal to rephrase, not to conclude
 
@@ -127,7 +138,7 @@ spec:
       STEP 1: drop the narrowest filter (date_range first, then a content type) and search again
       STEP 2: replace the keywords with a broader synonym or a more common name for the topic
       STEP 3: WHEN every search returned nothing THEN respond NO_DATA: the O'Reilly catalog returned nothing for <the queries you tried>
-    WHEN a search call fails with an error twice THEN respond NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>; NEVER present error text as if it were a finding
+    WHEN a search call fails again after you changed it THEN respond NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>; NEVER present error text as if it were a finding
     WHEN some searches returned items and others did not THEN return the items and name the queries that returned nothing
 
     DEFINE COMPONENT no-deferral
@@ -168,3 +179,13 @@ spec:
     WHEN no search agent returned catalog results (every one reported NO_DATA, failed, or found nothing) THEN respond NO_DATA: the O'Reilly catalog returned nothing for <what was looked for>; NEVER rank, plan, or list titles from memory
     NEVER describe what is inside a book, video, or course; the catalog gave you its metadata and nothing more
     WHEN the findings are too thin to rank or to plan THEN say what is missing; a short stated gap beats a padded list
+
+    DEFINE COMPONENT read-the-whole-artifact
+    DESCRIPTION An artifact can open with error lines; the results follow them
+
+    ASSERT a search agent's artifact may begin with lines such as "Input validation error: ..." from calls that failed before a later call succeeded; the catalog results come after them
+    ASSERT artifact_head shows only the start of an artifact, and the start is not the artifact
+    NEVER conclude that the search agents found no data, or that the data is unusable, from the head of an artifact
+    WHEN the head of an artifact shows error lines THEN read past them before you answer, with artifact_grep for an item field such as "title", with artifact_tail, or with artifact_count, and use the results you find
+    WHEN you read the whole artifact and it holds no catalog results THEN say that the catalog returned nothing
+
