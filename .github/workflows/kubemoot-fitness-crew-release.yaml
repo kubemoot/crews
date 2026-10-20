@@ -49,7 +49,7 @@ jobs:
 
       - name: Calculate the release candidate version
         id: version
-        uses: kubemoot/release-actions/release-candidate-version@f2585afb79cf9234d30135888158c647d834fcba # v0.10.0
+        uses: kubemoot/release-actions/release-candidate-version@7accfbc33966d895bab2fc17a2a6c7f2520aaf76 # v0.11.1
         with:
           tag_prefix: "kubemoot-fitness-crew-v"
           change_path: "kubemoot-fitness-crew"
