@@ -4,7 +4,7 @@ metadata:
   name: curator
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.agentLabels" (dict "root" $ "role" "analyst") | nindent 4 }}
+    {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "analyst") | nindent 4 }}
   annotations:
     kubemoot.ai/discuss-priority: medium
 spec:
@@ -44,4 +44,4 @@ spec:
         value: "true"
       # Analyst triage: contribute on library questions, stand aside otherwise.
       - name: KUBEMOOT_DISCUSS_TRIAGE_PROMPT
-        value: {{ include "ocrew-crew.analystTriagePrompt" . | quote }}
+        value: {{ include "oguide-crew.analystTriagePrompt" . | quote }}

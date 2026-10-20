@@ -5,8 +5,8 @@ global:
   imageRegistry: ghcr.io/kubemoot
 
 crew:
-  name: ocrew
-  description: "O'crew: finds, compares, ranks and links O'Reilly library material (books, videos, courses, live events) through the O'Reilly catalog search"
+  name: oguide
+  description: "O'guide: finds, compares, ranks and links O'Reilly library material (books, videos, courses, live events) through the O'Reilly catalog search"
   discussion:
     enabled: true
   # How Kubemoot places this crew's model calls: algorithm, learned (where each call
@@ -44,7 +44,7 @@ oreilly:
 # MCP gateway the search agents and the curator call their tools through. It registers
 # this release's MCPServers.
 mcpGateway:
-  name: ocrew-gateway
+  name: oguide-gateway
   port: 8080
   replicas: 1
   # The Kubemoot gateway's JVM needs about 608Mi; 768Mi leaves headroom.

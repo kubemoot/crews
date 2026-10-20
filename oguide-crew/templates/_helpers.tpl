@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "ocrew-crew.name" -}}
+{{- define "oguide-crew.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "ocrew-crew.chart" -}}
+{{- define "oguide-crew.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -16,9 +16,9 @@ Create chart name and version as used by the chart label.
 Common labels. managed-by is .Release.Service because Helm and Flux's Helm controller
 set it to "Helm" on apply whatever the chart renders.
 */}}
-{{- define "ocrew-crew.labels" -}}
-helm.sh/chart: {{ include "ocrew-crew.chart" . }}
-{{ include "ocrew-crew.selectorLabels" . }}
+{{- define "oguide-crew.labels" -}}
+helm.sh/chart: {{ include "oguide-crew.chart" . }}
+{{ include "oguide-crew.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -32,17 +32,17 @@ kubemoot.ai/crew-version: {{ .Chart.Version | replace "+" "_" | trunc 63 | trimS
 {{/*
 Selector labels. The MCPGateway selects this release's MCPServers by the instance label.
 */}}
-{{- define "ocrew-crew.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "ocrew-crew.name" . }}
+{{- define "oguide-crew.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "oguide-crew.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Labels of an Agent: the common labels, the crew, and the agent's role.
-Usage: include "ocrew-crew.agentLabels" (dict "root" $ "role" "tooler")
+Usage: include "oguide-crew.agentLabels" (dict "root" $ "role" "tooler")
 */}}
-{{- define "ocrew-crew.agentLabels" -}}
-{{ include "ocrew-crew.labels" .root }}
+{{- define "oguide-crew.agentLabels" -}}
+{{ include "oguide-crew.labels" .root }}
 kubemoot.ai/crew: {{ .root.Values.crew.name }}
 kubemoot.ai/role: {{ .role }}
 {{- end }}
@@ -51,9 +51,9 @@ kubemoot.ai/role: {{ .role }}
 Resolve an image reference. A bare "name:tag" or "name@sha256:..." is prefixed with
 global.imageRegistry; a reference that already names a registry (contains "/") is used
 as-is.
-Usage: include "ocrew-crew.image" (dict "root" $ "image" .Values.mcpServers.x.image)
+Usage: include "oguide-crew.image" (dict "root" $ "image" .Values.mcpServers.x.image)
 */}}
-{{- define "ocrew-crew.image" -}}
+{{- define "oguide-crew.image" -}}
 {{- if contains "/" .image -}}
 {{- .image -}}
 {{- else -}}
@@ -65,7 +65,7 @@ Usage: include "ocrew-crew.image" (dict "root" $ "image" .Values.mcpServers.x.im
 The name of the Secret that holds the O'Reilly subscriber key, after checking the auth
 values. The chart names the Secret and never holds a key.
 */}}
-{{- define "ocrew-crew.authSecretName" -}}
+{{- define "oguide-crew.authSecretName" -}}
 {{- $auth := .Values.oreilly.auth -}}
 {{- if not (has $auth.secretKey (list "bearer-token" "api-key")) -}}
 {{- fail (printf "oreilly.auth.secretKey must be bearer-token or api-key, the key names the operator reads; got %q" $auth.secretKey) -}}
@@ -80,7 +80,7 @@ values. The chart names the Secret and never holds a key.
 The triage prompt of an analyst, an agent that reasons over the results the search
 agents gathered and runs no catalog search. One definition for every analyst of the crew.
 */}}
-{{- define "ocrew-crew.analystTriagePrompt" -}}
+{{- define "oguide-crew.analystTriagePrompt" -}}
 DEFINE COMPONENT analyst-triage
 DESCRIPTION You were already selected as a relevant reviewer; reason and contribute unless this clearly belongs to another domain.
 

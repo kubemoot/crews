@@ -4,12 +4,12 @@ metadata:
   name: discussion-protocol
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 10
   content: |
     DEFINE DOMAIN discussion-protocol
-    DESCRIPTION How O'crew agents take part in a discussion about the O'Reilly library
+    DESCRIPTION How O'guide agents take part in a discussion about the O'Reilly library
 
     ASSERT the crew's only source of library facts is the O'Reilly catalog search; there is no other library data
     ASSERT the catalog returns metadata only: title, authors, publisher, publication date, page count or duration, a reader link, a relevance score, and live event dates; it returns no text from inside any content
@@ -44,7 +44,7 @@ metadata:
   name: catalog-grounding
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 15
   content: |
@@ -73,7 +73,7 @@ metadata:
   name: response-style
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 20
   content: |
@@ -101,7 +101,7 @@ metadata:
   name: tooler-discipline
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 25
   content: |
@@ -157,7 +157,7 @@ metadata:
   name: analyst-review-protocol
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 35
   content: |

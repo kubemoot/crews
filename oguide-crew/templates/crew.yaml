@@ -4,7 +4,7 @@ metadata:
   name: {{ .Values.crew.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
   annotations:
     kubemoot.ai/manage-namespace: "true"
 spec:

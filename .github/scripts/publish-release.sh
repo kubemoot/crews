@@ -39,7 +39,7 @@ set -euo pipefail
 source "${RELEASE_LIB:?RELEASE_LIB must point to release-lib.sh from kubemoot/release-actions}"
 
 RC_TAG="${RC_TAG:-latest}"
-CREWS="${CREWS:-homelab-pilot-crew kubemoot-fitness-crew ocrew-crew}"
+CREWS="${CREWS:-homelab-pilot-crew kubemoot-fitness-crew oguide-crew}"
 OUT_DIR="$(mkdir -p "${OUT_DIR:-release-files}" && cd "${OUT_DIR:-release-files}" && pwd)"
 : "${REGISTRY:?REGISTRY required}"
 : "${RELEASE_REGISTRY:?RELEASE_REGISTRY required}"

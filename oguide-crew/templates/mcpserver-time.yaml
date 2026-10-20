@@ -4,7 +4,7 @@ metadata:
   name: time-mcp
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   # The Model Context Protocol project's reference Time server (modelcontextprotocol/servers,
   # src/time, MIT): get_current_time and convert_time. The curator reads today's date from it,

@@ -1,5 +1,5 @@
 {{/*
-CrewSchedulingPolicy for O'crew.
+CrewSchedulingPolicy for O'guide.
 
 The crew ships no Model objects and names no model server. The cluster owner's model
 catalog supplies the models (Model objects in the operator namespace plus the models
@@ -15,7 +15,7 @@ metadata:
   name: {{ .Values.crew.name }}-scheduling
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   crewRef: {{ .Values.crew.name | quote }}
   archetypeRef: consent-3

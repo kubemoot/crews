@@ -4,7 +4,7 @@ metadata:
   name: advisory-prompt
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 5
   content: |
@@ -50,7 +50,7 @@ metadata:
   name: coordinator-decision-logic
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 45
   content: |
@@ -92,7 +92,7 @@ metadata:
   name: synthesis-prompt
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "ocrew-crew.labels" . | nindent 4 }}
+    {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
   order: 50
   content: |
