@@ -44,9 +44,9 @@ spec:
       require:
         matchLabels:
           capability/tool-calling: "true"
-      # No prefer block, so each agent's score comes from qualityBias (size)
-      # plus the abilities it declares. An explicit prefer list here would
-      # replace both for this rule.
+      # No prefer list and no preferFaster, so each agent's score comes from
+      # qualityBias (size) plus the abilities it declares. Either one here
+      # would replace both for this rule.
     - phase: triage
       require:
         matchLabels:
@@ -56,15 +56,9 @@ spec:
       # for it (a small model on a CPU can be far slower than a medium one on
       # an accelerator). preferFaster adds up to 50 points to each candidate
       # in proportion to its measured generation speed relative to the
-      # fastest candidate, applied by the agent runtime on each call.
+      # fastest candidate, applied by the agent runtime on each call. Setting
+      # it makes the rule an explicit preference, so qualityBias and the
+      # ability scores do not apply: only measured speed ranks the candidates,
+      # and the coordinator's reasoning bias does not pull triage onto the
+      # large model.
       preferFaster: 50
-      # This prefer term matches every model the rule admits, so it adds the
-      # same weight to each and ranks nothing. It is here because any explicit
-      # prefer turns off the qualityBias and ability scores for the rule;
-      # without it the coordinator's reasoning bias would rank the large model
-      # first before speed is considered, and bind triage to it.
-      prefer:
-        - weight: 1
-          selector:
-            matchLabels:
-              capability/tool-calling: "true"
