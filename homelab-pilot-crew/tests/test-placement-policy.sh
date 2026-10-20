@@ -48,10 +48,9 @@ echo "PASS: mulling rule"
 [ "$(rule triage '.require.matchLabels["capability/tool-calling"]')" = '"true"' ] || fail "triage must require capability/tool-calling"
 [ "$(rule triage '.require.matchLabels | length')" = "1" ] || fail "triage must require only capability/tool-calling"
 [ "$(rule triage '.preferFaster')" = "50" ] || fail "triage must set preferFaster 50"
-# The one prefer term matches every model the rule admits (it repeats the require), so it
-# ranks nothing and only turns off the qualityBias and ability scores for triage.
-[ "$(rule triage '.prefer | length')" = "1" ] || fail "triage must have exactly one prefer term"
-[ "$(rule triage '(.prefer[0].selector.matchLabels | to_json(0)) == (.require.matchLabels | to_json(0))')" = "true" ] || fail "the triage prefer term must match exactly what require admits"
+# preferFaster alone makes the rule an explicit preference: no prefer list is needed.
+[ "$(rule triage '.prefer')" = "null" ] || fail "triage must have no prefer list"
+[ "$(rule triage 'keys | sort | join(",")')" = '"phase,preferFaster,require"' ] || fail "triage must hold only phase, require, and preferFaster"
 triage="$(rule triage '.')"
 ! grep -q 'kubemoot.ai/size' <<<"$triage" || fail "triage must not select on size"
 echo "PASS: triage rule"
