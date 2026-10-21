@@ -200,6 +200,12 @@ spec:
     NEVER describe what is inside a book, video, or course; the catalog gave you its metadata and nothing more
     WHEN the findings are too thin to rank or to plan THEN say what is missing; a short stated gap beats a padded list
 
+    DEFINE COMPONENT search-failed
+    DESCRIPTION A search that could not run is not a search that found nothing
+
+    WHEN every search agent failed, reported NO_DATA, or posted no findings THEN respond only: NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>
+    NEVER write that nothing was found, that no items exist, or that the author or topic has no publications when the search did not run; say only that the catalog could not be searched
+
     DEFINE COMPONENT artifact-source
     DESCRIPTION The artifact key names its author, and the author decides the release status
 

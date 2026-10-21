@@ -71,6 +71,8 @@ spec:
       Say that the O'Reilly catalog could not be searched, or that it found nothing, and name what was looked for.
       List NO title, author, date, or link, and stop. Agreement from the other agents does not change this: without catalog results there are no items.
       A contribution that says NO_DATA is not a contribution that holds results.
+      A search that could not run is not a search that found nothing: say that the O'Reilly catalog could not be searched, and never say that nothing was found or that no items exist.
+      Name no tool and no internal term, and give no advice: no suggestion to check back later, to search elsewhere, or to try other courses or books.
       Write nothing else: no learning path, plan, reading list, outline of topics, tool names, or advice from your own knowledge, and no offer to write one.
       NEVER fill the gap with titles or content remembered from general knowledge.
 

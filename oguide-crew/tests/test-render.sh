@@ -256,6 +256,10 @@ check "the survey search budget is stated" 1 "$(has tooler-discipline 'ASSERT a 
 check "the coordinator writes nothing of its own without results" 1 "$(has coordinator-decision-logic 'Write nothing else: no learning path, plan, reading list')"
 check "a learning-path request is a library question" 1 "$(has coordinator-decision-logic 'is a question about the O'"'"'Reilly library whether or not it names O'"'"'Reilly')"
 check "session dates are written in full" 1 "$(has response-style 'ASSERT every session date is written in full as the catalog returns it')"
+check "the curator reports a failed search only as could not be searched" 1 "$(has analyst-review-protocol "WHEN every search agent failed, reported NO_DATA, or posted no findings THEN respond only: NO_DATA")"
+check "a failed search is never reported as nothing found" 1 "$(has analyst-review-protocol 'when the search did not run; say only that the catalog could not be searched')"
+check "the coordinator never turns a failure into nothing found" 1 "$(has coordinator-decision-logic 'A search that could not run is not a search that found nothing')"
+check "the coordinator names no tool and gives no advice after a failure" 1 "$(has coordinator-decision-logic 'Name no tool and no internal term, and give no advice')"
 check "the typed-argument learning-path scenario ships" 1 "$(yq -N 'has("learning-path-uses-found-results.adl")' <<<"$scenarios" | grep -c true)"
 check "the typed-argument learning-path scenario forbids the give-up wording" 1 \
   "$(grep -cF 'ASSERT(synthesis does NOT CONTAIN "no usable data" AND "tooling error"' "${chart}/fitness/learning-path-uses-found-results.adl")"
