@@ -5,7 +5,7 @@ The Kubemoot reference crew: a coordinator and up to 22 specialists that answer 
 - **Who it is for:** cluster operators who want to ask their cluster questions in plain language, and anyone learning how a Kubemoot crew is built, since this is the reference for the others.
 - **What it answers:** what is running and whether it is healthy (pods, events, nodes, storage, Helm releases, network policies), resource use and capacity from Prometheus, GPU utilization and history from DCGM, Kubernetes, Prometheus, NVIDIA, and Proxmox concepts from their documentation (RAG), counting and arithmetic over gathered data in a sandbox, and current facts from a web search.
 - **What it needs from the cluster:**
-  - a chat model with `tool-calling` in the cluster's model catalog (a larger model with `reasoning` for the coordinator helps; the chart ships no Model), and an embedding model (`nomic-embed-text`) on a ModelServer;
+  - a chat model with `tool-calling` in the cluster's model catalog (a larger model with `reasoning` for the coordinator helps; the chart ships no Model), and a ModelServer that has the embedding model (`nomic-embed-text`) in its catalog, or a Model that asks for it on one;
   - a pgvector database and a Secret with its credentials in the crew namespace, for the RAG sources and the gateway tool index (or turn RAG off);
   - Prometheus (and DCGM for GPU questions) reachable from the crew; the chart deploys its own MCP servers for Kubernetes, Prometheus, k8sgpt, web search, the code sandbox, and artifact read-ops;
   - NATS JetStream for the discussions;
@@ -18,9 +18,7 @@ This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on 
 
 | Value | Default | What to set |
 |---|---|---|
-| `embeddingModel.serverRef` | `ollama-local` | The ModelServer that serves `nomic-embed-text`. |
 | `vectorStore.host`, `.database`, `.existingSecret` | empty (required) | Your pgvector database and a Secret with its credentials. Or set `ragSources.enabled=false` and `mcpGateway.toolIndex=null` to run without RAG. |
-| `mcpGateway.toolIndex.embeddingModel.endpoint` | `http://ollama.ollama:11434` | An Ollama URL that serves the embedding model. |
 | `mcpServers.prometheus.endpoint` | `http://kube-prometheus-stack-prometheus.monitoring:9090` | Your Prometheus. |
 | `mcpServers.proxmox.*` | disabled | Proxmox needs your own Proxmox MCP image and an API-credentials Secret. No public image ships with Kubemoot. The `proxmox-pve` and `proxmox-qm` agents render only when this is enabled; `proxmox-advisor` answers from Proxmox documentation (RAG) and always renders. |
 | `mcpServers.scheduling.enabled` | `false` | Reminders and follow-ups. The scheduling-mcp image is published to GHCR as `ghcr.io/kubemoot/scheduling-mcp`, and each chart release pins the latest Kubemoot release of it at build. The `scheduler-advisor` agent renders only when this is enabled. |
@@ -54,7 +52,7 @@ The chart ships no Model objects and names no model server for its chat models. 
 
 One chat model with tool-calling is enough to run the crew: every phase falls back to it. The policy's status condition `CatalogMode` reports `Cluster` once the crew selects from the catalog. After an upgrade from a release that shipped Models, the upgrade removes them; if `CatalogMode` still reads `CrewLocal`, Models remain in the crew namespace and the crew uses only those. See the Kubemoot scheduler documentation, sections "Quality bias", "Selecting from the model catalog", and "Preferring the faster model".
 
-The embedding model still names its model server, in `embeddingModel.serverRef`.
+The embedding model names its model and vector size (`embeddingModel.modelId`, `embeddingModel.dimensions`) and no server. Stored vectors match only the model that made them, so the crew pins the model; the cluster supplies a ModelServer that has it, and the operator binds the EmbeddingModel to one (`status.boundServer`, condition `Bound`). Moving the embeddings to another server is a change to the cluster, never to the crew. If no server has the model the `Bound` condition says `NoServer` and names the model; the cluster owner pulls it onto an Ollama server or adds a Model for it (`kmctl model add`). Set `embeddingModel.serverRef` only to pin the model to one ModelServer. The gateway tool index reads its server from the same EmbeddingModel; `mcpGateway.toolIndex.embeddingModel.endpoint` is an optional override.
 
 ## Layout
 

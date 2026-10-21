@@ -22,12 +22,14 @@ crew:
 # phase needs. One chat model with tool-calling is enough; with a range of
 # sizes, synthesis leans to the large model and tool work to medium.
 
-# Embedding model configuration
+# Embedding model configuration. The crew names the model and its vector size, never a
+# server: stored vectors match only the model that made them, and the cluster's catalog
+# supplies a ModelServer that has it. To pin the model to one ModelServer anyway
+# (crew-local), set embeddingModel.serverRef.
 embeddingModel:
   name: nomic-embed
   modelId: nomic-embed-text
-  # ModelServer, in the operator namespace, that serves the embedding model.
-  serverRef: ollama-local
+  dimensions: 768
 
 # Vector store for RAG sources and the MCP gateway tool index. REQUIRED when
 # ragSources.enabled is true: a pgvector (PostgreSQL) database this chart does not
@@ -147,9 +149,8 @@ mcpGateway:
       database: ""
       secretRef: ""
     embeddingModel:
-      provider: ollama
-      # URL of an Ollama server that has the embedding model pulled.
-      endpoint: http://ollama.ollama:11434
+      # The model only. The tool index reads the endpoint from the EmbeddingModel's
+      # status, so the chart names no server; set endpoint here only to override.
       model: nomic-embed-text
   # Meta-tools for agent discovery
   metaTools:
