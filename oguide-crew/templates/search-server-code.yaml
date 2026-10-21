@@ -1,0 +1,15 @@
+{{/*
+The search server's code, mounted into the stock Python image by the MCPServer
+(templates/mcpserver-search.yaml). It is code, not a credential; a Secret is the one volume
+type the MCPServer can mount, so the code travels in one.
+*/}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.mcpServers.search.codeSecretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+type: Opaque
+data:
+  server.py: {{ .Files.Get "search-server/server.py" | b64enc }}
