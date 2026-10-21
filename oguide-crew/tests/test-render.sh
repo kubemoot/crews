@@ -163,6 +163,15 @@ check "an explicit order sets the sequence in the coordinator" 1 "$(has synthesi
 check "a search is never sent twice" 1 "$(has tooler-discipline 'NEVER send a search call identical to one you already sent in this turn')"
 check "the curator never concludes from the head of an artifact" 1 "$(has analyst-review-protocol 'artifact_head shows only the start of an artifact')"
 all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
+check "no prompt text says advisory (the word the coordinator repeated to users)" 0 \
+  "$(grep -ci 'advisory' <<<"$all_modules" || true)"
+check "an author's list holds only items that name the author" 1 \
+  "$(has response-style "WHEN the question asks for an author's own work")"
+check "an empty author list says the catalog lists nothing by that author" 1 \
+  "$(has response-style 'WHEN none remain THEN say the catalog lists nothing by that author')"
+check "the author rule is scoped to a request for the author's work" 1 \
+  "$(has response-style 'applies to a request for an author')"
+check "the author rule leaves live events listed" 1 "$(has response-style 'a live event stays listed with its start dates')"
 check "the retired date-filter vocabulary is gone" 0 \
   "$(grep -cE 'Scheduled or Upcoming|upcoming or an early release|Today is <|release filter|artifact author|argument-types' <<<"$all_modules" || true)"
 words=(zero one two three four five six seven eight nine ten)

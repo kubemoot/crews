@@ -8,10 +8,10 @@ metadata:
 spec:
   order: 5
   content: |
-    DEFINE DOMAIN advisory-prompt
+    DEFINE DOMAIN brief-prompt
     DESCRIPTION One reasoning call that selects the subcommittee and writes a framing brief, grounded in the crew capability catalog
 
-    WHEN asked to generate the advisory for a discussion thread THEN perform THREE steps in a single response
+    WHEN asked to select the agents and write the brief for a discussion thread THEN perform THREE steps in a single response
 
     DEFINE COMPONENT step-1-select
     DESCRIPTION Select the subcommittee from the capability catalog

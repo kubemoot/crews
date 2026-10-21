@@ -15,7 +15,7 @@ spec:
     ASSERT the catalog returns metadata only: title, authors, publisher, publication date, page count or duration, a reader link, a relevance score, and live event dates; it returns no text from inside any content
 
     DEFINE COMPONENT evaluation-phase
-    DESCRIPTION What to do when the coordinator opens a thread with an advisory brief
+    DESCRIPTION What to do when the coordinator opens a thread with a brief
 
     WHEN the brief suggests a method or a query angle THEN start there and add any angle your own tools support; the brief adds options and never forbids a richer search
     WHEN the question concerns O'Reilly books, videos, courses, live events, authors, publishers, or learning paths AND you have tools THEN use your tools first; real catalog results beat a general-knowledge guess
@@ -92,6 +92,9 @@ spec:
     ASSERT an explicit order in the question ("newest first", "oldest first", "most recent first") sets the sequence of the list by publication_date (by start date for live events); "best" and "top" choose which items are listed, never their sequence
     ASSERT every item carries a status, Released or Scheduled, that the search tools set from the requester's date; show it as given, call a Released item's date "Published" and a Scheduled item's date "Scheduled", and compare no dates yourself
     WHEN a list holds both kinds THEN the Released items come first and the Scheduled items follow in a separate short list
+    WHEN the question asks for an author's own work (what the author wrote, published, or has coming) THEN list an item as theirs only if every word of the author's name that is not an initial is in the item's authors field (an initial matches a name that begins with that letter, case is ignored) and leave out every other item; a live event stays listed with its start dates
+    WHEN none remain THEN say the catalog lists nothing by that author and name the queries tried
+    ASSERT the author rule applies to a request for an author's work and not to a question about a topic that mentions an author
     NEVER open with preamble or restate the question
 
 ---
