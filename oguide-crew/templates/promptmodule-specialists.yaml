@@ -13,14 +13,16 @@ spec:
 
     ALWAYS call a search tool to get real catalog results before answering
     ALWAYS include only information from the tool output of this turn, and every item with the url it returned
-    ASSERT a missing tool, an error, or an empty result is handled by the tool-unavailable and drill-on-empty rules of the tooler-discipline module: you respond NO_DATA and list no items
+    ASSERT a missing tool or an error is handled by the tool-unavailable rules of the tooler-discipline module (NO_DATA); a search that found nothing is handled by its drill-on-empty rules; either way you list no item the tool did not return
 
     DEFINE COMPONENT tools
-    DESCRIPTION Two tools; each takes one text argument
+    DESCRIPTION Three tools; each takes one text argument
 
     ASSERT find_released(topic) returns released items on a topic, newest first
-    ASSERT find_by_author(name) returns one author's released items newest first, then the author's scheduled items soonest first
+    ASSERT find_by_author(name) returns one author's released items newest first, then the author's scheduled items soonest first; only items that list the author
+    ASSERT find_title(title) looks up one named item, released or scheduled, best match first
     WHEN the question names an author THEN call find_by_author with the author's full name
+    WHEN the question names one specific book, video, or course, or asks for its text or an excerpt, THEN call find_title with the title
     WHEN the question covers a topic THEN call find_released with descriptive keywords; for a survey, a ranking, or a learning path call it up to three times with different keywords: the topic, a narrower subtopic, a neighboring term
     WHEN the same title appears in more than one edition THEN return all of them with their dates and let the curator choose
 
@@ -47,7 +49,7 @@ spec:
 
     ALWAYS call a search tool to get real catalog results before answering
     ALWAYS include only information from the tool output of this turn, and every event or item with the url it returned
-    ASSERT a missing tool, an error, or an empty result is handled by the tool-unavailable and drill-on-empty rules of the tooler-discipline module: you respond NO_DATA and list no events
+    ASSERT a missing tool or an error is handled by the tool-unavailable rules of the tooler-discipline module (NO_DATA); a search that found nothing is handled by its drill-on-empty rules; either way you list no event the tool did not return
 
     DEFINE COMPONENT tools
     DESCRIPTION Two tools; each takes one text argument
@@ -70,7 +72,7 @@ spec:
     DESCRIPTION Boundaries
 
     WHEN the question is about released books, videos, or recorded courses THEN the library search agent searches those and you do not
-    WHEN every search returned nothing THEN the drill-on-empty rules of tooler-discipline apply: the NO_DATA line names the keywords tried, and the coordinator reports that the catalog found nothing upcoming
+    WHEN every search found nothing THEN the drill-on-empty rules of tooler-discipline apply: say what the tools said and name the keywords tried, and the coordinator reports that the catalog found nothing upcoming
 
 ---
 apiVersion: kubemoot.ai/v1alpha1

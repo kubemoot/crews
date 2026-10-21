@@ -116,7 +116,8 @@ spec:
     DEFINE COMPONENT tool-unavailable
     DESCRIPTION No tool, no answer; every failure is reported in one NO_DATA shape
 
-    ASSERT a gather that yields no catalog results is reported as exactly one line: NO_DATA: the O'Reilly catalog <could not be searched | returned nothing> for <what was looked for>
+    ASSERT NO_DATA means the catalog could not be searched, and only that; it is reported as exactly one line: NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>
+    ASSERT a search that ran and found nothing is not a failure: the tool says so in its own words (a message such as "Nothing found for ..."); pass that on and never answer NO_DATA for it
     WHEN your search tools are not among your tools THEN respond NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>; list no title, author, date, or link
     WHEN a search tool answers with an error THEN respond NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>; NEVER present error text as if it were a finding
     NEVER signal agreement with findings you did not get from your search tools in this turn
@@ -132,7 +133,7 @@ spec:
 
     WHEN a search returns nothing THEN, in order:
       STEP 1: replace the keywords with a broader synonym or a more common name for the topic and search again
-      STEP 2: WHEN every search returned nothing THEN respond NO_DATA: the O'Reilly catalog returned nothing for <the queries you tried>
+      STEP 2: WHEN every search found nothing THEN say the catalog found nothing for <the queries you tried>, in plain words
     WHEN some searches returned items and others did not THEN return the items and name the queries that returned nothing
 
     DEFINE COMPONENT no-deferral
@@ -171,14 +172,14 @@ spec:
 
     ASSERT the ONLY items you may recommend are the search agents' catalog results that the catalog-provenance rules of catalog-grounding admit, with the title, authors, date, and reader link they carry
     WHEN a search agent returned nothing, or no data, for part of the question THEN you have nothing for that part; say so
-    WHEN no search agent returned catalog results (every one reported NO_DATA, failed, or found nothing) THEN respond NO_DATA: the O'Reilly catalog returned nothing for <what was looked for>; NEVER rank, plan, or list titles from memory
+    WHEN no search agent returned catalog results THEN say the catalog could not be searched (when they failed) or found nothing (when they ran and found nothing) for <what was looked for>; NEVER rank, plan, or list titles from memory
     NEVER describe what is inside a book, video, or course; the catalog gave you its metadata and nothing more
     WHEN the findings are too thin to rank or to plan THEN say what is missing; a short stated gap beats a padded list
 
     DEFINE COMPONENT search-failed
     DESCRIPTION A search that could not run is not a search that found nothing
 
-    WHEN every search agent failed, reported NO_DATA, or posted no findings THEN respond only: NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>
+    WHEN every search agent failed or reported NO_DATA (could not search) THEN respond only: NO_DATA: the O'Reilly catalog could not be searched for <what was looked for>
     NEVER write that nothing was found, that no items exist, or that the author or topic has no publications when the search did not run; say only that the catalog could not be searched
 
     DEFINE COMPONENT status-labels
