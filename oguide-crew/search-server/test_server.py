@@ -23,9 +23,9 @@ KEY = "sekret-key-value-123"
 
 
 def book(title, date, **extra):
-    return {"title": title, "authors": ["A. Author"], "marketing_type": "book", "publication_date": date,
-            "url": f"https://learning.oreilly.com/library/view/-/{title.replace(' ', '')}/", "page_count": 100,
-            **extra}
+    item = {"title": title, "authors": ["A. Author"], "marketing_type": "book", "publication_date": date,
+            "url": f"https://learning.oreilly.com/library/view/-/{title.replace(' ', '')}/", "page_count": 100}
+    return {**item, **extra}
 
 
 def event(title, sessions, published="2026-08-01"):
@@ -121,7 +121,8 @@ class SearchArgumentsTest(unittest.TestCase):
         self.assertEqual(["B"], [e["title"] for e in out["scheduled"]])
 
     def test_the_author_search_makes_two_calls(self):
-        catalog = FakeCatalog([book("Past", "2025-01-01")], [book("Future", "2027-02-25")])
+        ford = ["Neal Ford"]
+        catalog = FakeCatalog([book("Past", "2025-01-01", authors=ford)], [book("Future", "2027-02-25", authors=ford)])
         out = server.find_by_author(catalog, "Neal Ford", TODAY)
         past, future = catalog.calls
         self.assertEqual(["Neal Ford"], past["author_filter"])
@@ -134,8 +135,8 @@ class SearchArgumentsTest(unittest.TestCase):
         self.assertEqual(["Future"], [e["title"] for e in out["scheduled"]])
 
     def test_an_item_in_both_author_calls_appears_once(self):
-        shared = event("Both", ["2026-12-01"])
-        out = server.find_by_author(FakeCatalog([shared], [shared]), "N", TODAY)
+        shared = {**event("Both", ["2026-12-01"]), "authors": ["Nina Nguyen"]}
+        out = server.find_by_author(FakeCatalog([shared], [shared]), "Nina Nguyen", TODAY)
         self.assertEqual(1, len(out["released"]) + len(out["scheduled"]))
 
     def test_live_events_use_the_live_event_type_and_no_date_filter(self):
@@ -153,6 +154,199 @@ class SearchArgumentsTest(unittest.TestCase):
                          catalog, TODAY)
         self.assertEqual(25, catalog.calls[0]["n_items"])
         self.assertEqual("2026-10-20", catalog.calls[0]["date_range"]["end_date"])
+
+
+class AuthorTest(unittest.TestCase):
+    def test_names_match_without_case_initials_accents_or_order(self):
+        wanted = server.name_tokens("Neal Ford")
+        for author in ("Neal Ford", "neal ford", "Neal E. Ford", "Ford, Neal", "NEAL  FORD Jr."):
+            self.assertTrue(server.has_author({"authors": [author]}, wanted), author)
+        self.assertTrue(server.has_author({"authors": ["Zoe M\u00fcller"]}, server.name_tokens("Zoe Muller")))
+
+    def test_other_people_do_not_match(self):
+        wanted = server.name_tokens("Neal Ford")
+        for authors in (["Neil Ford"], ["Neal Fordham"], ["Henry Ford"], ["Mark Richards"], [], None):
+            self.assertFalse(server.has_author({"authors": authors}, wanted), authors)
+
+    def test_find_by_author_keeps_only_the_authors_items(self):
+        mine = book("Mine", "2025-01-01", authors=["Mark Richards", "Neal E. Ford"])
+        other = book("Other", "2025-02-01", authors=["Luca Mezzalira"])
+        out = server.find_by_author(FakeCatalog([mine, other], [event("Soon", ["2026-12-01"])]), "Neal Ford", TODAY)
+        self.assertEqual(["Mine"], [e["title"] for e in out["released"]])
+        self.assertEqual([], out["scheduled"])
+
+    def test_a_topic_that_names_an_author_points_to_find_by_author(self):
+        items = [book(f"B{i}", "2025-01-01", authors=["Neal Ford", "X Y"]) for i in range(3)]
+        out = server.find_released(FakeCatalog(items), "Neal Ford forthcoming", TODAY)
+        self.assertNotIn("released", out)
+        self.assertIn("find_by_author", out["message"])
+        self.assertIn("Neal Ford", out["message"])
+
+    def test_the_same_pointer_serves_find_scheduled(self):
+        items = [book(f"B{i}", "2027-01-01", authors=["Neal Ford"]) for i in range(3)]
+        self.assertIn("find_by_author", server.find_scheduled(FakeCatalog(items), "Neal Ford", TODAY)["message"])
+
+    def test_a_topic_that_is_not_a_name_is_not_redirected(self):
+        items = [book(f"B{i}", "2025-01-01", authors=["Neal Ford"]) for i in range(3)]
+        out = server.find_released(FakeCatalog(items), "software architecture", TODAY)
+        self.assertEqual(3, len(out["released"]))
+
+    def test_one_or_two_items_by_a_namesake_do_not_redirect(self):
+        items = [book("A", "2025-01-01", authors=["Neal Ford"]), book("B", "2025-01-01", authors=["Neal Ford"])]
+        self.assertIn("released", server.find_released(FakeCatalog(items), "Neal Ford", TODAY))
+
+
+class NameEdgeTest(unittest.TestCase):
+    def test_a_name_with_no_usable_words_asks_for_a_full_name_and_searches_nothing(self):
+        for name in ("J", "Jr", "A. B."):
+            catalog = FakeCatalog([book("B", "2025-01-01")], [])
+            out = server.find_by_author(catalog, name, TODAY)
+            self.assertIn("full name", out["message"], name)
+            self.assertEqual([], catalog.calls)
+
+    def test_a_name_in_another_script_matches_itself_only(self):
+        wanted = server.name_tokens("\u674e\u660e")
+        self.assertTrue(server.has_author({"authors": ["\u674e\u660e"]}, wanted))
+        self.assertFalse(server.has_author({"authors": ["\u738b\u82b3"]}, wanted))
+
+    def test_a_name_written_surname_first_works_through_find_by_author(self):
+        mine = book("Mine", "2025-01-01", authors=["Neal Ford"])
+        out = server.find_by_author(FakeCatalog([mine], []), "Ford, Neal", TODAY)
+        self.assertEqual(["Mine"], [e["title"] for e in out["released"]])
+
+    def test_a_publisher_or_a_longer_topic_is_not_taken_for_a_person(self):
+        items = [book(f"B{i}", "2025-01-01", authors=["Google Cloud"], publisher_names=["Google Cloud"])
+                 for i in range(3)]
+        self.assertIn("released", server.find_released(FakeCatalog(items), "Google Cloud", TODAY))
+        people = [book(f"P{i}", "2025-01-01", authors=["Neal Ford"]) for i in range(3)]
+        out = server.find_released(FakeCatalog(people), "Neal Ford and the history of software architecture", TODAY)
+        self.assertIn("released", out)
+
+    def test_live_events_by_a_person_do_not_trigger_the_scheduled_pointer(self):
+        events = [event(f"E{i}", ["2026-12-01"]) | {"authors": ["Neal Ford"]} for i in range(3)]
+        out = server.find_scheduled(FakeCatalog(events), "Neal Ford", TODAY)
+        self.assertNotIn("find_by_author", json.dumps(out))
+
+    def test_the_pointer_is_not_an_error(self):
+        items = [book(f"B{i}", "2025-01-01", authors=["Neal Ford"]) for i in range(3)]
+        result = server.call_tool("find_released", {"topic": "Neal Ford"}, FakeCatalog(items), TODAY)
+        self.assertFalse(result["isError"])
+        self.assertIn("find_by_author", json.loads(result["content"][0]["text"])["message"])
+
+
+class TitleTest(unittest.TestCase):
+    def test_find_title_has_no_date_filter_and_ten_items(self):
+        catalog = FakeCatalog([])
+        server.find_title(catalog, "Architecture as Code", TODAY)
+        self.assertEqual({"query": "Architecture as Code", "n_items": 10}, catalog.calls[0])
+
+    def test_find_title_returns_released_and_scheduled_best_match_first(self):
+        items = [book("Weak", "2019-01-01", relevance_score=0.2), book("Future", "2027-02-25", relevance_score=0.9),
+                 book("Mid", "2020-01-01", relevance_score=0.5)]
+        out = server.find_title(FakeCatalog(items), "x", TODAY)["items"]
+        self.assertEqual(["Future", "Mid", "Weak"], [e["title"] for e in out])
+        self.assertEqual("Scheduled", out[0]["status"])
+        self.assertEqual("Released", out[1]["status"])
+
+
+class NothingFoundAndRepeatTest(unittest.TestCase):
+    def text(self, result):
+        return json.loads(result["content"][0]["text"])
+
+    def test_an_empty_search_says_nothing_was_found_and_is_not_an_error(self):
+        result = server.call_tool("find_released", {"topic": "zzz"}, FakeCatalog([]), TODAY)
+        self.assertFalse(result["isError"])
+        self.assertEqual("Nothing found for 'zzz' in the O'Reilly catalog as of 2026-10-20.",
+                         self.text(result)["message"])
+
+    def test_a_search_with_results_has_no_message(self):
+        result = server.call_tool("find_released", {"topic": "x"}, FakeCatalog([book("B", "2026-01-01")]), TODAY)
+        self.assertNotIn("message", self.text(result))
+
+    def test_an_author_search_with_only_other_peoples_items_says_nothing_was_found(self):
+        result = server.call_tool("find_by_author", {"name": "Neal Ford"},
+                                  FakeCatalog([book("B", "2026-01-01", authors=["Someone Else"])], []), TODAY)
+        self.assertIn("Nothing found", self.text(result)["message"])
+
+    def test_the_same_search_within_the_window_gets_the_repeat_message(self):
+        clock = [100.0]
+        recent = server.RecentCalls(lambda: clock[0], 20)
+        catalog = FakeCatalog([book("B", "2026-01-01")], [book("B", "2026-01-01")])
+        first = server.call_tool("find_released", {"topic": "Vector  DBs"}, catalog, TODAY, recent=recent)
+        clock[0] = 110.0
+        again = server.call_tool("find_released", {"topic": "vector dbs"}, catalog, TODAY, recent=recent)
+        self.assertIn("released", self.text(first))
+        self.assertEqual(server.REPEAT_MESSAGE, self.text(again)["message"])
+        self.assertEqual(1, len(catalog.calls))
+
+    def test_an_empty_title_or_events_search_says_nothing_was_found(self):
+        for tool, key in (("find_title", "title"), ("find_live_events", "topic")):
+            result = server.call_tool(tool, {key: "zzz"}, FakeCatalog([]), TODAY)
+            self.assertIn("Nothing found", self.text(result)["message"], tool)
+            self.assertFalse(result["isError"])
+
+    def test_handle_passes_the_thread_and_the_repeat_guard_through(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        catalog = FakeCatalog([book("B", "2026-01-01")], [book("B", "2026-01-01")])
+
+        def ask(thread):
+            message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+                "name": "find_released", "arguments": {"topic": "x"}, "_meta": {"threadId": thread}}}
+            reply = server.handle(message, catalog, "UTC", lambda: NOW, recent)
+            return json.loads(reply["result"]["content"][0]["text"])
+        self.assertIn("released", ask("t1"))
+        self.assertEqual(server.REPEAT_MESSAGE, ask("t1")["message"])
+        self.assertIn("released", ask("t2"))
+
+    def test_serve_keeps_one_guard_across_messages(self):
+        catalog = FakeCatalog([book("B", "2026-01-01")], [book("B", "2026-01-01")])
+        call = ('{"jsonrpc":"2.0","id":%d,"method":"tools/call","params":{"name":"find_released",'
+                '"arguments":{"topic":"x"}}}\n')
+        stdout = io.StringIO()
+        server.serve(catalog, io.StringIO(call % 1 + call % 2), stdout)
+        replies = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        texts = [json.loads(r["result"]["content"][0]["text"]) for r in replies]
+        self.assertIn("released", texts[0])
+        self.assertEqual(server.REPEAT_MESSAGE, texts[1]["message"])
+
+    def test_a_repeat_of_nothing_found_is_also_answered_briefly(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        catalog = FakeCatalog([], [])
+        server.call_tool("find_released", {"topic": "zzz"}, catalog, TODAY, recent=recent)
+        again = server.call_tool("find_released", {"topic": "zzz"}, catalog, TODAY, recent=recent)
+        self.assertEqual(server.REPEAT_MESSAGE, self.text(again)["message"])
+
+    def test_the_same_search_after_the_window_runs_again(self):
+        clock = [100.0]
+        recent = server.RecentCalls(lambda: clock[0], 20)
+        catalog = FakeCatalog([book("B", "2026-01-01")], [book("B", "2026-01-01")])
+        server.call_tool("find_released", {"topic": "x"}, catalog, TODAY, recent=recent)
+        clock[0] = 121.0
+        server.call_tool("find_released", {"topic": "x"}, catalog, TODAY, recent=recent)
+        self.assertEqual(2, len(catalog.calls))
+
+    def test_a_different_argument_or_tool_is_not_a_repeat(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        catalog = FakeCatalog([], [], [])
+        server.call_tool("find_released", {"topic": "x"}, catalog, TODAY, recent=recent)
+        server.call_tool("find_released", {"topic": "y"}, catalog, TODAY, recent=recent)
+        server.call_tool("find_scheduled", {"topic": "x"}, catalog, TODAY, recent=recent)
+        self.assertEqual(3, len(catalog.calls))
+
+    def test_two_threads_asking_the_same_thing_both_get_results(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        catalog = FakeCatalog([book("B", "2026-01-01")], [book("B", "2026-01-01")])
+        for thread in ("t1", "t2"):
+            server.call_tool("find_released", {"topic": "x"}, catalog, TODAY, recent=recent,
+                             meta={"threadId": thread})
+        self.assertEqual(2, len(catalog.calls))
+
+    def test_a_failed_search_is_not_remembered_so_a_retry_still_fails(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        catalog = FakeCatalog(error=server.CatalogError("down"))
+        for _ in range(2):
+            self.assertTrue(server.call_tool("find_released", {"topic": "x"}, catalog, TODAY, recent=recent)["isError"])
+        self.assertEqual(2, len(catalog.calls))
 
 
 class ToolCallTest(unittest.TestCase):
@@ -194,9 +388,9 @@ class ProtocolTest(unittest.TestCase):
     def test_a_notification_gets_no_reply(self):
         self.assertIsNone(self.reply({"jsonrpc": "2.0", "method": "notifications/initialized"}))
 
-    def test_tools_list_names_the_four_tools_with_one_argument_each(self):
+    def test_tools_list_names_the_five_tools_with_one_argument_each(self):
         tools = self.reply({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
-        self.assertEqual(["find_released", "find_scheduled", "find_by_author", "find_live_events"],
+        self.assertEqual(["find_released", "find_scheduled", "find_by_author", "find_title", "find_live_events"],
                          [t["name"] for t in tools])
         for tool in tools:
             self.assertEqual(1, len(tool["inputSchema"]["properties"]))
@@ -277,9 +471,9 @@ class RequesterDateTest(unittest.TestCase):
         self.assertEqual("2026-10-20", json.loads(reply["result"]["content"][0]["text"])["today"])
 
     def test_the_status_labels_follow_the_requesters_date(self):
-        catalog = FakeCatalog([book("B", "2026-10-21")])
+        catalog = FakeCatalog([book("B", "2026-10-21", authors=["N Nn"])])
         reply = server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
-            "name": "find_by_author", "arguments": {"name": "N"}, "_meta": {"requestDate": "2026-10-21"}}},
+            "name": "find_by_author", "arguments": {"name": "N Nn"}, "_meta": {"requestDate": "2026-10-21"}}},
             catalog, "UTC", lambda: NOW)
         payload = json.loads(reply["result"]["content"][0]["text"])
         self.assertEqual("Released", payload["released"][0]["status"])
@@ -425,7 +619,7 @@ class RobustnessTest(unittest.TestCase):
 
     def test_params_that_are_not_an_object_are_ignored(self):
         out = server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": [1]}, FakeCatalog())
-        self.assertEqual(4, len(out["result"]["tools"]))
+        self.assertEqual(5, len(out["result"]["tools"]))
 
     def test_arguments_that_are_not_an_object_are_refused(self):
         self.assertTrue(server.call_tool("find_released", ["x"], FakeCatalog(), TODAY)["isError"])

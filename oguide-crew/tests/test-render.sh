@@ -142,7 +142,7 @@ has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
 
 
 check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
-check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released" \
+check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released,find_title" \
   "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "library-search" or .metadata.name == "events-scout")) | .metadata.name + "=" + (.spec.enabledTools | sort | join(","))' <<<"$out" | sort | paste -sd' ')"
 check "the curator reads artifacts only" 0 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vc '^artifact_' || true)"
@@ -181,12 +181,17 @@ check "catalog-grounding names this turn's search results as the only source" 1 
   "$(has catalog-grounding 'ASSERT the ONLY source of items is the output of your search tool calls made in this turn')"
 check "a missing search tool is NO_DATA" 1 \
   "$(has tooler-discipline 'WHEN your search tools are not among your tools THEN respond NO_DATA')"
-check "an empty search is NO_DATA" 1 \
-  "$(has tooler-discipline 'WHEN every search returned nothing THEN respond NO_DATA')"
+check "NO_DATA means could not be searched, and only that" 1 \
+  "$(has tooler-discipline 'ASSERT NO_DATA means the catalog could not be searched, and only that')"
+check "a search that found nothing is not a failure" 1 \
+  "$(has tooler-discipline 'ASSERT a search that ran and found nothing is not a failure')"
+check "no rule makes an empty search NO_DATA" 0 \
+  "$(grep -cE 'every search returned nothing THEN respond NO_DATA|NO_DATA: the O.Reilly catalog returned nothing' <<<"$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")" || true)"
+check "library search looks a named item up by title" 1 "$(has library-search-system 'THEN call find_title with the title')"
 check "a failing search tool is NO_DATA" 1 \
   "$(has tooler-discipline 'WHEN a search tool answers with an error THEN respond NO_DATA')"
 check "both search agents defer to those rules" 2 \
-  "$(yq -N 'select(.kind == "PromptModule" and (.metadata.name == "library-search-system" or .metadata.name == "events-scout-system")) | .spec.content' <<<"$out" | grep -cF 'handled by the tool-unavailable and drill-on-empty rules' || true)"
+  "$(yq -N 'select(.kind == "PromptModule" and (.metadata.name == "library-search-system" or .metadata.name == "events-scout-system")) | .spec.content' <<<"$out" | grep -cF 'handled by the tool-unavailable rules of the tooler-discipline module' || true)"
 check "catalog-grounding drops a link outside the reader" 1 \
   "$(has catalog-grounding "WHEN an item's url does not start with https://learning.oreilly.com/ THEN drop the item")"
 check "catalog-grounding stops with no items when there are no results" 1 \
@@ -250,9 +255,10 @@ check "the empty-catalog scenario forbids a plan from general knowledge" 1 "$(gr
 check "the coordinator writes nothing of its own without results" 1 "$(has coordinator-decision-logic 'Write nothing else: no learning path, plan, reading list')"
 check "a learning-path request is a library question" 1 "$(has coordinator-decision-logic 'is a question about the O'"'"'Reilly library whether or not it names O'"'"'Reilly')"
 check "session dates are written in full" 1 "$(has response-style 'ASSERT every session date is written in full as the catalog returns it')"
-check "the curator reports a failed search only as could not be searched" 1 "$(has analyst-review-protocol "WHEN every search agent failed, reported NO_DATA, or posted no findings THEN respond only: NO_DATA")"
+check "the curator reports a failed search only as could not be searched" 1 "$(has analyst-review-protocol "WHEN every search agent failed or reported NO_DATA (could not search) THEN respond only: NO_DATA")"
 check "a failed search is never reported as nothing found" 1 "$(has analyst-review-protocol 'when the search did not run; say only that the catalog could not be searched')"
-check "the coordinator never turns a failure into nothing found" 1 "$(has coordinator-decision-logic 'A search that could not run is not a search that found nothing')"
+check "the coordinator never turns a failure into nothing found" 1 "$(has coordinator-decision-logic 'and never say that nothing was found or that no items exist')"
+check "the coordinator separates could not search from found nothing" 1 "$(has coordinator-decision-logic 'WHEN the searches ran and the agents say nothing was found')"
 check "the coordinator names no tool and gives no advice after a failure" 1 "$(has coordinator-decision-logic 'Name no tool and no internal term, and give no advice')"
 check "the typed-argument learning-path scenario ships" 1 "$(yq -N 'has("learning-path-uses-found-results.adl")' <<<"$scenarios" | grep -c true)"
 check "the typed-argument learning-path scenario forbids the give-up wording" 1 \

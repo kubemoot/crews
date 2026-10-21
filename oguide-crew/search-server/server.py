@@ -22,7 +22,10 @@ import datetime
 import http.client
 import json
 import os
+import re
 import sys
+import time
+import unicodedata
 import urllib.error
 import urllib.request
 import zoneinfo
@@ -33,6 +36,10 @@ N_ITEMS = 25
 TIMEOUT_SECONDS = 15
 MAX_REPLY_BYTES = 5_000_000
 MAX_UPSTREAM_MESSAGE_CHARS = 160
+TITLE_ITEMS = 10
+REPEAT_SECONDS = 20
+NAME_SUFFIXES = frozenset({"jr", "sr", "ii", "iii", "iv"})
+MIN_ITEMS_FOR_NAMED_AUTHOR = 3
 MAX_ARGUMENT_CHARS = 300
 SEARCH_TOOL = "search_oreilly_content"
 
@@ -57,6 +64,14 @@ TOOLS = [
                        "scheduled items soonest first. Every item is labelled Released or Scheduled.",
         "argument": "name",
         "argument_description": "The author's full name",
+    },
+    {
+        "name": "find_title",
+        "description": "Look up one named book, video or course in the O'Reilly catalog, whether it is released or "
+                       "scheduled. Items are ordered by how well they match the title; each is labelled Released "
+                       "or Scheduled.",
+        "argument": "title",
+        "argument_description": "The title, or the words of it you know",
     },
     {
         "name": "find_live_events",
@@ -166,6 +181,45 @@ def ordered(items, today):
     return released, scheduled
 
 
+def name_tokens(name):
+    """The words of a person's name: lower case, accents removed, initials and suffixes dropped.
+
+    "Neal E. Ford", "ford, neal" and "NEAL FORD" all give {"neal", "ford"}; "Neil Ford" does not.
+    """
+    if not isinstance(name, str):
+        return set()
+    plain = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c)).lower()
+    return {w for w in re.findall(r"\w+", plain) if len(w) > 1 and w not in NAME_SUFFIXES}
+
+
+def has_author(item, wanted):
+    """True when one of the item's authors has every word of the wanted name."""
+    return any(wanted <= name_tokens(a) for a in item.get("authors") or [])
+
+
+def named_author(topic, items):
+    """A person whose full name is most of the topic, when at least three items list that person.
+
+    The name must be in the topic with at most one other word, and a publisher's name is not a person's.
+    """
+    words = name_tokens(topic)
+    publishers = {frozenset(name_tokens(p)) for item in items for p in item.get("publisher_names") or []}
+    counts = {}
+    for item in items:
+        for author in item.get("authors") or []:
+            tokens = name_tokens(author)
+            is_person = len(tokens) >= 2 and frozenset(tokens) not in publishers
+            if is_person and tokens <= words and len(words - tokens) <= 1:
+                counts[author] = counts.get(author, 0) + 1
+    best = max(counts.items(), key=lambda pair: pair[1], default=None)
+    return best[0] if best and best[1] >= MIN_ITEMS_FOR_NAMED_AUTHOR else None
+
+
+def author_pointer(topic, author):
+    return {"message": f"'{topic}' names an author, {author}. Use find_by_author with the name to see the "
+                       "author's work; if you meant the subject, search with more specific keywords."}
+
+
 def merge_unique(first, second):
     """Both lists, an item once by its url."""
     seen, out = set(), []
@@ -229,23 +283,41 @@ def topic_search(catalog, topic, today, released):
 
 
 def find_released(catalog, topic, today):
-    released, _ = ordered(topic_search(catalog, topic, today, True), today)
+    items = topic_search(catalog, topic, today, True)
+    author = named_author(topic, items)
+    if author:
+        return author_pointer(topic, author)
+    released, _ = ordered(items, today)
     return {"released": released}
 
 
 def find_scheduled(catalog, topic, today):
     """Announced recorded content; live events are find_live_events' business."""
-    items = [i for i in topic_search(catalog, topic, today, False) if not i.get("live_event_start_dates")]
-    _, scheduled = ordered(items, today)
+    found = [i for i in topic_search(catalog, topic, today, False) if not i.get("live_event_start_dates")]
+    author = named_author(topic, found)
+    if author:
+        return author_pointer(topic, author)
+    _, scheduled = ordered(found, today)
     return {"scheduled": scheduled}
 
 
 def find_by_author(catalog, name, today):
+    wanted = name_tokens(name)
+    if not wanted:
+        return {"message": "Give the author's full name (first and last name)."}
     common = {"query": "*", "author_filter": [name], "n_items": N_ITEMS, "order_by": "date_published"}
     past = catalog.search({**common, "sort_order": "desc", "date_range": release_range(today, True)})
     future = catalog.search({**common, "sort_order": "asc", "date_range": release_range(today, False)})
-    released, scheduled = ordered(merge_unique(past, future), today)
+    own = [i for i in merge_unique(past, future) if has_author(i, wanted)]
+    released, scheduled = ordered(own, today)
     return {"released": released, "scheduled": scheduled}
+
+
+def find_title(catalog, title, today):
+    """A named item whatever its date, best match first."""
+    items = catalog.search({"query": title, "n_items": TITLE_ITEMS})
+    ranked = sorted(items, key=lambda i: i.get("relevance_score") or 0, reverse=True)
+    return {"items": [shape(i, today) for i in ranked]}
 
 
 def find_live_events(catalog, topic, today):
@@ -259,6 +331,7 @@ HANDLERS = {
     "find_released": find_released,
     "find_scheduled": find_scheduled,
     "find_by_author": find_by_author,
+    "find_title": find_title,
     "find_live_events": find_live_events,
 }
 
@@ -288,13 +361,53 @@ def argument_of(name, arguments):
     return value.strip()
 
 
-def call_tool(name, arguments, catalog, today, source="the default time zone UTC"):
+class RecentCalls:
+    """Remembers successful searches for a short while, so a repeat can be answered without repeating it."""
+
+    def __init__(self, clock=time.monotonic, window=REPEAT_SECONDS):
+        self._clock, self._window, self._seen = clock, window, {}
+
+    def repeated(self, key):
+        now = self._clock()
+        self._seen = {k: t for k, t in self._seen.items() if now - t < self._window}
+        return key in self._seen
+
+    def remember(self, key):
+        self._seen[key] = self._clock()
+
+
+REPEAT_MESSAGE = ("This exact search was just run, so its results are the same as before. If you have them above, "
+                  "use them or search with different keywords; otherwise try again in a few seconds.")
+
+
+def call_key(name, value, meta):
+    """The identity of a search: the tool, the argument, and the thread when the call names one."""
+    meta = meta if isinstance(meta, dict) else {}
+    thread = meta.get("threadId") or meta.get("conversationId") or ""
+    return (str(thread), name, " ".join(value.lower().split()))
+
+
+def with_nothing_found(payload, value, today):
+    """A plain 'nothing found' message when a search returned no items."""
+    lists = [v for v in payload.values() if isinstance(v, list)]
+    if "message" in payload or any(lists):
+        return payload
+    return {**payload, "message": f"Nothing found for '{value}' in the O'Reilly catalog as of {today.isoformat()}."}
+
+
+def call_tool(name, arguments, catalog, today, source="the default time zone UTC", recent=None, meta=None):
     """A tools/call result: the search results, or an error the model can read."""
     value = argument_of(name, arguments)
     if value is None:
         return text_result(f"{name} needs its one text argument (at most {MAX_ARGUMENT_CHARS} characters)", True)
+    key = call_key(name, value, meta)
+    if recent and recent.repeated(key):
+        return text_result(json.dumps({"today": today.isoformat(), "message": REPEAT_MESSAGE}))
     try:
-        payload = {"today": today.isoformat(), "dateSource": source, **HANDLERS[name](catalog, value, today)}
+        found = with_nothing_found(HANDLERS[name](catalog, value, today), value, today)
+        payload = {"today": today.isoformat(), "dateSource": source, **found}
+        if recent:
+            recent.remember(key)
         return text_result(json.dumps(payload, ensure_ascii=False))
     except CatalogError as err:
         return text_result(f"The O'Reilly catalog could not be searched: {err}", True)
@@ -307,7 +420,7 @@ def error_reply(ident, code, text):
     return {"jsonrpc": "2.0", "id": ident, "error": {"code": code, "message": text}}
 
 
-def handle(message, catalog, default_zone="UTC", now_fn=utc_now):
+def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None):
     """The reply to one JSON-RPC message, or None for a notification."""
     if not isinstance(message, dict):
         return error_reply(None, -32600, "a request is a JSON object")
@@ -325,18 +438,20 @@ def handle(message, catalog, default_zone="UTC", now_fn=utc_now):
         result = {"tools": tool_listing()}
     elif method == "tools/call" and params.get("name") in HANDLERS:
         today, source = resolve_today(params.get("_meta"), default_zone, now_fn())
-        result = call_tool(params["name"], params.get("arguments"), catalog, today, source)
+        result = call_tool(params["name"], params.get("arguments"), catalog, today, source, recent,
+                           params.get("_meta"))
     else:
         return error_reply(ident, -32602 if method == "tools/call" else -32601, "cannot handle that request")
     return {"jsonrpc": "2.0", "id": ident, "result": result}
 
 
 def serve(catalog, stdin=sys.stdin, stdout=sys.stdout, default_zone="UTC"):
+    recent = RecentCalls()
     for line in stdin:
         if not line.strip():
             continue
         try:
-            reply = handle(json.loads(line), catalog, default_zone)
+            reply = handle(json.loads(line), catalog, default_zone, recent=recent)
         except ValueError:
             reply = error_reply(None, -32700, "parse error")
         except Exception:  # noqa: BLE001 - one bad message never ends the process the bridge talks to

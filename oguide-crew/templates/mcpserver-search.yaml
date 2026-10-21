@@ -6,8 +6,8 @@ metadata:
   labels:
     {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:
-  # The crew's search server (search-server/server.py): four fixed searches of the O'Reilly
-  # catalog (find_released, find_scheduled, find_by_author, find_live_events), each taking one
+  # The crew's search server (search-server/server.py): five fixed searches of the O'Reilly
+  # catalog (find_released, find_scheduled, find_by_author, find_title, find_live_events), each taking one
   # text argument. It builds every date filter, the item count, and the order itself, and
   # labels each item Released or Scheduled from the requester's date. Pure stdio, so the
   # operator adds the bridge sidecar (port is the bridge's TCP port). The code comes from the
