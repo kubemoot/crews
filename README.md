@@ -24,9 +24,9 @@ The reference crew was built for the maintainer's homelab: a Talos Kubernetes cl
 ### Prerequisites
 
 - Kubernetes 1.30 or later and Helm 3.8 or later (OCI chart support).
-- The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. `homelab-pilot-crew` and `kubemoot-fitness-crew` need an operator that registers model servers as the `ModelServer` kind and selects models from the cluster's model catalog, and `homelab-pilot-crew` one that treats `preferFaster` on a scheduling rule as an explicit preference; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
+- The Kubemoot operator chart, `oci://ghcr.io/kubemoot/charts/kubemoot-operator`. `homelab-pilot-crew` and `kubemoot-fitness-crew` need an operator that registers model servers as the `ModelServer` kind and selects models from the cluster's model catalog, `homelab-pilot-crew` one that treats `preferFaster` on a scheduling rule as an explicit preference, and one that binds an `EmbeddingModel` with no `serverRef` to a model server from the cluster's catalog; see the [installation guide](https://github.com/kubemoot/kubemoot/blob/main/docs/introduction/installation.md).
 - NATS JetStream, which carries the discussions. The operator docs and the quickstart install it as release `nats` in namespace `nats`; if yours differs, set `nats.url` and `nats.namespace`.
-- At least one model server registered as a `ModelServer` (created through the operator chart's `modelServers` values). The Kubemoot quickstart creates one called `ollama-local`, which is the default `serverRef` in these charts. `homelab-pilot-crew` and `kubemoot-fitness-crew` ship no Model objects: they select chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports). `homelab-pilot-crew` needs at least one chat model with tool-calling there, and the fitness judge at least one with reasoning.
+- At least one model server registered as a `ModelServer` (created through the operator chart's `modelServers` values). The Kubemoot quickstart creates one called `ollama-local`. The embedding model (`nomic-embed-text`) must be on a server, or a Model must ask for it on one (`kmctl model add`); the crews name the model, never the server. `homelab-pilot-crew` and `kubemoot-fitness-crew` ship no Model objects: they select chat models from the cluster's model catalog (the Model objects in the operator namespace plus the models each ModelServer reports). `homelab-pilot-crew` needs at least one chat model with tool-calling there, and the fitness judge at least one with reasoning.
 - For `homelab-pilot-crew`: a PostgreSQL database with the pgvector extension for the RAG sources and the MCP gateway tool index, and a Secret with its credentials in the crew namespace. The charts do not install either.
 - For `oguide-crew`: an O'Reilly subscription and a Secret with your own O'Reilly key in the crew namespace; see [Add your O'Reilly key](./oguide-crew/README.md#add-your-oreilly-key).
 
@@ -42,19 +42,13 @@ helm upgrade --install homelab-pilot \
   -f my-values.yaml
 ```
 
-A minimal `my-values.yaml` for one Ollama server and one pgvector database. It names no chat model; the crew takes those from the cluster's model catalog:
+A minimal `my-values.yaml` for one pgvector database. It names no chat model and no model server; the crew takes models from the cluster's model catalog, and the embedding model (`nomic-embed-text`) is bound to a server that has it:
 
 ```yaml
-embeddingModel:
-  serverRef: ollama-local            # serves nomic-embed-text
 vectorStore:
   host: pgvector.databases.svc.cluster.local
   database: kubemoot
   existingSecret: crew-db-credentials   # keys: username, password
-mcpGateway:
-  toolIndex:
-    embeddingModel:
-      endpoint: http://ollama.ollama:11434
 mcpServers:
   prometheus:
     endpoint: http://kube-prometheus-stack-prometheus.monitoring:9090
