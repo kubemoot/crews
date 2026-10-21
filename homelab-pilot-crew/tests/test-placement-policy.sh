@@ -74,6 +74,13 @@ echo "PASS: embedding model names no server"
 gw() { yq -N -o=json -I=0 'select(.kind == "MCPGateway") | .spec.toolIndex.embeddingModel' <<<"$1"; }
 gwout="$(render --set mcpGateway.toolIndex.vectorStore.host=db.test --set mcpGateway.toolIndex.vectorStore.database=v --set mcpGateway.toolIndex.vectorStore.secretRef=s)"
 [ "$(gw "$gwout")" = '{"provider":"ollama","model":"nomic-embed-text"}' ] || fail "the gateway tool index embedding model changed: $(gw "$gwout")"
+# The tool index names the chart's EmbeddingModel resource explicitly, not the model name.
+ref() { yq -N 'select(.kind == "MCPGateway") | .spec.toolIndex.embeddingModelRef' <<<"$1"; }
+embname="$(yq -N 'select(.kind == "EmbeddingModel") | .metadata.name' <<<"$gwout")"
+[ "$(ref "$gwout")" = "$embname" ] || fail "the tool index embeddingModelRef is $(ref "$gwout"), want the chart's EmbeddingModel $embname"
+[ "$embname" != "nomic-embed-text" ] || fail "this test needs the EmbeddingModel resource name to differ from the model name"
+[ "$(ref "$(render --set embeddingModel.name=custom-embed --set mcpGateway.toolIndex.vectorStore.host=db.test --set mcpGateway.toolIndex.vectorStore.database=v --set mcpGateway.toolIndex.vectorStore.secretRef=s)")" = "custom-embed" ] || fail "a renamed EmbeddingModel must be followed by the tool index"
+[ "$(ref "$(render --set mcpGateway.toolIndex.embeddingModelRef=pinned-embed --set mcpGateway.toolIndex.vectorStore.host=db.test --set mcpGateway.toolIndex.vectorStore.database=v --set mcpGateway.toolIndex.vectorStore.secretRef=s)")" = "pinned-embed" ] || fail "mcpGateway.toolIndex.embeddingModelRef must override"
 gwset="$(render --set mcpGateway.toolIndex.vectorStore.host=db.test --set mcpGateway.toolIndex.vectorStore.database=v --set mcpGateway.toolIndex.vectorStore.secretRef=s --set mcpGateway.toolIndex.embeddingModel.endpoint=http://e:11434)"
 [ "$(yq -N 'select(.kind == "MCPGateway") | .spec.toolIndex.embeddingModel.endpoint' <<<"$gwset")" = "http://e:11434" ] || fail "an explicit tool index endpoint must still render"
 ! grep -q 'http://ollama' <<<"$out$gwout" || fail "the chart defaults still name an Ollama server"

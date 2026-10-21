@@ -75,6 +75,8 @@ spec:
       port: {{ .Values.mcpGateway.toolIndex.vectorStore.port | default 5432 }}
       database: {{ .Values.mcpGateway.toolIndex.vectorStore.database | default .Values.vectorStore.database }}
       secretRef: {{ .Values.mcpGateway.toolIndex.vectorStore.secretRef | default .Values.vectorStore.existingSecret }}
+    # The EmbeddingModel resource the tool index embeds with; its bound server supplies the endpoint.
+    embeddingModelRef: {{ .Values.mcpGateway.toolIndex.embeddingModelRef | default .Values.embeddingModel.name }}
     embeddingModel:
       provider: {{ .Values.mcpGateway.toolIndex.embeddingModel.provider | default "ollama" }}
       {{- with .Values.mcpGateway.toolIndex.embeddingModel.endpoint }}

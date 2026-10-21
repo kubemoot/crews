@@ -148,6 +148,9 @@ mcpGateway:
       port: 5432
       database: ""
       secretRef: ""
+    # EmbeddingModel resource the tool index embeds with. Defaults to this chart's
+    # embeddingModel.name, so the index and the RAG sources share one resource.
+    embeddingModelRef: ""
     embeddingModel:
       # The model only. The tool index reads the endpoint from the EmbeddingModel's
       # status, so the chart names no server; set endpoint here only to override.
