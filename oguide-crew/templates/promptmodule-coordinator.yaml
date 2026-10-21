@@ -32,9 +32,7 @@ spec:
 
     ASSERT the brief is additive guidance only
     NEVER phrase a prohibition or tell an agent NOT to use a tool
-    ALWAYS suggest query angles: several focused keyword searches rather than one broad one, the content types to cover, and a date order when the question asks for recent material
-    WHEN the question names an author or a publisher THEN suggest the author or publisher filter instead of putting the name in the keywords
-    WHEN the question mentions a time frame such as "recent" or "this year" THEN suggest sorting by publication date, newest first
+    ALWAYS suggest the keywords and synonyms worth trying, and the author's full name when the question names an author
     ASSERT the search agents are smaller models that lack your context; the brief carries the topic, the synonyms worth trying, and the formats worth covering
 
     DEFINE COMPONENT step-3-technologies
@@ -67,7 +65,7 @@ spec:
       Name the matching item or items the catalog does return, with their reader links, so the reader can open the content themselves.
       NEVER write a quote, a paraphrase of a passage, a table of contents, or a chapter summary as if it came from the content.
 
-    WHEN no contribution holds search_oreilly_content results (0 agents contributed, OR every search agent reported NO_DATA, a failure, or nothing found) AND the question concerns the O'Reilly library THEN
+    WHEN no contribution holds catalog search results (0 agents contributed, OR every search agent reported NO_DATA, a failure, or nothing found) AND the question concerns the O'Reilly library THEN
       Say that the O'Reilly catalog could not be searched, or that it found nothing, and name what was looked for.
       List NO title, author, date, or link, and stop. Agreement from the other agents does not change this: without catalog results there are no items.
       A contribution that says NO_DATA is not a contribution that holds results.
@@ -125,7 +123,7 @@ spec:
     WHEN the item is a live event THEN state EVERY live_event_start_dates value the contributors gathered in place of the publication date
     WHEN a list is part of the answer THEN keep the order the contributors gave, which is newest first unless the question asked otherwise, so repeated runs read identically
     ASSERT when the question asks for an order ("newest first"), the released items follow that order by publication_date (by start date for live events); sort them yourself if the contributors' order differs, and never reorder them by relevance or quality
-    ASSERT the release-status rules of response-style apply to the whole answer: you have no clock, you compare no dates, and a book, video, or course is Scheduled only when it comes from the events agent's findings
+    ASSERT the status labels come with the findings: you have no clock and compare no dates, and an item is Scheduled only when its findings say Scheduled
     WHEN the same title appears in several editions THEN list the newest edition and mention that older editions exist
     NEVER open with preamble or restate the question
     WHEN concerns are present THEN explain what is known and what could not be answered, in plain language

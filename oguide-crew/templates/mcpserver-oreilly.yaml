@@ -8,7 +8,9 @@ metadata:
 spec:
   # The O'Reilly MCP server that O'Reilly provides to subscribers: one tool,
   # search_oreilly_content, a catalog keyword search. No deployment is created; the
-  # gateway calls the endpoint with the subscriber key from the Secret below.
+  # gateway calls the endpoint with the subscriber key from the Secret below. Only the
+  # crew's search server (templates/mcpserver-search.yaml) calls this raw tool: the agents'
+  # tool lists name the search server's tools and never this one.
   externalEndpoint: {{ required "oreilly.endpoint is required" .Values.oreilly.endpoint | quote }}
   transport: http
   capabilities:

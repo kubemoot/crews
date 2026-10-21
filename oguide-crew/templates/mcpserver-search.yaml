@@ -1,0 +1,61 @@
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: search-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+spec:
+  # The crew's search server (search-server/server.py): four fixed searches of the O'Reilly
+  # catalog (find_released, find_scheduled, find_by_author, find_live_events), each taking one
+  # text argument. It builds every date filter, the item count, and the order itself, and
+  # labels each item Released or Scheduled from the requester's date. Pure stdio, so the
+  # operator adds the bridge sidecar (port is the bridge's TCP port). The code comes from the
+  # Secret above; the image is the official Python image, pinned by digest (see values.yaml).
+  image: {{ .Values.mcpServers.search.image | quote }}
+  transport: stdio
+  command:
+    - "python"
+    - "/app/server.py"
+  port: 3000
+  replicas: 1
+  secretVolumes:
+    - name: {{ .Values.mcpServers.search.codeSecretName }}
+      mountPath: /app/server.py
+      subPath: server.py
+  # The server holds no key. It calls the raw O'Reilly search through this crew's gateway
+  # (the gateway's tool endpoint, as agents do), where the key, the argument coercion and the
+  # call log live. Rotating the key needs no restart here.
+  env:
+    - name: OREILLY_GATEWAY_URL
+      value: {{ printf "http://%s.%s.svc:%v" .Values.mcpGateway.name .Release.Namespace .Values.mcpGateway.port | quote }}
+    - name: OREILLY_DEFAULT_TIMEZONE
+      value: {{ .Values.oreilly.defaultTimeZone | quote }}
+    # The checksum of the code, so a chart upgrade that changes server.py changes the spec and
+    # the pod restarts (a mounted single file is not refreshed in a running pod).
+    - name: SEARCH_SERVER_SHA256
+      value: {{ .Files.Get "search-server/server.py" | sha256sum | quote }}
+    - name: PYTHONDONTWRITEBYTECODE
+      value: "1"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+  capabilities:
+    - library-search
+    - catalog
+  securityContext:
+    # The server reads one mounted file and calls the crew's gateway over the cluster network: read-only root
+    # filesystem, all capabilities dropped, no privilege escalation. The image runs as uid 0.
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: "20m"
+      memory: "48Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"

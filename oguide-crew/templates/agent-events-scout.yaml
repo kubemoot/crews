@@ -17,7 +17,7 @@ spec:
     - general
   triageSummary: "Finds upcoming O'Reilly live events, live training, workshops, and conference sessions on a topic, with every session date and the reader link, and books, videos, and courses announced for release."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, events-scout-system]
-  enabledTools: [get_current_time, search_oreilly_content]
+  enabledTools: [find_scheduled, find_live_events]
   discussKeywords:
     - live
     - event

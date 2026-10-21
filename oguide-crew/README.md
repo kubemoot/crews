@@ -6,14 +6,14 @@ O'guide is a Kubemoot crew for O'Reilly subscribers who want to find their way a
 - **What it answers:** the best recent books, videos, and courses on a topic; a reading or learning path over days or weeks; upcoming live events with their session dates; what an author or publisher has published. Every item comes with its authors, content type, date, page count or duration, and a `learning.oreilly.com` reader link.
 - **What it needs from the cluster:**
   - a chat model with `tool-calling` in the cluster's model catalog (a larger model with `reasoning` improves the rankings and learning paths; the chart ships no Model);
-  - the O'Reilly MCP server, which the chart registers as an external MCPServer (O'Reilly hosts it; nothing is deployed for it), and the artifact read-ops MCP server, which the chart deploys;
+  - the O'Reilly MCP server, which the chart registers as an external MCPServer on the crew's gateway (O'Reilly hosts it; nothing is deployed for it), the crew's search server (see [The search tools](#the-search-tools)), and the artifact read-ops MCP server, which the chart deploys;
   - a Secret with your own O'Reilly key (see [Add your O'Reilly key](#add-your-oreilly-key));
   - NATS JetStream, and outbound HTTPS from the MCP gateway to `api.oreilly.com`. No database.
 - **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'guide does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
 
 ## Add your O'Reilly key
 
-The O'Reilly MCP server is for O'Reilly subscribers. Each call carries the subscriber's own key, an O'Reilly access token, which the MCP gateway sends as `Authorization: Bearer <key>`. This chart never holds a key: you put yours in a Secret, and the chart names only the Secret (`oreilly.auth.secretName`, default `oreilly-mcp-auth`) and the key inside it (`oreilly.auth.secretKey`, default `bearer-token`).
+The O'Reilly MCP server is for O'Reilly subscribers. Each call carries the subscriber's own key, an O'Reilly access token, which the MCP gateway sends as `Authorization: Bearer <key>`. The key lives only in the gateway; the crew's search server and the agents never hold it. This chart never holds a key: you put yours in a Secret, and the chart names only the Secret (`oreilly.auth.secretName`, default `oreilly-mcp-auth`) and the key inside it (`oreilly.auth.secretKey`, default `bearer-token`).
 
 1. **Create an access token.** Signed in to O'Reilly, open [learning.oreilly.com/access-tokens](https://learning.oreilly.com/access-tokens/) and create a token. Copy it; this is your key.
 2. **Read how it is used.** O'Reilly's [MCP authentication documentation](https://learning.oreilly.com/apidocs/mcp/search/#section/Authentication) describes the token and the bearer header, and the [O'Reilly MCP documentation](https://learning.oreilly.com/apidocs/mcp/search/) describes the server and its search tool. Both pages render only in a browser signed in to O'Reilly.
@@ -28,7 +28,7 @@ The O'Reilly MCP server is for O'Reilly subscribers. Each call carries the subsc
    unset OREILLY_KEY
    ```
 
-   If you changed `oreilly.auth.secretName`, use that name. The default key name `bearer-token` is what O'Reilly expects: the operator sends it as a bearer token. Set `oreilly.auth.secretKey` only if you store the key under `api-key` instead.
+   If you changed `oreilly.auth.secretName`, use that name. The default key name `bearer-token` is what O'Reilly expects: the gateway sends it as a bearer token. Set `oreilly.auth.secretKey` only if you store the key under `api-key` instead.
 
 **Or keep the key in the operator namespace.** To manage one copy of the key for several crew namespaces, create the same Secret in the operator's namespace (`kubemoot` in the Kubemoot quickstart) and name it in the crew namespace's `kubemoot.ai/replicate-secrets` annotation. The operator copies it into the crew namespace and keeps the copy in step with the original:
 
@@ -59,7 +59,7 @@ unset OREILLY_KEY
 
 With the key kept in the operator namespace, replace it there (`-n kubemoot`).
 
-The operator watches the Secret and hands the new key to the gateway; a replicated copy follows its original. Nothing in the crew is edited or reinstalled. Revoke the old token at O'Reilly once the new one works.
+The operator watches the Secret and hands the new key to the gateway; a replicated copy follows its original. Nothing in the crew is edited, restarted, or reinstalled. Revoke the old token at O'Reilly once the new one works.
 
 **Check that it worked.** The O'Reilly MCPServer reports whether the operator could read the key in its `CredentialReady` condition:
 
@@ -83,17 +83,41 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 | Agent | Role | Tools |
 |---|---|---|
 | oguide-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
-| library-search | Turns the question into several focused keyword searches with filters (content type, author, publisher, recency); returns released items only (every search is filtered to dates up to today) | `search_oreilly_content`, `get_current_time` |
-| events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses scheduled for release (searches filtered to dates from today) | `search_oreilly_content`, `get_current_time` |
+| library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author` |
+| events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled` |
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops only |
 
-Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint, no deployment), the artifact read-ops MCPServer that lets the curator read large search results, the Time MCPServer (the MCP project's reference Time server) that gives the two search agents today's date, for the release filters of their searches, and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the artifact read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
+
+## The search tools
+
+The model never builds a catalog search. The search server (`search-server/server.py`, plain Python, no dependencies) offers four tools, each with one text argument, and builds every filter, the item count (25), and the order itself. It calls the raw `search_oreilly_content` tool through the crew's gateway (the gateway's tool endpoint, as agents do), so the key, the argument coercion, and the call log stay in the gateway. The agents' tool lists name only the four tools below; the gateway has no per-caller allow-list today, so keeping the raw tool out of the agents' `enabledTools` is what keeps them from calling it.
+
+| Tool | Argument | Returns |
+|---|---|---|
+| `find_released` | `topic` | Released items on the topic, newest first |
+| `find_scheduled` | `topic` | Books, videos, and courses announced but not yet released, soonest first (live events are `find_live_events`) |
+| `find_by_author` | `name` | The author's released items newest first, then scheduled items soonest first (two catalog calls) |
+| `find_live_events` | `topic` | Upcoming live events and live courses with their session dates, soonest first |
+
+Each item has the title, authors, format, publication date, page count or duration and session dates when the catalog gives them, the reader link, and a `status` of `Released` or `Scheduled`, worked out in code from the item's own date against today's date (a live event is Scheduled while it has a session today or later; an item with no date is Released). Session dates are the catalog's dates as written and are compared with the requester's date as written, with no further time zone conversion. Nothing is invented. If the gateway or O'Reilly cannot be reached or refuses the key, a tool answers with an MCP error result (`isError: true`) saying the catalog could not be searched, and the crew's answer says so.
+
+### The requester's date
+
+"Today" is the date of the person asking, not the server's. A tool call can carry it in the MCP request's `_meta`:
+
+| Key | Value | Used as |
+|---|---|---|
+| `requestDate` | an ISO date, `YYYY-MM-DD` | the date, as given |
+| `timeZone` | an IANA zone name, for example `America/Los_Angeles` | the date now in that zone |
+
+`requestDate` wins over `timeZone`, which wins over the default zone (`oreilly.defaultTimeZone`, default `UTC`). A value that is missing or malformed is ignored. The date is never a tool argument, so the model cannot set it. Every result names the date and where it came from (`today` and `dateSource`). The date matters here, not the time of day: a request at 23:30 in `America/Los_Angeles` is still that date although UTC has rolled over.
 
 The chart ships no Model objects. The coordinator and the curator declare `reasoning` and lean to the largest chat model in the cluster's model catalog; the search agents declare `tool-calling` and land on a medium one. One chat model with tool-calling is enough to run it.
 
 ## Install
 
-Prerequisites are the same as for the other crews (the Kubemoot operator, NATS JetStream, and a chat model with tool-calling in the cluster's model catalog); see the [repository README](../README.md#install). The operator must forward an external MCP server's key (the `registry.authSecretRef` of an MCPServer with an `externalEndpoint`, reported in its `CredentialReady` condition). No database is needed.
+Prerequisites are the same as for the other crews (the Kubemoot operator, NATS JetStream, and a chat model with tool-calling in the cluster's model catalog); see the [repository README](../README.md#install). The operator must forward an external MCP server's key (the `registry.authSecretRef` of an MCPServer with an `externalEndpoint`, reported in its `CredentialReady` condition) and run an MCPServer that mounts a Secret as a file (the search server). No database is needed.
 
 Create the Secret as in [Add your O'Reilly key](#add-your-oreilly-key), then:
 
@@ -114,8 +138,9 @@ helm upgrade --install oguide \
 | `oreilly.auth.header` | empty | With `api-key` only: the header that carries it |
 | `global.imageRegistry` | `ghcr.io/kubemoot` | Registry for the Kubemoot-built artifact-access image |
 | `imagePullSecrets` | `[]` | Pull secrets for the gateway, for a private mirror |
-| `mcpServers.time.image` | `docker.io/mcp/time@sha256:...` | The Time server, pinned by digest; pin a newer digest to update it |
-| `mcpServers.time.localTimezone` | `UTC` | The zone the Time server reports when a call names none |
+| `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
+| `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
+| `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the artifact store |
 | `crew.name` | `oguide` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |

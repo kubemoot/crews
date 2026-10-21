@@ -20,7 +20,7 @@ render_err() { { render "$@" >/dev/null; } 2>&1 || true; }
 rule() {
   yq -N -o=json -I=0 "select(.kind == \"CrewSchedulingPolicy\") | .spec.rules[] | select(.phase == \"$1\") | $2" <<<"$out"
 }
-oreilly() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"oreilly-mcp\") | $1"; }
+search() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"search-mcp\") | $1"; }
 
 check "the chart lints" 0 "$(helm lint "$chart" >/dev/null 2>&1; echo $?)"
 out="$(render)"
@@ -49,20 +49,47 @@ check "the placement policy is unset by default" null \
 check "the placement policy value renders" shadow \
   "$(render --set crew.placementPolicy=shadow | yq -N 'select(.kind == "CrewSchedulingPolicy") | .spec.placementPolicy')"
 
-# The O'Reilly MCP server: an external endpoint, the Secret named, never a key.
+# The raw O'Reilly server stays on the gateway, which holds the key; the search server reaches it
+# only through the gateway. The search server: stock Python image pinned by digest, code from a Secret.
+oreilly() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"oreilly-mcp\") | $1"; }
+check "the search server image is pinned by digest" 1 \
+  "$(search '.spec.image' <<<"$out" | grep -cE '^"python@sha256:[0-9a-f]{64}"$' || true)"
+check "the search server runs the mounted code" '["python","/app/server.py"]' "$(search '.spec.command' <<<"$out")"
+check "the search server is stdio" '"stdio"' "$(search '.spec.transport' <<<"$out")"
 check "the endpoint defaults to O'Reilly's" '"https://api.oreilly.com/api/content-discovery/v1/mcp/"' \
   "$(oreilly '.spec.externalEndpoint' <<<"$out")"
 check "the endpoint is a value" '"https://mcp.example.test/mcp/"' \
   "$(render --set oreilly.endpoint=https://mcp.example.test/mcp/ | oreilly '.spec.externalEndpoint')"
-check "the transport is http with no deployment" '"http"|null' \
+check "the raw server is an external endpoint with no deployment" '"http"|null' \
   "$(oreilly '.spec.transport' <<<"$out")|$(oreilly '.spec.image' <<<"$out")"
-check "the Secret is referenced by name" '"oreilly-mcp-auth"' "$(oreilly '.spec.registry.authSecretRef' <<<"$out")"
-check "the registry block holds only the reference" '"authSecretRef,categories,enabled"' \
-  "$(oreilly '.spec.registry | keys | sort | join(",")' <<<"$out")"
+check "the gateway holds the key: the Secret is referenced by name" '"oreilly-mcp-auth"' "$(oreilly '.spec.registry.authSecretRef' <<<"$out")"
+check "the registry block holds the reference and no key value" 0 \
+  "$(oreilly '.spec.registry | keys | .[] | select(. != "authSecretRef" and . != "authHeader" and . != "categories" and . != "enabled")' <<<"$out" | grep -c . || true)"
 check "the Secret name is a value" '"my-key"' \
   "$(render --set oreilly.auth.secretName=my-key | oreilly '.spec.registry.authSecretRef')"
 check "an api-key carries its header" '"Authorization"' \
   "$(render --set oreilly.auth.secretKey=api-key --set oreilly.auth.header=Authorization | oreilly '.spec.registry.authHeader')"
+check "the search server holds no key and no secret reference in its environment" 0 \
+  "$(search '.spec.env[] | select(.valueFrom != null or .name == "OREILLY_MCP_KEY" or .name == "OREILLY_MCP_HEADER") | .name' <<<"$out" | grep -c . || true)"
+check "the search server calls this crew's gateway" '"http://oguide-gateway.crew-oguide.svc:8080"' \
+  "$(search '.spec.env[] | select(.name == "OREILLY_GATEWAY_URL") | .value' <<<"$out")"
+check "the gateway address follows the gateway values" '"http://gw.other.svc:9090"' \
+  "$(render -n other --set mcpGateway.name=gw --set mcpGateway.port=9090 | search '.spec.env[] | select(.name == "OREILLY_GATEWAY_URL") | .value')"
+check "the default time zone is UTC" '"UTC"' "$(search '.spec.env[] | select(.name == "OREILLY_DEFAULT_TIMEZONE") | .value' <<<"$out")"
+check "the default time zone is a value" '"Europe/London"' \
+  "$(render --set oreilly.defaultTimeZone=Europe/London | search '.spec.env[] | select(.name == "OREILLY_DEFAULT_TIMEZONE") | .value')"
+check "the code is mounted from its Secret" '[{"name":"oguide-search-server","mountPath":"/app/server.py","subPath":"server.py"}]' \
+  "$(search '.spec.secretVolumes' <<<"$out")"
+check "the only Secret is the search server code" "oguide-search-server" "$(yq -N 'select(.kind == "Secret") | .metadata.name' <<<"$out")"
+check "the code Secret holds the server file" "$(sha256sum "${chart}/search-server/server.py" | cut -d' ' -f1)" \
+  "$(yq -N 'select(.kind == "Secret" and .metadata.name == "oguide-search-server") | .data."server.py"' <<<"$out" | base64 -d | sha256sum | cut -d' ' -f1)"
+check "the search server is contained" '{"readOnlyRootFilesystem":true,"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"seccompProfile":{"type":"RuntimeDefault"}}' \
+  "$(search '.spec.securityContext' <<<"$out")"
+pkg="$(mktemp -d)"
+helm package "$chart" -d "$pkg" >/dev/null 2>&1
+check "the package holds the server and not its tests" "1,0" \
+  "$(tar -tzf "$pkg"/*.tgz | grep -c 'search-server/server.py' || true),$(tar -tzf "$pkg"/*.tgz | grep -c 'test_server' || true)"
+rm -rf "$pkg"
 check "an empty Secret name fails the render" 1 \
   "$(render_err --set oreilly.auth.secretName= | grep -c 'oreilly.auth.secretName is required' || true)"
 check "an unknown Secret key fails the render" 1 \
@@ -73,7 +100,6 @@ check "a header with a bearer-token fails the render" 1 \
 # No key or token value in any rendered object, even when one is passed by mistake.
 planted="$(render --set oreilly.auth.key=PLANTED-KEY-0001 --set oreilly.key=PLANTED-KEY-0001 --set oreilly.auth.token=PLANTED-KEY-0001)"
 check "a key passed as a value is never rendered" 0 "$(grep -c PLANTED-KEY-0001 <<<"$planted" || true)"
-check "renders no Secret" "" "$(yq -N 'select(.kind == "Secret") | .metadata.name' <<<"$out")"
 check "renders no stringData" 0 "$(grep -c stringData <<<"$out" || true)"
 check "renders no bearer value" 0 "$(grep -ciE 'bearer [A-Za-z0-9]' <<<"$out" || true)"
 check "values.yaml holds no key value" "" \
@@ -110,51 +136,39 @@ modules="$(yq -N 'select(.kind == "PromptModule") | .metadata.name' <<<"$out" | 
 check "renders eleven PromptModules" 11 "$(grep -c . <<<"$modules")"
 check "every promptRef names a shipped PromptModule" "" \
   "$(yq -N 'select(.kind == "Agent") | .spec.promptRefs[]' <<<"$out" | sort -u | comm -23 - <(printf '%s\n' "$modules"))"
-check "only the search agents have the catalog tool" "events-scout,library-search" \
-  "$(yq -N 'select(.kind == "Agent" and (.spec.enabledTools // [] | contains(["search_oreilly_content"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
 
 module() { yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$1\") | .spec.content" <<<"$out"; }
 has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
 
-# The clock: the MCP reference Time server, pinned by digest, read by the curator.
-timesrv() { yq -N 'select(.kind == "MCPServer" and .metadata.name == "time-mcp") | '"$1" <<<"${2:-$out}"; }
-check "the Time server image is pinned by digest" 1 "$(timesrv .spec.image | grep -cE '^docker\.io/mcp/time@sha256:[0-9a-f]{64}$' || true)"
-check "the Time server runs stdio through its own command" "mcp-server-time,--local-timezone,UTC" \
-  "$(timesrv '.spec.command[]' | paste -sd,)"
-check "the Time server zone is a value" "Europe/London" \
-  "$(timesrv '.spec.command[2]' "$(render --set mcpServers.time.localTimezone=Europe/London)")"
-check "the Time server is contained" "false,[ALL]" \
-  "$(timesrv '.spec.securityContext.allowPrivilegeEscalation' ),$(timesrv '.spec.securityContext.capabilities.drop' | yq -o=json -I=0 '.' 2>/dev/null | tr -d '"' )"
 
+check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
+check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released" \
+  "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "library-search" or .metadata.name == "events-scout")) | .metadata.name + "=" + (.spec.enabledTools | sort | join(","))' <<<"$out" | sort | paste -sd' ')"
 check "the curator reads artifacts only" 0 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vc '^artifact_' || true)"
-check "the search agents read the clock" "events-scout,library-search" \
-  "$(yq -N 'select(.kind == "Agent" and (.spec.enabledTools // [] | contains(["get_current_time"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
-check "library search calls get_current_time first" 1 "$(has library-search-system 'ALWAYS call get_current_time with the timezone "UTC" first')"
-check "library search returns released items only" 1 "$(has library-search-system 'ASSERT every search for recorded content carries date_range')"
-check "events agent searches scheduled releases from today" 1 "$(has events-scout-system 'start_date": "<today>"')"
-check "release status comes from the search, not from a date comparison" 1 "$(has response-style 'Whether an item is released comes from the search that returned it')"
-check "the coordinator takes status from the source" 1 "$(has synthesis-prompt 'you have no clock, you compare no dates')"
-check "the coordinator selects the events agent for what is coming" 1 "$(has advisory-prompt 'an author'"'"'s next work THEN select the events agent as well')"
-check "search-discipline names the release-filter exception in its ASSERT" 1 "$(has tooler-discipline 'ASSERT date_range is set in only two cases')"
-check "the scheduled search is outside the four-search budget" 1 "$(has tooler-discipline "the events agent's scheduled-releases search, which is extra")"
-check "the events agent calls the clock only for the scheduled search" 1 "$(has events-scout-system 'WHEN you run the scheduled-releases search THEN call get_current_time')"
-check "the events agent's live searches keep content_types, the scheduled one has none" 1 "$(has events-scout-system 'for every event search, except the scheduled-releases search below')"
-check "a missing clock is NO_DATA for the search agents" 1 "$(has tooler-discipline 'WHEN get_current_time is not among your tools THEN respond NO_DATA')"
-check "the curator names the artifact author as the source of status" 1 "$(has analyst-review-protocol 'the <agent> segment names who gathered it')"
-check "an item in both artifacts is released" 1 "$(has analyst-review-protocol 'WHEN the same url appears in both artifacts THEN list the item once, as released')"
-check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
+check "no agent lists the raw search tool" 0 \
+  "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$out" | grep -c '^search_oreilly_content$' || true)"
+check "no prompt names the raw search tool or builds search arguments" 0 \
+  "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out" | grep -cE 'search_oreilly_content|date_range|content_types|n_items|order_by|author_filter|get_current_time' || true)"
+check "the tools take one text argument and build the search" 1 "$(has tooler-discipline 'ASSERT each search tool takes one text argument and builds the search itself')"
+check "the tooler passes the status label on" 1 "$(has tooler-discipline 'pass it on exactly as returned')"
+check "library search has the two released tools" 1 "$(has library-search-system 'ASSERT find_by_author(name) returns one author')"
+check "the events agent has the scheduled and live tools" 1 "$(has events-scout-system 'ASSERT find_scheduled(topic) returns books, videos, and courses')"
+check "an author is searched by name" 1 "$(has library-search-system 'THEN call find_by_author with the author'"'"'s full name')"
+check "the status label is used as given" 1 "$(has response-style 'ASSERT every item carries a status, Released or Scheduled')"
+check "the curator opens with Released and Scheduled groups" 1 "$(has analyst-review-protocol 'ALWAYS open your contribution with two groups, Released and Scheduled')"
+check "the coordinator compares no dates" 1 "$(has synthesis-prompt 'you have no clock and compare no dates')"
+check "an explicit order sets the sequence in the curator" 1 "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
+check "an explicit order sets the sequence in the coordinator" 1 "$(has synthesis-prompt 'the released items follow that order by publication_date')"
+check "a search is never sent twice" 1 "$(has tooler-discipline 'NEVER send a search call identical to one you already sent in this turn')"
+check "the curator never concludes from the head of an artifact" 1 "$(has analyst-review-protocol 'artifact_head shows only the start of an artifact')"
+all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
+check "the retired date-filter vocabulary is gone" 0 \
+  "$(grep -cE 'Scheduled or Upcoming|upcoming or an early release|Today is <|release filter|artifact author|argument-types' <<<"$all_modules" || true)"
 words=(zero one two three four five six seven eight nine ten)
 count="$(find "${chart}/fitness" -maxdepth 1 -name '*.adl' | wc -l | tr -d ' ')"
 check "the README states the scenario count" 1 "$(grep -cF "holds ${words[$count]} scenarios" "${chart}/README.md" || true)"
-check "author and recency searches use 25 items and no content_types" 1 "$(has library-search-system 'n_items 25, and NO content_types filter')"
-check "the clock's server exists with the time capability" "time" \
-  "$(timesrv '.spec.capabilities[]')"
-check "the Time server filesystem is read-only" "true,RuntimeDefault" \
-  "$(timesrv '.spec.securityContext.readOnlyRootFilesystem'),$(timesrv '.spec.securityContext.seccompProfile.type')"
 all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
-check "the retired upcoming-label vocabulary is gone" 0 \
-  "$(grep -cE 'Scheduled or Upcoming|upcoming or an early release|the curator states today|Today is <' <<<"$all_modules" || true)"
 
 # Grounding: no answer comes from model memory. Every agent reads the provenance rule, the
 # search agents fail on a missing, failing, or empty tool, and the answer lists nothing
@@ -164,19 +178,19 @@ check "every Agent reads catalog-grounding" "curator,events-scout,library-search
 check "the search agents read tooler-discipline" "events-scout,library-search" \
   "$(yq -N 'select(.kind == "Agent" and (.spec.promptRefs | contains(["tooler-discipline"]))) | .metadata.name' <<<"$out" | sort | paste -sd,)"
 check "catalog-grounding names this turn's search results as the only source" 1 \
-  "$(has catalog-grounding 'ASSERT the ONLY source of items is the output of search_oreilly_content calls made in this turn')"
+  "$(has catalog-grounding 'ASSERT the ONLY source of items is the output of your search tool calls made in this turn')"
+check "a missing search tool is NO_DATA" 1 \
+  "$(has tooler-discipline 'WHEN your search tools are not among your tools THEN respond NO_DATA')"
+check "an empty search is NO_DATA" 1 \
+  "$(has tooler-discipline 'WHEN every search returned nothing THEN respond NO_DATA')"
+check "a failing search tool is NO_DATA" 1 \
+  "$(has tooler-discipline 'WHEN a search tool answers with an error THEN respond NO_DATA')"
+check "both search agents defer to those rules" 2 \
+  "$(yq -N 'select(.kind == "PromptModule" and (.metadata.name == "library-search-system" or .metadata.name == "events-scout-system")) | .spec.content' <<<"$out" | grep -cF 'handled by the tool-unavailable and drill-on-empty rules' || true)"
 check "catalog-grounding drops a link outside the reader" 1 \
   "$(has catalog-grounding "WHEN an item's url does not start with https://learning.oreilly.com/ THEN drop the item")"
 check "catalog-grounding stops with no items when there are no results" 1 \
   "$(has catalog-grounding 'list no title and no link, and stop')"
-check "a missing search tool is NO_DATA" 1 \
-  "$(has tooler-discipline 'WHEN search_oreilly_content is not among your tools THEN respond NO_DATA')"
-check "an empty search is NO_DATA" 1 \
-  "$(has tooler-discipline 'WHEN every search returned nothing THEN respond NO_DATA')"
-check "a failing search is NO_DATA" 1 \
-  "$(has tooler-discipline 'WHEN a search call fails again after you changed it THEN respond NO_DATA: the O'"'"'Reilly catalog could not be searched')"
-check "both search agents defer to those rules" 2 \
-  "$(yq -N 'select(.kind == "PromptModule" and (.metadata.name == "library-search-system" or .metadata.name == "events-scout-system")) | .spec.content' <<<"$out" | grep -cF 'handled by the tool-unavailable and drill-on-empty-or-error rules')"
 check "the curator ranks nothing without catalog results" 1 \
   "$(has analyst-review-protocol 'NEVER rank, plan, or list titles from memory')"
 check "the coordinator lists nothing without catalog results" 1 \
@@ -226,33 +240,13 @@ done
 
 # Argument types and artifact reading: the search agents send typed parameters, and the curator
 # reads past error lines at the head of an artifact before it concludes anything.
-check "the tooler states n_items is a bare integer" 1 \
-  "$(has tooler-discipline 'ASSERT n_items is a bare integer')"
-check "the tooler states list parameters are JSON arrays" 1 \
-  "$(has tooler-discipline 'ASSERT content_types, languages, and every other list parameter is a JSON array of strings')"
-check "the tooler shows a correctly typed call" 1 \
-  "$(has tooler-discipline '"content_types": ["books", "videos"], "n_items": 8')"
-check "the tooler corrects a type error instead of resending" 1 \
-  "$(has tooler-discipline 'NEVER resend the call unchanged')"
-check "the curator never concludes from the head of an artifact" 1 \
-  "$(has analyst-review-protocol 'NEVER conclude that the search agents found no data, or that the data is unusable, from the head of an artifact')"
-check "the curator reads past error lines" 1 \
-  "$(has analyst-review-protocol 'THEN read past them before you answer, with artifact_grep')"
 check "an explicit order sets the sequence in the curator" 1 \
   "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
 check "an explicit order sets the sequence in the coordinator" 1 \
   "$(has synthesis-prompt 'the released items follow that order by publication_date')"
-check "the curator reads artifact_tail and artifact_count past error lines" 1 \
-  "$(has analyst-review-protocol 'with artifact_tail, or with artifact_count')"
 # These checks guard the rendered rules; whether the models follow them shows in the fitness scenarios.
-check "a date_range comes only from the question" 1 "$(has tooler-discipline 'ASSERT date_range is set in only two cases')"
-check "no rule demands more than four searches" 0 "$(grep -cF 'run at least three searches' <<<"$all_modules" || true)"
-check "the search budget counts the drill steps" 1 "$(has tooler-discipline 'a drill step after an empty result counts toward the four')"
-check "a date range is never invented" 1 "$(has tooler-discipline 'NEVER invent a date_range')"
 check "a reader link is written exactly as returned" 1 "$(has response-style 'ASSERT a reader link is written exactly as the catalog returned it')"
 check "the empty-catalog scenario forbids a plan from general knowledge" 1 "$(grep -cF '"common knowledge" AND "general knowledge")' "${chart}/fitness/catalog-empty-no-titles.adl")"
-check "a search is never sent twice" 1 "$(has tooler-discipline 'NEVER send a search call identical to one you already sent in this turn')"
-check "the survey search budget is stated" 1 "$(has tooler-discipline 'ASSERT a gather is three to four distinct searches in all')"
 check "the coordinator writes nothing of its own without results" 1 "$(has coordinator-decision-logic 'Write nothing else: no learning path, plan, reading list')"
 check "a learning-path request is a library question" 1 "$(has coordinator-decision-logic 'is a question about the O'"'"'Reilly library whether or not it names O'"'"'Reilly')"
 check "session dates are written in full" 1 "$(has response-style 'ASSERT every session date is written in full as the catalog returns it')"
@@ -269,6 +263,10 @@ check "the empty-catalog scenario forbids every link" 1 \
   "$(grep -cF 'ASSERT(synthesis does NOT CONTAIN "http" AND "](" AND "oreilly.com/book/"' "${chart}/fitness/catalog-empty-no-titles.adl")"
 check "the empty-catalog scenario asserts no specialist agreement" 0 \
   "$(grep -c 'specialist contributes' "${chart}/fitness/catalog-empty-no-titles.adl" || true)"
+
+# The search server's own tests: date labelling, sorting, argument construction, the failure path.
+check "the search server tests pass" 0 \
+  "$(python3 -I -m unittest discover -s "${chart}/search-server" -p 'test_*.py' >/dev/null 2>&1; echo $?)"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

@@ -9,7 +9,7 @@ spec:
   implementation: kubemoot
   port: {{ .Values.mcpGateway.port }}
   replicas: {{ .Values.mcpGateway.replicas }}
-  # Registers the MCPServers of this release: the O'Reilly server and the artifact read-ops.
+  # Registers the MCPServers of this release: the O'Reilly server, the search server, and the artifact read-ops.
   mcpServerSelector:
     matchLabels:
       app.kubernetes.io/instance: {{ .Release.Name }}

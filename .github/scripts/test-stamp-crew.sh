@@ -112,8 +112,8 @@ stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'guide candidate stamp succeeds" 0 "$status"
 check "O'guide renders the latest final artifact-access" "ghcr.io/kubemoot/artifact-access:0.343.0" \
   "$(rendered_images oguide-crew | grep '^ghcr.io/kubemoot/')"
-check "O'guide keeps the Time server pinned by digest, unstamped" 1 \
-  "$(rendered_images oguide-crew | grep -cE '^docker\.io/mcp/time@sha256:[0-9a-f]{64}$')"
+check "O'guide keeps the search server's Python image pinned by digest, unstamped" 1 \
+  "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
 check "O'guide stamped chart lints" 0 "$(helm lint "${root}/oguide-crew" >/dev/null 2>&1; echo $?)"
 
 # The fitness crew (no Kubemoot images) stamps the same way.

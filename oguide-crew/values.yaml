@@ -21,12 +21,15 @@ crew:
 # tool-calling is enough; with a range of sizes, the coordinator and the curator lean
 # to the large model and the search agents to medium.
 
-# The O'Reilly MCP server that O'Reilly provides to its subscribers. It offers one tool,
-# search_oreilly_content, a keyword search of the catalog that returns metadata (title,
-# authors, dates, page count or duration, a reader link) and no text from inside the
-# content.
+# The O'Reilly MCP server that O'Reilly provides to its subscribers. It offers one tool, a
+# keyword search of the catalog that returns metadata (title, authors, dates, page count or
+# duration, a reader link) and no text from inside the content. The crew's gateway calls it
+# with the subscriber key; the crew's search server reaches it only through the gateway.
 oreilly:
   endpoint: https://api.oreilly.com/api/content-discovery/v1/mcp/
+  # The IANA time zone whose date is "today" when a request carries no date or time zone of
+  # its own (see the README). The date matters here, not the time of day.
+  defaultTimeZone: UTC
   # The subscriber key. This chart never holds a key: the installer creates the Secret
   # with their own O'Reilly key, in the crew namespace or in the operator namespace with
   # the crew namespace's kubemoot.ai/replicate-secrets annotation naming it. The
@@ -72,10 +75,8 @@ mcpServers:
     # and the curator reads it through this server. The 0.0.0 tag is stamped at build
     # with Kubemoot's latest released artifact-access version.
     image: "artifact-access:0.0.0"
-  time:
-    # The MCP project's reference Time server, Docker-built, pinned by digest (never a tag).
-    # Raise it by pinning a newer digest of docker.io/mcp/time.
-    image: "docker.io/mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf"
-    # The zone the server reports when a call names none. The curator's prompt names UTC on
-    # every call, so this only needs to be a valid IANA zone.
-    localTimezone: "UTC"
+  search:
+    # The crew's search server runs in the official Python image, pinned by digest (never a
+    # tag); its code is search-server/server.py, delivered through a Secret.
+    image: "python@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
+    codeSecretName: oguide-search-server
