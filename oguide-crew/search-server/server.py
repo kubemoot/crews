@@ -16,8 +16,8 @@ The server holds no key. It calls the raw search tool through the gateway's tool
   "requestDate"    an ISO date (YYYY-MM-DD); used as given
   "localDateTime"  the requester's local date and time (ISO 8601, no offset); its date is used
   "timeZone"       an IANA time zone name; today is the date now in that zone
-requestDate wins over localDateTime, which wins over timeZone, which wins over the default zone. A value that is missing or
-malformed is ignored. Every result says which date and which source it used.
+requestDate wins over localDateTime, which wins over timeZone, which wins over the default zone.
+A value that is missing or malformed is ignored. Every result says which date and which source it used.
 """
 import datetime
 import http.client
@@ -89,7 +89,7 @@ class CatalogError(Exception):
 
 
 def utc_now():
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.UTC)
 
 
 def zone_named(name):
@@ -138,7 +138,7 @@ def resolve_today(meta, default_zone, now):
     fallback = zone_named(default_zone)
     if fallback:
         return now.astimezone(fallback).date(), f"the default time zone {fallback.key}"
-    return now.astimezone(datetime.timezone.utc).date(), "the default time zone UTC"
+    return now.astimezone(datetime.UTC).date(), "the default time zone UTC"
 
 
 def release_range(today, released):
