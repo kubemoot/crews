@@ -18,7 +18,7 @@ from typing import ClassVar
 import server
 
 TODAY = datetime.date(2026, 10, 20)
-NOW = datetime.datetime(2026, 10, 20, 12, 0, tzinfo=datetime.timezone.utc)
+NOW = datetime.datetime(2026, 10, 20, 12, 0, tzinfo=datetime.UTC)
 KEY = "sekret-key-value-123"
 
 
@@ -431,19 +431,19 @@ class RequesterDateTest(unittest.TestCase):
         self.assertEqual("the request date", out["dateSource"])
 
     def test_a_time_zone_gives_the_date_in_that_zone(self):
-        evening = datetime.datetime(2026, 10, 20, 20, 0, tzinfo=datetime.timezone.utc)
+        evening = datetime.datetime(2026, 10, 20, 20, 0, tzinfo=datetime.UTC)
         out = call_with({"timeZone": "Asia/Tokyo"}, "UTC", evening)
         self.assertEqual("2026-10-21", out["today"])
         self.assertEqual("the request time zone Asia/Tokyo", out["dateSource"])
 
     def test_a_request_at_2330_in_los_angeles_is_still_that_date_after_utc_rolled_over(self):
-        now = datetime.datetime(2026, 10, 21, 6, 30, tzinfo=datetime.timezone.utc)  # 23:30 PDT on the 20th
+        now = datetime.datetime(2026, 10, 21, 6, 30, tzinfo=datetime.UTC)  # 23:30 PDT on the 20th
         self.assertEqual("2026-10-21", call_with(_ABSENT, "UTC", now)["today"])
         out = call_with({"timeZone": "America/Los_Angeles"}, "UTC", now)
         self.assertEqual("2026-10-20", out["today"])
 
     def test_without_meta_the_default_zone_is_used_and_named(self):
-        now = datetime.datetime(2026, 10, 21, 6, 30, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime(2026, 10, 21, 6, 30, tzinfo=datetime.UTC)
         out = call_with(_ABSENT, "America/New_York", now)
         self.assertEqual("2026-10-21", out["today"])
         self.assertEqual("the default time zone America/New_York", out["dateSource"])
@@ -470,7 +470,7 @@ class RequesterDateTest(unittest.TestCase):
         self.assertEqual("2026-10-25", out["today"])
 
     def test_an_unreadable_local_date_time_falls_back_to_the_time_zone(self):
-        evening = datetime.datetime(2026, 10, 20, 20, 0, tzinfo=datetime.timezone.utc)
+        evening = datetime.datetime(2026, 10, 20, 20, 0, tzinfo=datetime.UTC)
         for bad in ("tomorrow", "2026-10-24", "2026-13-45T09:00:00", 5, "", None, []):
             out = call_with({"localDateTime": bad, "timeZone": "Asia/Tokyo"}, "UTC", evening)
             self.assertEqual("2026-10-21", out["today"], bad)
@@ -479,7 +479,7 @@ class RequesterDateTest(unittest.TestCase):
     def test_the_meta_kubemoot_sends_for_a_californian_is_used(self):
         # 09:15 on the 24th in Los Angeles is already the 24th, 16:15, in UTC; the server clock is far later.
         meta = {"timeZone": "America/Los_Angeles", "localDateTime": "2026-10-24T09:15:00", "requestDate": "2026-10-24"}
-        later = datetime.datetime(2026, 11, 30, 3, 0, tzinfo=datetime.timezone.utc)
+        later = datetime.datetime(2026, 11, 30, 3, 0, tzinfo=datetime.UTC)
         out = call_with(meta, "UTC", later)
         self.assertEqual("2026-10-24", out["today"])
         self.assertEqual("the request date", out["dateSource"])
