@@ -13,9 +13,10 @@ The server holds no key. It calls the raw search tool through the gateway's tool
 (POST <gateway>/tools/search_oreilly_content/call), as agents do.
 
 "Today" is the requester's date, never the model's. A tools/call may carry it in params._meta:
-  "requestDate"  an ISO date (YYYY-MM-DD); used as given
-  "timeZone"     an IANA time zone name; today is the date now in that zone
-requestDate wins over timeZone, which wins over the default zone. A value that is missing or
+  "requestDate"    an ISO date (YYYY-MM-DD); used as given
+  "localDateTime"  the requester's local date and time (ISO 8601, no offset); its date is used
+  "timeZone"       an IANA time zone name; today is the date now in that zone
+requestDate wins over localDateTime, which wins over timeZone, which wins over the default zone. A value that is missing or
 malformed is ignored. Every result says which date and which source it used.
 """
 import datetime
@@ -112,12 +113,25 @@ def date_named(text):
         return None
 
 
+def local_date_of(text):
+    """The date of an ISO 8601 date-time (the requester's local clock), or None when it is missing or malformed."""
+    if not isinstance(text, str) or len(text.strip()) < 11:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(text.strip()).date()
+    except ValueError:
+        return None
+
+
 def resolve_today(meta, default_zone, now):
-    """The requester's date and where it came from: requestDate, then timeZone, then the default zone."""
+    """The requester's date and where it came from: requestDate, localDateTime, timeZone, then the default zone."""
     meta = meta if isinstance(meta, dict) else {}
     given = date_named(meta.get("requestDate"))
     if given:
         return given, "the request date"
+    local = local_date_of(meta.get("localDateTime"))
+    if local:
+        return local, "the request local time"
     zone = zone_named(meta.get("timeZone"))
     if zone:
         return now.astimezone(zone).date(), f"the request time zone {zone.key}"

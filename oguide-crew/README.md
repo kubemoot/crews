@@ -110,9 +110,10 @@ Each item has the title, authors, format, publication date, page count or durati
 | Key | Value | Used as |
 |---|---|---|
 | `requestDate` | an ISO date, `YYYY-MM-DD` | the date, as given |
+| `localDateTime` | the requester's local date and time, ISO 8601 without an offset, for example `2026-10-24T09:15:00` | its date part |
 | `timeZone` | an IANA zone name, for example `America/Los_Angeles` | the date now in that zone |
 
-`requestDate` wins over `timeZone`, which wins over the default zone (`oreilly.defaultTimeZone`, default `UTC`). A value that is missing or malformed is ignored. The date is never a tool argument, so the model cannot set it. Every result names the date and where it came from (`today` and `dateSource`). The date matters here, not the time of day: a request at 23:30 in `America/Los_Angeles` is still that date although UTC has rolled over.
+Kubemoot sends all three on every tool call when the client (the dashboard, `kmctl conversation ask`, or an API caller) sent the person's time zone and local time; the gateway forwards them unchanged. `requestDate` wins over `localDateTime`, which wins over `timeZone`, which wins over the default zone (`oreilly.defaultTimeZone`, default `UTC`). A value that is missing or malformed is ignored. The date is never a tool argument, so the model cannot set it. Every result names the date and where it came from (`today` and `dateSource`). The date matters here, not the time of day: a request at 23:30 in `America/Los_Angeles` is still that date although UTC has rolled over.
 
 The chart ships no Model objects. The coordinator and the curator declare `reasoning` and lean to the largest chat model in the cluster's model catalog; the search agents declare `tool-calling` and land on a medium one. One chat model with tool-calling is enough to run it.
 
