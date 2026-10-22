@@ -460,6 +460,30 @@ class RequesterDateTest(unittest.TestCase):
             self.assertEqual("2026-10-20", out["today"], meta)
             self.assertEqual("the default time zone UTC", out["dateSource"], meta)
 
+    def test_the_requesters_local_date_time_gives_their_date(self):
+        out = call_with({"localDateTime": "2026-10-24T09:15:00", "timeZone": "Asia/Tokyo"})
+        self.assertEqual("2026-10-24", out["today"])
+        self.assertEqual("the request local time", out["dateSource"])
+
+    def test_the_request_date_still_wins_over_the_local_date_time(self):
+        out = call_with({"requestDate": "2026-10-25", "localDateTime": "2026-10-24T09:15:00"})
+        self.assertEqual("2026-10-25", out["today"])
+
+    def test_an_unreadable_local_date_time_falls_back_to_the_time_zone(self):
+        evening = datetime.datetime(2026, 10, 20, 20, 0, tzinfo=datetime.timezone.utc)
+        for bad in ("tomorrow", "2026-10-24", "2026-13-45T09:00:00", 5, "", None, []):
+            out = call_with({"localDateTime": bad, "timeZone": "Asia/Tokyo"}, "UTC", evening)
+            self.assertEqual("2026-10-21", out["today"], bad)
+            self.assertEqual("the request time zone Asia/Tokyo", out["dateSource"], bad)
+
+    def test_the_meta_kubemoot_sends_for_a_californian_is_used(self):
+        # 09:15 on the 24th in Los Angeles is already the 24th, 16:15, in UTC; the server clock is far later.
+        meta = {"timeZone": "America/Los_Angeles", "localDateTime": "2026-10-24T09:15:00", "requestDate": "2026-10-24"}
+        later = datetime.datetime(2026, 11, 30, 3, 0, tzinfo=datetime.timezone.utc)
+        out = call_with(meta, "UTC", later)
+        self.assertEqual("2026-10-24", out["today"])
+        self.assertEqual("the request date", out["dateSource"])
+
     def test_a_bad_default_zone_falls_back_to_utc(self):
         self.assertEqual("the default time zone UTC", call_with(_ABSENT, "Not/AZone")["dateSource"])
 
