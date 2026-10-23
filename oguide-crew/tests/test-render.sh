@@ -283,5 +283,27 @@ check "the empty-catalog scenario asserts no specialist agreement" 0 \
 check "the search server tests pass" 0 \
   "$(python3 -I -m unittest discover -s "${chart}/search-server" -p 'test_*.py' >/dev/null 2>&1; echo $?)"
 
+# The goose seat: off by default, one extra Agent run by goose when on.
+goose="$(render --set gooseSeat.enabled=true)"
+gagent() { yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"goose-curator\") | $1" <<<"$goose"; }
+check "the goose seat is off by default" 0 "$(grep -c 'goose' <<<"$out" || true)"
+check "the goose seat adds one Agent" "curator,events-scout,goose-curator,library-search,oguide-coordinator" \
+  "$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$goose" | sort | paste -sd,)"
+check "the goose seat adds one PromptModule" 12 "$(yq -N 'select(.kind == "PromptModule") | .metadata.name' <<<"$goose" | grep -c .)"
+check "the goose seat declares the sidecar harness" '{"name":"goose","mode":"sidecar","nativeTools":"none"}' "$(gagent '.spec.harness')"
+check "the goose seat names no image and no model" "null,null" "$(gagent ".spec.harness.image"),$(gagent ".spec.model")"
+check "the goose seat is a tooler with the fixed search tools" '"tooler",["find_by_author","find_released","find_title"]' \
+  "$(gagent '.spec.discussRole'),$(gagent '.spec.enabledTools | sort')"
+check "the goose seat carries the crew label" '"oguide"' "$(gagent '.metadata.labels."kubemoot.ai/crew"')"
+check "the goose seat name is a value" '"goose-two"' "$(render --set gooseSeat.enabled=true --set gooseSeat.name=goose-two | yq -N -o=json -I=0 'select(.kind == "Agent" and .spec.harness.name == "goose") | .metadata.name')"
+check "every goose promptRef names a shipped PromptModule" "" \
+  "$(yq -N 'select(.kind == "Agent") | .spec.promptRefs[]' <<<"$goose" | sort -u | comm -23 - <(yq -N 'select(.kind == "PromptModule") | .metadata.name' <<<"$goose" | sort))"
+check "only the goose seat has a harness" "goose-curator" \
+  "$(yq -N 'select(.kind == "Agent" and .spec.harness != null) | .metadata.name' <<<"$goose")"
+check "the other Agents render the same with the goose seat on" "$(yq -N 'select(.kind == "Agent" and .metadata.name != "goose-curator")' <<<"$goose" | md5sum)" \
+  "$(yq -N 'select(.kind == "Agent")' <<<"$out" | md5sum)"
+check "the goose prompt names no raw search tool" 0 \
+  "$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "goose-curator-system") | .spec.content' <<<"$goose" | grep -cE 'search_oreilly_content|date_range|content_types|n_items|order_by|author_filter|get_current_time|advisory' || true)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

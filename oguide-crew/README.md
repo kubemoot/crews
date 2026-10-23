@@ -86,8 +86,9 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 | library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author` |
 | events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled` |
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops only |
+| goose-curator (optional) | A seat run by goose that searches the released catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
 
-Also: 11 ADL PromptModules, the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the artifact read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the artifact read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
 
 ## The search tools
 
@@ -144,6 +145,8 @@ helm upgrade --install oguide \
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the artifact store |
+| `gooseSeat.enabled` | `false` | Adds one extra specialist Agent run by [goose](https://kubemoot.org/docs/architecture/the-harness-seam/) (`harness: {name: goose, mode: sidecar, nativeTools: none}`). The cluster's KubemootConfig must set `images.harnessGoose`. Set it back to `false` to remove the seat |
+| `gooseSeat.name` | `goose-curator` | The goose seat's Agent name |
 | `crew.name` | `oguide` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |
 
