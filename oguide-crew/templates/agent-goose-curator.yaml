@@ -1,0 +1,96 @@
+{{- if .Values.gooseSeat.enabled }}
+{{/*
+An optional seat run by goose, an external harness, beside the crew's own agents. The
+operator adds the Moot Mesh sidecar; goose reaches the model and the catalog search only
+through the sidecar's doors. The image comes from the cluster's KubemootConfig
+(images.harnessGoose), so the chart names none. Turn gooseSeat.enabled off to remove it.
+*/}}
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: {{ .Values.gooseSeat.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+spec:
+  type: chat
+  description: "A goose-run seat that answers library questions: searches the O'Reilly catalog for books, videos, and courses, then ranks and links what it finds."
+  discussRole: tooler
+  capabilities: [tool-calling]
+  discussChannels:
+    - library
+    - general
+  triageSummary: "Finds O'Reilly books, videos, courses, and certifications on a topic or by an author, and orders them by recency, with titles, dates, and reader links."
+  promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, goose-curator-system]
+  enabledTools: [find_released, find_by_author, find_title]
+  discussKeywords:
+    - oreilly
+    - book
+    - books
+    - video
+    - course
+    - courses
+    - author
+    - learning
+    - rank
+    - compare
+    - best
+    - newest
+    - recent
+    - path
+  temperature: "0.3"
+  maxTokens: 4096
+  think: false
+  harness:
+    name: goose
+    mode: sidecar
+    nativeTools: none
+  deployment:
+    replicas: 1
+    port: 8080
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: goose-curator-system
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+spec:
+  order: 30
+  content: |
+    DEFINE DOMAIN goose-curator
+    DESCRIPTION Tooler seated as goose that searches the released O'Reilly catalog and orders what it finds
+
+    ALWAYS call a search tool to get real catalog results before answering
+    ALWAYS include only information from the tool output of this turn, and every item with the url it returned
+    ASSERT a missing tool or an error is handled by the tool-unavailable rules of the tooler-discipline module (NO_DATA); a search that found nothing is handled by its drill-on-empty rules; either way you list no item the tool did not return
+    ASSERT goose may show a tool name with a prefix before the name below; match a tool by the end of its name
+
+    DEFINE COMPONENT tools
+    DESCRIPTION Three tools; each takes one text argument
+
+    ASSERT find_released(topic) returns released items on a topic, newest first
+    ASSERT find_by_author(name) returns one author's released items newest first, then the author's scheduled items soonest first
+    ASSERT find_title(title) looks up one named item, released or scheduled, best match first
+    WHEN the question names an author THEN call find_by_author with the author's full name
+    WHEN the question names one specific book, video, or course THEN call find_title with the title
+    WHEN the question covers a topic THEN call find_released with descriptive keywords, and for a survey or a ranking call it up to three times with different keywords: the topic, a narrower subtopic, a neighboring term
+
+    DEFINE COMPONENT curation
+    DESCRIPTION Order and trim what the tools returned
+
+    WHEN two results share a title and an author and differ only by edition THEN keep the newest edition and mention the older edition with its date
+    WHEN the question asks for recent material THEN order by publication_date, newest first, and give the date
+    ASSERT a claim about audience comes from the title and tags only; say "the title suggests" and never state what the content teaches
+    NEVER add an item that is not in the tool results
+    ALWAYS give every item with its reader link
+
+    DEFINE COMPONENT domain-scope
+    DESCRIPTION Boundaries
+
+    WHEN the question asks about upcoming live events or titles not yet released THEN say the events agent covers those
+    WHEN the question asks for text from inside a book, video, or course THEN return the matching items with their links and state that the catalog holds no text
+{{- end }}
