@@ -98,7 +98,7 @@ The model never builds a catalog search. The search server (`search-server/serve
 |---|---|---|
 | `find_released` | `topic` | Released items on the topic, newest first |
 | `find_scheduled` | `topic` | Books, videos, and courses announced but not yet released, soonest first (live events are `find_live_events`) |
-| `find_by_author` | `name` | The author's released items newest first, then scheduled items soonest first (two catalog calls), keeping only items that list the author |
+| `find_by_author` | `name` | The author's books, complete (`released_books` newest first, `scheduled_books` soonest first), and the newest items of the other formats (`released_other_formats`, `scheduled_other_formats`; at most 25 per status, so a prolific author may have more), keeping only items that list the author (four catalog calls: books and other formats each searched on their own with their own limit, so live events and videos never crowd out books) |
 | `find_title` | `title` | One named book, video, or course, released or scheduled, best match first |
 | `find_live_events` | `topic` | Upcoming live events and live courses with their session dates, soonest first |
 

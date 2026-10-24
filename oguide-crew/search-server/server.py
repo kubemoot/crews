@@ -34,6 +34,9 @@ import zoneinfo
 SERVER_NAME = "oguide-search"
 PROTOCOL_VERSION = "2025-03-26"
 N_ITEMS = 25
+N_BOOKS = 50
+BOOK_TYPES = ["books"]
+OTHER_TYPES = ["videos", "courses", "live-events", "interactive", "audiobooks", "certifications"]
 TIMEOUT_SECONDS = 15
 MAX_REPLY_BYTES = 5_000_000
 MAX_UPSTREAM_MESSAGE_CHARS = 160
@@ -61,8 +64,10 @@ TOOLS = [
     },
     {
         "name": "find_by_author",
-        "description": "Find the work of one author in the O'Reilly catalog: released items newest first, then "
-                       "scheduled items soonest first. Every item is labelled Released or Scheduled.",
+        "description": "Find the work of one author in the O'Reilly catalog. The books are complete (released "
+                       "newest first, scheduled soonest first); the other formats (videos, courses, live events "
+                       "and more) are only the newest items of each kind, so a prolific author may have more. "
+                       "Every item is labelled Released or Scheduled.",
         "argument": "name",
         "argument_description": "The author's full name",
     },
@@ -315,16 +320,24 @@ def find_scheduled(catalog, topic, today):
     return {"scheduled": scheduled}
 
 
+def author_items(catalog, name, wanted, today, content_types, limit):
+    """One format group of an author's items, released and scheduled, split by status."""
+    common = {"query": "*", "author_filter": [name], "content_types": content_types, "n_items": limit,
+              "order_by": "date_published"}
+    past = catalog.search({**common, "sort_order": "desc", "date_range": release_range(today, True)})
+    future = catalog.search({**common, "sort_order": "asc", "date_range": release_range(today, False)})
+    return ordered([i for i in merge_unique(past, future) if has_author(i, wanted)], today)
+
+
 def find_by_author(catalog, name, today):
+    """Every book of the author, plus the newest items of the other formats, each group searched on its own."""
     wanted = name_tokens(name)
     if not wanted:
         return {"message": "Give the author's full name (first and last name)."}
-    common = {"query": "*", "author_filter": [name], "n_items": N_ITEMS, "order_by": "date_published"}
-    past = catalog.search({**common, "sort_order": "desc", "date_range": release_range(today, True)})
-    future = catalog.search({**common, "sort_order": "asc", "date_range": release_range(today, False)})
-    own = [i for i in merge_unique(past, future) if has_author(i, wanted)]
-    released, scheduled = ordered(own, today)
-    return {"released": released, "scheduled": scheduled}
+    released_books, scheduled_books = author_items(catalog, name, wanted, today, BOOK_TYPES, N_BOOKS)
+    released_other, scheduled_other = author_items(catalog, name, wanted, today, OTHER_TYPES, N_ITEMS)
+    return {"released_books": released_books, "scheduled_books": scheduled_books,
+            "released_other_formats": released_other, "scheduled_other_formats": scheduled_other}
 
 
 def find_title(catalog, title, today):

@@ -73,7 +73,7 @@ spec:
     DESCRIPTION Three tools; each takes one text argument
 
     ASSERT find_released(topic) returns released items on a topic, newest first
-    ASSERT find_by_author(name) returns one author's released items newest first, then the author's scheduled items soonest first
+    ASSERT find_by_author(name) returns one author's books complete (released_books newest first, scheduled_books soonest first) and the newest items of other formats (released_other_formats, scheduled_other_formats)
     ASSERT find_title(title) looks up one named item, released or scheduled, best match first
     WHEN the question names an author THEN call find_by_author with the author's full name
     WHEN the question names one specific book, video, or course THEN call find_title with the title
