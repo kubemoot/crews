@@ -64,9 +64,10 @@ TOOLS = [
     },
     {
         "name": "find_by_author",
-        "description": "Find the work of one author in the O'Reilly catalog. The books are complete (released "
-                       "newest first, scheduled soonest first); the other formats (videos, courses, live events "
-                       "and more) are only the newest items of each kind, so a prolific author may have more. "
+        "description": "Find the work of one author in the O'Reilly catalog. Books (up to 50 "
+                       "per status) come first as released_books newest first and scheduled_books soonest first; "
+                       "other formats (videos, courses, live events and more) are only the newest 25 per status. "
+                       "A message says when a list may be missing items. "
                        "Every item is labelled Released or Scheduled.",
         "argument": "name",
         "argument_description": "The author's full name",
@@ -239,11 +240,15 @@ def author_pointer(topic, author):
                        "author's work; if you meant the subject, search with more specific keywords."}
 
 
+def item_key(item):
+    return item.get("url") or item.get("title")
+
+
 def merge_unique(first, second):
     """Both lists, an item once by its url."""
     seen, out = set(), []
     for item in first + second:
-        key = item.get("url") or item.get("title")
+        key = item_key(item)
         if key not in seen:
             seen.add(key)
             out.append(item)
@@ -297,8 +302,13 @@ def items_from(text):
         raise CatalogError(f"the catalog did not return results: {short(content)}") from None
 
 
+def ranged_search(catalog, arguments, today, released):
+    """A catalog search limited to items released up to today, or scheduled from today on."""
+    return catalog.search({**arguments, "date_range": release_range(today, released)})
+
+
 def topic_search(catalog, topic, today, released):
-    return catalog.search({"query": topic, "n_items": N_ITEMS, "date_range": release_range(today, released)})
+    return ranged_search(catalog, {"query": topic, "n_items": N_ITEMS}, today, released)
 
 
 def find_released(catalog, topic, today):
@@ -320,24 +330,56 @@ def find_scheduled(catalog, topic, today):
     return {"scheduled": scheduled}
 
 
-def author_items(catalog, name, wanted, today, content_types, limit):
-    """One format group of an author's items, released and scheduled, split by status."""
+AUTHOR_GROUPS = (("books", BOOK_TYPES, N_BOOKS), ("other formats", OTHER_TYPES, N_ITEMS))
+
+
+def author_group(catalog, name, group, today):
+    """One format group of an author's raw items, released and scheduled.
+
+    Returns (released, scheduled, notes): the notes name a search that failed or that hit its limit.
+    """
+    label, content_types, limit = group
     common = {"query": "*", "author_filter": [name], "content_types": content_types, "n_items": limit,
               "order_by": "date_published"}
-    past = catalog.search({**common, "sort_order": "desc", "date_range": release_range(today, True)})
-    future = catalog.search({**common, "sort_order": "asc", "date_range": release_range(today, False)})
-    return ordered([i for i in merge_unique(past, future) if has_author(i, wanted)], today)
+    found, notes = {}, []
+    for released, order in ((True, "desc"), (False, "asc")):
+        status = "released" if released else "scheduled"
+        try:
+            items = ranged_search(catalog, {**common, "sort_order": order}, today, released)
+        except CatalogError as err:
+            found[released] = None
+            notes.append(f"the {status} {label} could not be searched ({err})")
+            continue
+        found[released] = items
+        if len(items) >= limit:
+            notes.append(f"the {status} {label} reached the limit of {limit}, so older or later ones may be missing")
+    return found[True], found[False], notes
 
 
 def find_by_author(catalog, name, today):
-    """Every book of the author, plus the newest items of the other formats, each group searched on its own."""
+    """The author's books and the newest items of the other formats, each group searched on its own.
+
+    A failed or capped search is named in the message; the tool fails only when every search failed.
+    """
     wanted = name_tokens(name)
     if not wanted:
         return {"message": "Give the author's full name (first and last name)."}
-    released_books, scheduled_books = author_items(catalog, name, wanted, today, BOOK_TYPES, N_BOOKS)
-    released_other, scheduled_other = author_items(catalog, name, wanted, today, OTHER_TYPES, N_ITEMS)
-    return {"released_books": released_books, "scheduled_books": scheduled_books,
-            "released_other_formats": released_other, "scheduled_other_formats": scheduled_other}
+    books = author_group(catalog, name, AUTHOR_GROUPS[0], today)
+    other = author_group(catalog, name, AUTHOR_GROUPS[1], today)
+    if all(found is None for group in (books, other) for found in group[:2]):
+        raise CatalogError("every author search failed")
+    mine_books = [i for i in merge_unique(books[0] or [], books[1] or []) if has_author(i, wanted)]
+    in_books = {item_key(i) for i in mine_books}
+    mine_other = [i for i in merge_unique(other[0] or [], other[1] or [])
+                  if has_author(i, wanted) and item_key(i) not in in_books]
+    released_books, scheduled_books = ordered(mine_books, today)
+    released_other, scheduled_other = ordered(mine_other, today)
+    payload = {"released_books": released_books, "scheduled_books": scheduled_books,
+               "released_other_formats": released_other, "scheduled_other_formats": scheduled_other}
+    notes = books[2] + other[2]
+    if notes:
+        payload["message"] = "Part of this list may be missing: " + "; ".join(notes) + "."
+    return payload
 
 
 def find_title(catalog, title, today):

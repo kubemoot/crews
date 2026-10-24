@@ -86,19 +86,19 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 | library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author` |
 | events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled` |
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops only |
-| goose-curator (optional) | A seat run by goose that searches the released catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
+| goose-curator (optional) | A seat run by goose that searches the catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
 
 Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the artifact read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
 
 ## The search tools
 
-The model never builds a catalog search. The search server (`search-server/server.py`, plain Python, no dependencies) offers five tools, each with one text argument, and builds every filter, the item count (25), and the order itself. It calls the raw `search_oreilly_content` tool through the crew's gateway (the gateway's tool endpoint, as agents do), so the key, the argument coercion, and the call log stay in the gateway. The agents' tool lists name only the five tools below; the gateway has no per-caller allow-list today, so keeping the raw tool out of the agents' `enabledTools` is what keeps them from calling it.
+The model never builds a catalog search. The search server (`search-server/server.py`, plain Python, no dependencies) offers five tools, each with one text argument, and builds every filter, the item counts (25, and 50 for an author's books), and the order itself. It calls the raw `search_oreilly_content` tool through the crew's gateway (the gateway's tool endpoint, as agents do), so the key, the argument coercion, and the call log stay in the gateway. The agents' tool lists name only the five tools below; the gateway has no per-caller allow-list today, so keeping the raw tool out of the agents' `enabledTools` is what keeps them from calling it.
 
 | Tool | Argument | Returns |
 |---|---|---|
 | `find_released` | `topic` | Released items on the topic, newest first |
 | `find_scheduled` | `topic` | Books, videos, and courses announced but not yet released, soonest first (live events are `find_live_events`) |
-| `find_by_author` | `name` | The author's books, complete (`released_books` newest first, `scheduled_books` soonest first), and the newest items of the other formats (`released_other_formats`, `scheduled_other_formats`; at most 25 per status, so a prolific author may have more), keeping only items that list the author (four catalog calls: books and other formats each searched on their own with their own limit, so live events and videos never crowd out books) |
+| `find_by_author` | `name` | The author's books (`released_books` newest first, `scheduled_books` soonest first; up to 50 per status) and the newest items of the other formats (`released_other_formats`, `scheduled_other_formats`; up to 25 per status), keeping only items that list the author and listing an item once. Four catalog calls: books and other formats are searched on their own with their own limit, so live events and videos never crowd out books. A search that fails or reaches its limit is named in a `message` and the other lists are still returned; the tool fails only when all four searches fail |
 | `find_title` | `title` | One named book, video, or course, released or scheduled, best match first |
 | `find_live_events` | `topic` | Upcoming live events and live courses with their session dates, soonest first |
 
