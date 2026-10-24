@@ -120,24 +120,26 @@ class SearchArgumentsTest(unittest.TestCase):
         out = server.find_scheduled(catalog, "agents", TODAY)
         self.assertEqual(["B"], [e["title"] for e in out["scheduled"]])
 
-    def test_the_author_search_makes_two_calls(self):
+    def test_the_author_search_makes_four_calls(self):
         ford = ["Neal Ford"]
         catalog = FakeCatalog([book("Past", "2025-01-01", authors=ford)], [book("Future", "2027-02-25", authors=ford)])
         out = server.find_by_author(catalog, "Neal Ford", TODAY)
-        past, future = catalog.calls
+        past, future, other_past, other_future = catalog.calls
         self.assertEqual(["Neal Ford"], past["author_filter"])
         self.assertEqual("*", past["query"])
         self.assertEqual("2026-10-20", past["date_range"]["end_date"])
         self.assertEqual("desc", past["sort_order"])
         self.assertEqual("2026-10-20", future["date_range"]["start_date"])
         self.assertEqual("asc", future["sort_order"])
-        self.assertEqual(["Past"], [e["title"] for e in out["released"]])
-        self.assertEqual(["Future"], [e["title"] for e in out["scheduled"]])
+        self.assertEqual(["Past"], [e["title"] for e in out["released_books"]])
+        self.assertEqual(["Future"], [e["title"] for e in out["scheduled_books"]])
+        self.assertEqual("desc", other_past["sort_order"])
+        self.assertEqual("asc", other_future["sort_order"])
 
     def test_an_item_in_both_author_calls_appears_once(self):
         shared = {**event("Both", ["2026-12-01"]), "authors": ["Nina Nguyen"]}
-        out = server.find_by_author(FakeCatalog([shared], [shared]), "Nina Nguyen", TODAY)
-        self.assertEqual(1, len(out["released"]) + len(out["scheduled"]))
+        out = server.find_by_author(FakeCatalog([], [], [shared], [shared]), "Nina Nguyen", TODAY)
+        self.assertEqual(1, len(out["released_other_formats"]) + len(out["scheduled_other_formats"]))
 
     def test_live_events_use_the_live_event_type_and_no_date_filter(self):
         catalog = FakeCatalog([event("E", ["2026-11-01"])])
@@ -171,9 +173,42 @@ class AuthorTest(unittest.TestCase):
     def test_find_by_author_keeps_only_the_authors_items(self):
         mine = book("Mine", "2025-01-01", authors=["Mark Richards", "Neal E. Ford"])
         other = book("Other", "2025-02-01", authors=["Luca Mezzalira"])
-        out = server.find_by_author(FakeCatalog([mine, other], [event("Soon", ["2026-12-01"])]), "Neal Ford", TODAY)
-        self.assertEqual(["Mine"], [e["title"] for e in out["released"]])
-        self.assertEqual([], out["scheduled"])
+        out = server.find_by_author(FakeCatalog([mine, other], [], [event("Soon", ["2026-12-01"])]), "Neal Ford", TODAY)
+        self.assertEqual(["Mine"], [e["title"] for e in out["released_books"]])
+        self.assertEqual([], out["scheduled_books"])
+        self.assertEqual([], out["released_other_formats"])
+
+    def test_every_book_is_returned_though_recent_events_and_videos_are_many(self):
+        events = [event(f"Live {i}", [f"2026-11-{i + 1:02d}"], published="2026-09-01") for i in range(30)]
+        events = [{**e, "authors": ["Sam Newman"]} for e in events]
+        books = [book(f"Book {i}", f"201{i}-03-01", authors=["Sam Newman"]) for i in range(5)]
+        catalog = FakeCatalog(books, [], events[:25], [])
+        out = server.find_by_author(catalog, "Sam Newman", TODAY)
+        self.assertEqual(5, len(out["released_books"]))
+        self.assertEqual(25, len(out["scheduled_other_formats"]))
+        self.assertEqual([["books"], ["books"]], [c["content_types"] for c in catalog.calls[:2]])
+        self.assertNotIn("books", catalog.calls[2]["content_types"])
+        self.assertEqual(server.N_BOOKS, catalog.calls[0]["n_items"])
+        self.assertEqual(server.N_ITEMS, catalog.calls[2]["n_items"])
+
+    def test_an_author_with_only_books(self):
+        books = [book("One", "2019-01-01", authors=["Sam Newman"]), book("Two", "2021-01-01", authors=["Sam Newman"])]
+        out = server.find_by_author(FakeCatalog(books, [], [], []), "Sam Newman", TODAY)
+        self.assertEqual(["Two", "One"], [e["title"] for e in out["released_books"]])
+        self.assertEqual([], out["released_other_formats"] + out["scheduled_other_formats"])
+
+    def test_an_author_with_nothing_gets_the_plain_message(self):
+        out = server.find_by_author(FakeCatalog(), "Sam Newman", TODAY)
+        self.assertEqual([], out["released_books"])
+        self.assertIn("Nothing found", server.with_nothing_found(out, "Sam Newman", TODAY)["message"])
+
+    def test_scheduled_books_stay_apart_from_released_books(self):
+        mine = [book("Old", "2020-01-01", authors=["Sam Newman"])]
+        soon = [book("Next", "2027-02-01", authors=["Sam Newman"])]
+        out = server.find_by_author(FakeCatalog(mine, soon, [], []), "Sam Newman", TODAY)
+        self.assertEqual(["Old"], [e["title"] for e in out["released_books"]])
+        self.assertEqual(["Next"], [e["title"] for e in out["scheduled_books"]])
+        self.assertEqual([], out["scheduled_other_formats"])
 
     def test_a_topic_that_names_an_author_points_to_find_by_author(self):
         items = [book(f"B{i}", "2025-01-01", authors=["Neal Ford", "X Y"]) for i in range(3)]
@@ -212,7 +247,7 @@ class NameEdgeTest(unittest.TestCase):
     def test_a_name_written_surname_first_works_through_find_by_author(self):
         mine = book("Mine", "2025-01-01", authors=["Neal Ford"])
         out = server.find_by_author(FakeCatalog([mine], []), "Ford, Neal", TODAY)
-        self.assertEqual(["Mine"], [e["title"] for e in out["released"]])
+        self.assertEqual(["Mine"], [e["title"] for e in out["released_books"]])
 
     def test_a_publisher_or_a_longer_topic_is_not_taken_for_a_person(self):
         items = [book(f"B{i}", "2025-01-01", authors=["Google Cloud"], publisher_names=["Google Cloud"])
@@ -500,7 +535,7 @@ class RequesterDateTest(unittest.TestCase):
             "name": "find_by_author", "arguments": {"name": "N Nn"}, "_meta": {"requestDate": "2026-10-21"}}},
             catalog, "UTC", lambda: NOW)
         payload = json.loads(reply["result"]["content"][0]["text"])
-        self.assertEqual("Released", payload["released"][0]["status"])
+        self.assertEqual("Released", payload["released_books"][0]["status"])
 
 
 class Gateway(BaseHTTPRequestHandler):
