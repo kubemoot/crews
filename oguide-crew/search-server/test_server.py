@@ -47,6 +47,21 @@ class FakeCatalog:
         return self.answers.pop(0) if self.answers else []
 
 
+class FailingNthCatalog(FakeCatalog):
+    """Like FakeCatalog, but the calls numbered in `failing` (from 1) raise a catalog error."""
+
+    def __init__(self, failing, *answers):
+        super().__init__(*answers)
+        self.failing = failing
+
+    def search(self, arguments):
+        if len(self.calls) + 1 in self.failing:
+            self.calls.append(arguments)
+            self.answers.pop(0) if self.answers else None
+            raise server.CatalogError("boom")
+        return super().search(arguments)
+
+
 class StatusTest(unittest.TestCase):
     def status(self, item):
         return server.status_of(item, TODAY)
@@ -190,6 +205,47 @@ class AuthorTest(unittest.TestCase):
         self.assertNotIn("books", catalog.calls[2]["content_types"])
         self.assertEqual(server.N_BOOKS, catalog.calls[0]["n_items"])
         self.assertEqual(server.N_ITEMS, catalog.calls[2]["n_items"])
+
+    def test_a_failed_search_loses_only_its_group(self):
+        mine = [book("Old", "2020-01-01", authors=["Sam Newman"])]
+        catalog = FailingNthCatalog({2}, mine, [], [], [])
+        out = server.find_by_author(catalog, "Sam Newman", TODAY)
+        self.assertEqual(["Old"], [e["title"] for e in out["released_books"]])
+        self.assertIn("scheduled books could not be searched", out["message"])
+
+    def test_the_tool_fails_only_when_every_search_fails(self):
+        catalog = FakeCatalog(error=server.CatalogError("down"))
+        with self.assertRaises(server.CatalogError):
+            server.find_by_author(catalog, "Sam Newman", TODAY)
+
+    def test_a_group_at_its_limit_says_it_may_be_incomplete(self):
+        books = [book(f"B{i}", "2020-01-01", authors=["Sam Newman"], url=f"u{i}") for i in range(server.N_BOOKS)]
+        out = server.find_by_author(FakeCatalog(books, [], [], []), "Sam Newman", TODAY)
+        self.assertEqual(server.N_BOOKS, len(out["released_books"]))
+        self.assertIn("released books reached the limit of 50", out["message"])
+
+    def test_below_the_limit_there_is_no_message(self):
+        out = server.find_by_author(FakeCatalog([book("B", "2020-01-01", authors=["Sam Newman"])], [], [], []),
+                                    "Sam Newman", TODAY)
+        self.assertNotIn("message", out)
+
+    def test_books_by_other_people_are_dropped_from_the_book_groups(self):
+        mine = book("Mine", "2020-01-01", authors=["Sam Newman"])
+        theirs = book("Theirs", "2020-01-01", authors=["Sam Newmann"])
+        out = server.find_by_author(FakeCatalog([mine, theirs], [theirs], [], []), "Sam Newman", TODAY)
+        self.assertEqual(["Mine"], [e["title"] for e in out["released_books"]])
+        self.assertEqual([], out["scheduled_books"])
+
+    def test_an_item_in_both_groups_is_listed_once_among_the_books(self):
+        both = book("Both", "2020-01-01", authors=["Sam Newman"])
+        out = server.find_by_author(FakeCatalog([both], [], [both], []), "Sam Newman", TODAY)
+        self.assertEqual(["Both"], [e["title"] for e in out["released_books"]])
+        self.assertEqual([], out["released_other_formats"])
+
+    def test_one_empty_group_is_not_nothing_found(self):
+        out = server.find_by_author(FakeCatalog([book("B", "2020-01-01", authors=["Sam Newman"])], [], [], []),
+                                    "Sam Newman", TODAY)
+        self.assertNotIn("message", server.with_nothing_found(out, "Sam Newman", TODAY))
 
     def test_an_author_with_only_books(self):
         books = [book("One", "2019-01-01", authors=["Sam Newman"]), book("Two", "2021-01-01", authors=["Sam Newman"])]
