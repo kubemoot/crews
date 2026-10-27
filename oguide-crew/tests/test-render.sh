@@ -305,5 +305,27 @@ check "the other Agents render the same with the goose seat on" "$(yq -N 'select
 check "the goose prompt names no raw search tool" 0 \
   "$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "goose-curator-system") | .spec.content' <<<"$goose" | grep -cE 'search_oreilly_content|date_range|content_types|n_items|order_by|author_filter|get_current_time|advisory' || true)"
 
+# network.allowedIngress renders spec.network only when set, so a Crew still applies to a
+# Kubemoot whose CRD has no network field.
+crew_spec() { render "$@" | yq -N -o=json -I=0 'select(.kind == "Crew") | .spec'; }
+check "the default renders no network key" "false" "$(crew_spec | yq -p=json 'has("network")')"
+check "an empty allowedIngress renders no network key" "false" "$(crew_spec --set-json 'network.allowedIngress=[]' | yq -p=json 'has("network")')"
+check "one allowedIngress selector renders exactly" \
+  '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}}]}' \
+  "$(crew_spec --set 'network.allowedIngress[0].matchLabels.kubernetes\.io/metadata\.name=homelab-pilot' | yq -p=json -o=json -I=0 '.network')"
+two="$(crew_spec -f - <<'VALUES' | yq -p=json -o=json -I=0 '.network'
+network:
+  allowedIngress:
+    - matchLabels:
+        kubernetes.io/metadata.name: homelab-pilot
+    - matchExpressions:
+        - key: team
+          operator: In
+          values: [web, edge]
+VALUES
+)"
+check "two allowedIngress selectors render exactly, in order" \
+  '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}},{"matchExpressions":[{"key":"team","operator":"In","values":["web","edge"]}]}]}' "$two"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

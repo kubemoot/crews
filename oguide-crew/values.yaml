@@ -14,6 +14,14 @@ crew:
   # beside it). Empty inherits the cluster default (KubemootConfig).
   placementPolicy: ""
 
+# Namespaces whose pods may reach this crew's discussion gateway when the operator
+# generates network policies (Crew spec.network.allowedIngress). Each entry is a
+# Kubernetes namespace label selector. Empty: only the crew's own namespace and the
+# operator. Needs a Kubemoot operator that supports Crew network policies; leave it
+# empty on an operator that does not.
+network:
+  allowedIngress: []
+
 # Chat models: this chart ships none and names no model server. The cluster owner's
 # model catalog supplies them (Model objects in the operator namespace plus the models
 # each ModelServer reports), and the crew's CrewSchedulingPolicy

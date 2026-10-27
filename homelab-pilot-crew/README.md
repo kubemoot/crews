@@ -91,6 +91,19 @@ calibrated and observed speeds), or `shadow` (`algorithm` places; the learned ch
 logged beside it). Empty, the default, inherits the cluster's default. See the Kubemoot
 scheduler documentation, section "Placement policy".
 
+## Network policies
+
+When the Kubemoot operator generates network policies (its `security.networkPolicies.enabled` setting, off by default), a crew's discussion gateway admits only its own namespace and the operator. `network.allowedIngress` lists the other namespaces whose pods may reach it, such as the namespace of the web server that fronts the crew. Each entry is a Kubernetes namespace label selector:
+
+```yaml
+network:
+  allowedIngress:
+    - matchLabels:
+        kubernetes.io/metadata.name: my-web-namespace
+```
+
+Empty, the default, renders no `network` field on the Crew, so the chart still installs on a Kubemoot operator whose Crew resource has no such field. Set it only on an operator that supports Crew network policies; see the Kubemoot documentation page on network policies.
+
 ## Deployment
 
 The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` on each release commit to `main`.

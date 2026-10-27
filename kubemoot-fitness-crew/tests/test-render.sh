@@ -76,5 +76,27 @@ for agent in fitness-judge fitness-coordinator; do
 done
 echo "PASS: both agents hold the candidate tolerance at 0"
 
+# network.allowedIngress renders spec.network only when set, so a Crew still applies to a
+# Kubemoot whose CRD has no network field.
+crew_spec() { render "$@" | yq -N -o=json -I=0 'select(.kind == "Crew") | .spec'; }
+[ "$(crew_spec | yq -p=json 'has("network")')" = "false" ] || fail "the default must render no network key"
+[ "$(crew_spec --set-json 'network.allowedIngress=[]' | yq -p=json 'has("network")')" = "false" ] || fail "an empty allowedIngress must render no network key"
+one="$(crew_spec --set 'network.allowedIngress[0].matchLabels.kubernetes\.io/metadata\.name=homelab-pilot' | yq -p=json -o=json -I=0 '.network')"
+[ "$one" = '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}}]}' ] || fail "one selector did not render exactly: $one"
+two="$(crew_spec -f - <<'VALUES' | yq -p=json -o=json -I=0 '.network'
+network:
+  allowedIngress:
+    - matchLabels:
+        kubernetes.io/metadata.name: homelab-pilot
+    - matchExpressions:
+        - key: team
+          operator: In
+          values: [web, edge]
+VALUES
+)"
+[ "$two" = '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}},{"matchExpressions":[{"key":"team","operator":"In","values":["web","edge"]}]}]}' ] \
+  || fail "two selectors did not render exactly: $two"
+echo "PASS: network.allowedIngress"
+
 helm lint "$chart" >/dev/null || fail "helm lint"
 echo "PASS: helm lint"
