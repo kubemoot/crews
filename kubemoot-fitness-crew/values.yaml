@@ -9,6 +9,14 @@ crew:
   discussion:
     enabled: true
 
+# Namespaces whose pods may reach this crew's discussion gateway when the operator
+# generates network policies (Crew spec.network.allowedIngress). Each entry is a
+# Kubernetes namespace label selector. Empty: only the crew's own namespace and the
+# operator. Needs a Kubemoot operator that supports Crew network policies; leave it
+# empty on an operator that does not.
+network:
+  allowedIngress: []
+
 # The crew ships no Model objects: the judge selects from the cluster's model
 # catalog, requiring capability/reasoning and leaning to the largest model.
 scheduling:

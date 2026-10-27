@@ -149,6 +149,7 @@ helm upgrade --install oguide \
 | `gooseSeat.name` | `goose-curator` | The goose seat's Agent name |
 | `crew.name` | `oguide` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |
+| `network.allowedIngress` | `[]` | Namespace label selectors whose pods may reach the crew's discussion gateway when the operator generates network policies (Crew `spec.network.allowedIngress`). Empty renders no `network` field; set it only on a Kubemoot operator that supports Crew network policies |
 
 ## Example questions
 

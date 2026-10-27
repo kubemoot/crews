@@ -46,6 +46,19 @@ Then only that model is a candidate. If it leaves the catalog, the crew cannot b
 
 To change the judge's model, change the catalog: add the model to the cluster (a larger reasoning model takes over on its own) or move the label. Compare fitness results only between runs judged by the same model; the model each call ran on is recorded on its signal as `metadata.model`.
 
+## Network policies
+
+When the Kubemoot operator generates network policies (its `security.networkPolicies.enabled` setting, off by default), a crew's discussion gateway admits only its own namespace and the operator. `network.allowedIngress` lists the other namespaces whose pods may reach it, such as the namespace of the web server that fronts the crew. Each entry is a Kubernetes namespace label selector:
+
+```yaml
+network:
+  allowedIngress:
+    - matchLabels:
+        kubernetes.io/metadata.name: my-web-namespace
+```
+
+Empty, the default, renders no `network` field on the Crew, so the chart still installs on a Kubemoot operator whose Crew resource has no such field. Set it only on an operator that supports Crew network policies; see the Kubemoot documentation page on network policies.
+
 ## Fitness
 
 `fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question. The chart deploys them with the crew as one ConfigMap, `kubemoot-fitness-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`, so CrewForge and the dashboard list them; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):

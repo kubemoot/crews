@@ -89,3 +89,25 @@ gwset="$(render --set mcpGateway.toolIndex.vectorStore.host=db.test --set mcpGat
 empty="$(render --set mcpGateway.toolIndex.vectorStore.host=db.test --set mcpGateway.toolIndex.vectorStore.database=v --set mcpGateway.toolIndex.vectorStore.secretRef=s --set mcpGateway.toolIndex.embeddingModel.endpoint=)"
 [ "$(yq -N 'select(.kind == "MCPGateway") | .spec.toolIndex.embeddingModel | has("endpoint")' <<<"$empty")" = "false" ] || fail "an empty tool index endpoint must be left out"
 echo "PASS: gateway tool index names no server"
+
+# network.allowedIngress renders spec.network only when set, so a Crew still applies to a
+# Kubemoot whose CRD has no network field.
+crew_spec() { render "$@" | yq -N -o=json -I=0 'select(.kind == "Crew") | .spec'; }
+[ "$(crew_spec | yq -p=json 'has("network")')" = "false" ] || fail "the default must render no network key"
+[ "$(crew_spec --set-json 'network.allowedIngress=[]' | yq -p=json 'has("network")')" = "false" ] || fail "an empty allowedIngress must render no network key"
+one="$(crew_spec --set 'network.allowedIngress[0].matchLabels.kubernetes\.io/metadata\.name=homelab-pilot' | yq -p=json -o=json -I=0 '.network')"
+[ "$one" = '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}}]}' ] || fail "one selector did not render exactly: $one"
+two="$(crew_spec -f - <<'VALUES' | yq -p=json -o=json -I=0 '.network'
+network:
+  allowedIngress:
+    - matchLabels:
+        kubernetes.io/metadata.name: homelab-pilot
+    - matchExpressions:
+        - key: team
+          operator: In
+          values: [web, edge]
+VALUES
+)"
+[ "$two" = '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}},{"matchExpressions":[{"key":"team","operator":"In","values":["web","edge"]}]}]}' ] \
+  || fail "two selectors did not render exactly: $two"
+echo "PASS: network.allowedIngress"
