@@ -130,6 +130,17 @@ mcpServers:
 
 Empty, the default, renders no `runtimeClassName` on the MCPServer, so the pod runs under the cluster's default runtime and the chart still installs on a Kubemoot operator whose MCPServer resource has no such field. Set it only on an operator that supports MCPServer runtime classes, and only when the runtime is installed on the nodes and a RuntimeClass of that name exists. Only the code sandbox pod is affected.
 
+Under a sandboxed runtime, also set `mcpServers.codeSandbox.transport: http`:
+
+```yaml
+mcpServers:
+  codeSandbox:
+    runtimeClassName: gvisor
+    transport: http
+```
+
+The default, `stdio`, reaches the sandbox through the operator's bridge sidecar, which talks to the server over FIFOs shared between the two containers. gVisor does not share FIFOs between containers, so the bridged setup cannot run there. With `http` the sandbox serves MCP over Streamable HTTP itself (`/mcp`, with `/healthz` and `/readyz`, on port 3000): the operator adds no bridge sidecar and no pipes volume, and the image entrypoint, which already runs the server under `tini`, starts it. `http` needs a code-sandbox image that supports it, which means a Kubemoot release with Streamable HTTP in the code sandbox. Any other `transport` value fails the render.
+
 ## Deployment
 
 The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` on each release commit to `main`.
