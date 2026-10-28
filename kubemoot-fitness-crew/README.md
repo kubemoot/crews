@@ -73,6 +73,21 @@ egress:
 
 This chart renders no tool server, so entries go under `agents`. The example lets the `fitness-judge` agent reach `api.example.com` on port 443, plus what the operator always allows (DNS, and for an agent the bus, gateway, and model servers). It needs a Kubemoot operator with egress policies, and the operator chart flag `security.networkPolicies.egress.mode: Declared`; without the flag `spec.egress` has no effect, and a workload without `spec.egress` is never restricted. Leave `egress` empty, the default, on a Kubemoot release that has no `spec.egress` field: the chart then renders the same manifests as before. See the Kubemoot documentation page on network policies for the fields and how host names are enforced on each network plugin.
 
+### Default egress for every agent
+
+`egress.agentsDefault` sets one `spec.egress` for all the chart's Agents at once. Unset (the default) it changes nothing. When set, every Agent the chart renders gets it as `spec.egress`, unless `egress.agents.<name>` names that Agent: the per-agent entry then wins entirely, with no merging of fields, and the other agents keep the default. MCP servers never take the default; set them under `egress.mcpServers`.
+
+```yaml
+egress:
+  agentsDefault: {}
+  agents:
+    some-agent:
+      allowedHosts: ["api.example.com"]
+      ports: [443]
+```
+
+`agentsDefault: {}` renders `egress: {}` on every Agent, which limits each one to Kubemoot's automatic allows (DNS, the bus, the crew's gateway, its model servers, the query service, and the placement service) under `security.networkPolicies.egress.mode: Declared`. An agent that needs more has its own entry, as `some-agent` does above. A non-empty default, for example an `allowedHosts` list, is copied as written. An empty per-agent entry (`{}`) also counts as naming that Agent, so it beats a non-empty default.
+
 ## Fitness
 
 `fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question. The chart deploys them with the crew as one ConfigMap, `kubemoot-fitness-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`, so CrewForge and the dashboard list them; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):

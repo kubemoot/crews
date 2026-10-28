@@ -366,6 +366,31 @@ first="$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$egress_out" | se
 got="$(egress_render --set-json "egress={\"agents\":{\"$first\":{\"apiServer\":true,\"future\":{\"a\":[1,2]}}}}")"
 [ "$(yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"$first\") | .spec.egress" <<<"$got")" = '{"apiServer":true,"future":{"a":[1,2]}}' ] \
   || egress_fail "an unlisted egress field was not copied verbatim"
+# egress.agentsDefault gives every Agent without its own egress.agents entry a spec.egress;
+# a named entry replaces it entirely; MCP servers never take it.
+agent_names="$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$egress_out" | paste -sd, -)"
+mcp_names="$(yq -N 'select(.kind == "MCPServer") | .metadata.name' <<<"$egress_out" | paste -sd, -)"
+holders_of() { yq -N "select(.kind == \"$1\") | select(.spec | has(\"egress\")) | .metadata.name" <<<"$2" | paste -sd, -; }
+got="$(egress_render --set-json 'egress={"agentsDefault":null}')"
+[ "$got" = "$egress_out" ] || egress_fail "a null agentsDefault changed the output"
+got="$(egress_render --set-json 'egress={"agentsDefault":{}}')"
+[ "$(holders_of Agent "$got")" = "$agent_names" ] || egress_fail "agentsDefault {} must reach every Agent, got: $(holders_of Agent "$got")"
+[ -z "$(holders_of MCPServer "$got")" ] || egress_fail "agentsDefault reached an MCPServer: $(holders_of MCPServer "$got")"
+[ "$(yq -N -o=json -I=0 'select(.kind == "Agent") | .spec.egress' <<<"$got" | sort -u)" = '{}' ] || egress_fail "agentsDefault {} did not render an empty egress on every Agent"
+got="$(egress_render --set-json "egress={\"agentsDefault\":$want_egress}")"
+[ "$(holders_of Agent "$got")" = "$agent_names" ] || egress_fail "a non-empty agentsDefault must reach every Agent"
+[ "$(yq -N -o=json -I=0 'select(.kind == "Agent") | .spec.egress' <<<"$got" | sort -u)" = "$want_egress" ] || egress_fail "a non-empty agentsDefault did not render verbatim"
+[ -z "$(holders_of MCPServer "$got")" ] || egress_fail "a non-empty agentsDefault reached an MCPServer"
+named_override='{"apiServer":true}'
+for name in ${agent_names//,/ }; do
+  got="$(egress_render --set-json "egress={\"agentsDefault\":$want_egress,\"agents\":{\"$name\":$named_override}}")"
+  [ "$(yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"$name\") | .spec.egress" <<<"$got")" = "$named_override" ] || egress_fail "egress.agents.$name did not replace the default"
+  others="$(yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name != \"$name\") | .spec.egress" <<<"$got" | sort -u)"
+  [ "$others" = "$want_egress" ] || egress_fail "the override for $name leaked into other agents: $others"
+  # an empty named entry is still a value that beats the default
+  got="$(egress_render --set-json "egress={\"agentsDefault\":$want_egress,\"agents\":{\"$name\":{}}}")"
+  [ "$(yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"$name\") | .spec.egress" <<<"$got")" = '{}' ] || egress_fail "an empty egress.agents.$name did not beat the default"
+done
 echo "PASS: egress values (${egress_count} resources)"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi

@@ -319,6 +319,10 @@ mcpServers:
 # Example: egress.mcpServers.search-mcp.allowedHosts=[api.example.com], ports=[443].
 # Needs a Kubemoot operator with egress policies and security.networkPolicies.egress.mode:
 # Declared on the operator chart; see the README.
+# agentsDefault, when set (an empty map {} included), becomes spec.egress on every Agent
+# that has no entry of its own under agents; a named agents entry replaces it entirely.
+# MCP servers never take it. {} limits agents to the operator's automatic allows.
 egress:
+  # agentsDefault: {}
   mcpServers: {}
   agents: {}

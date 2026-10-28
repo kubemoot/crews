@@ -151,6 +151,7 @@ helm upgrade --install oguide \
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |
 | `network.allowedIngress` | `[]` | Namespace label selectors whose pods may reach the crew's discussion gateway when the operator generates network policies (Crew `spec.network.allowedIngress`). Empty renders no `network` field; set it only on a Kubemoot operator that supports Crew network policies |
 | `egress.mcpServers`, `egress.agents` | `{}` | Per-resource `spec.egress`, keyed by rendered name and copied as written; see [Egress](#egress) |
+| `egress.agentsDefault` | unset | `spec.egress` for every Agent without its own `egress.agents` entry; `{}` limits agents to Kubemoot's automatic allows; see [Egress](#egress) |
 
 ## Egress
 
@@ -165,6 +166,21 @@ egress:
 ```
 
 This lets `search-mcp` reach `api.example.com` on port 443, plus what the operator always allows (DNS, and for an agent the bus, gateway, and model servers). It needs a Kubemoot operator with egress policies, and the operator chart flag `security.networkPolicies.egress.mode: Declared`; without the flag `spec.egress` has no effect, and a workload without `spec.egress` is never restricted. Leave `egress` empty, the default, on a Kubemoot release that has no `spec.egress` field: the chart then renders the same manifests as before. See the Kubemoot documentation page on network policies for the fields and how host names are enforced on each network plugin.
+
+### Default egress for every agent
+
+`egress.agentsDefault` sets one `spec.egress` for all the chart's Agents at once. Unset (the default) it changes nothing. When set, every Agent the chart renders gets it as `spec.egress`, unless `egress.agents.<name>` names that Agent: the per-agent entry then wins entirely, with no merging of fields, and the other agents keep the default. MCP servers never take the default; set them under `egress.mcpServers`.
+
+```yaml
+egress:
+  agentsDefault: {}
+  agents:
+    some-agent:
+      allowedHosts: ["api.example.com"]
+      ports: [443]
+```
+
+`agentsDefault: {}` renders `egress: {}` on every Agent, which limits each one to Kubemoot's automatic allows (DNS, the bus, the crew's gateway, its model servers, the query service, and the placement service) under `security.networkPolicies.egress.mode: Declared`. An agent that needs more has its own entry, as `some-agent` does above. A non-empty default, for example an `allowedHosts` list, is copied as written. An empty per-agent entry (`{}`) also counts as naming that Agent, so it beats a non-empty default.
 
 ## Example questions
 
