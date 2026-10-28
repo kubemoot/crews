@@ -76,7 +76,8 @@ rendered_images() {
   helm template t "${root}/$1" "${args[@]}" | sed -n 's/^ *image: //p' | tr -d '"' | sort -u
 }
 
-# A release candidate build: chart version and the latest final Kubemoot images.
+# A release candidate build: chart version and Kubemoot's newest candidate images (an rc
+# newer than the last final; the final once it exists).
 copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
 check "candidate stamp succeeds" 0 "$status"
@@ -84,10 +85,10 @@ check "candidate stamp succeeds" 0 "$status"
 check "candidate chart version" "0.47.0-rc.4|0.47.0-rc.4" \
   "$(sed -n 's/^version: //p' "${root}/homelab-pilot-crew/Chart.yaml")|$(sed -n 's/^appVersion: //p' "${root}/homelab-pilot-crew/Chart.yaml")"
 images="$(rendered_images homelab-pilot-crew)"
-check "renders the latest final code-sandbox" 1 "$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.17.0' <<<"$images")"
-check "renders the latest final artifact-access" 1 "$(grep -cx 'ghcr.io/kubemoot/artifact-access:0.343.0' <<<"$images")"
-check "renders the latest final scheduling-mcp" 1 "$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.1.0' <<<"$images")"
-check "renders no candidate or 0.0.0 Kubemoot image" 0 "$(grep -cE 'kubemoot/[a-z-]+:(0\.0\.0|.*-rc\.)' <<<"$images" || true)"
+check "renders the newest candidate code-sandbox" 1 "$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.18.0-rc.126' <<<"$images")"
+check "renders the newest candidate artifact-access" 1 "$(grep -cx 'ghcr.io/kubemoot/artifact-access:0.344.0-rc.126' <<<"$images")"
+check "renders the newest candidate scheduling-mcp" 1 "$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.2.0-rc.3' <<<"$images")"
+check "renders no 0.0.0 Kubemoot image" 0 "$(grep -cE 'kubemoot/[a-z-]+:0\.0\.0' <<<"$images" || true)"
 check "the stamped chart lints" 0 "$(helm lint "${root}/homelab-pilot-crew" >/dev/null 2>&1; echo $?)"
 check "the repository copy is untouched" "0.0.0" "$(sed -n 's/^version: //p' "${repo}/homelab-pilot-crew/Chart.yaml")"
 
@@ -100,17 +101,38 @@ copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.0 "${root}/candidate-values.yaml" && status=0 || status=$?
 check "final stamp succeeds" 0 "$status"
 images="$(rendered_images homelab-pilot-crew)"
-check "final keeps the candidate's code-sandbox" 1 "$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.17.0' <<<"$images")"
+check "final keeps the candidate's code-sandbox" 1 "$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.18.0-rc.126' <<<"$images")"
 check "final chart version" "0.47.0" "$(sed -n 's/^appVersion: //p' "${root}/homelab-pilot-crew/Chart.yaml")"
 copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.1-rc.0 && status=0 || status=$?
-check "a later candidate picks up the newer final" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.19.0')"
+check "a final newer than the rc supersedes it" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.19.0')"
+# The final of the same base outranks that base's candidates (0.21.0 above 0.21.0-rc.N).
+git -C "${root}/kubemoot" tag code-sandbox-v0.20.0-rc.9
+git -C "${root}/kubemoot" tag code-sandbox-v0.20.0
+git -C "${root}/kubemoot" push -q "${root}/kubemoot.git" code-sandbox-v0.20.0-rc.9 code-sandbox-v0.20.0
+copy_crew homelab-pilot-crew
+stamp "${root}/homelab-pilot-crew" 0.47.2-rc.0 && status=0 || status=$?
+check "the final outranks its own rcs" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.20.0')"
+# A deliberate finals-only build skips candidates.
+git -C "${root}/kubemoot" tag artifact-access-v0.345.0-rc.1
+git -C "${root}/kubemoot" push -q "${root}/kubemoot.git" artifact-access-v0.345.0-rc.1
+copy_crew homelab-pilot-crew
+KUBEMOOT_PINS=final stamp "${root}/homelab-pilot-crew" 0.47.2-rc.1 && status=0 || status=$?
+images="$(rendered_images homelab-pilot-crew)"
+check "KUBEMOOT_PINS=final takes the latest final" "0|1|1|1" \
+  "${status}|$(grep -cx 'ghcr.io/kubemoot/artifact-access:0.343.0' <<<"$images")|$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.20.0' <<<"$images")|$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.1.0' <<<"$images")"
+copy_crew homelab-pilot-crew
+stamp "${root}/homelab-pilot-crew" 0.47.2-rc.2 && status=0 || status=$?
+check "the default build takes the newer artifact-access candidate" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/artifact-access:0.345.0-rc.1')"
+copy_crew homelab-pilot-crew
+KUBEMOOT_PINS=newest stamp "${root}/homelab-pilot-crew" 0.47.2-rc.3 && status=0 || status=$?
+check "refuses an unknown KUBEMOOT_PINS" 1 "$((status != 0))"
 
 # O'guide stamps its one Kubemoot image the same way.
 copy_crew oguide-crew
 stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'guide candidate stamp succeeds" 0 "$status"
-check "O'guide renders the latest final artifact-access" "ghcr.io/kubemoot/artifact-access:0.343.0" \
+check "O'guide renders the newest candidate artifact-access" "ghcr.io/kubemoot/artifact-access:0.345.0-rc.1" \
   "$(rendered_images oguide-crew | grep '^ghcr.io/kubemoot/')"
 check "O'guide keeps the search server's Python image pinned by digest, unstamped" 1 \
   "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
@@ -138,9 +160,21 @@ git -C "${root}/empty" -c user.email=t@e -c user.name=t commit -q --allow-empty 
 git -C "${root}/empty" tag artifact-access-v0.343.0
 git -C "${root}/empty" tag scheduling-mcp-v0.1.0
 git -C "${root}/empty" tag code-sandbox-v0.18.0-rc.1
-KUBEMOOT_REMOTE="${root}/empty" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
-check "refuses a Kubemoot image with no final release" 1 "$((status != 0))"
+KUBEMOOT_PINS=final KUBEMOOT_REMOTE="${root}/empty" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
+check "a finals-only build refuses a Kubemoot image with no final release" 1 "$((status != 0))"
 check "says which image" 1 "$(grep -c 'no final code-sandbox-vX.Y.Z tag' "${root}/stamp.log")"
+KUBEMOOT_REMOTE="${root}/empty" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
+check "a candidate build takes the rc when there is no final" 0 "$status"
+check "and stamps it" 1 "$(grep -c 'code-sandbox:0.18.0-rc.1"' "${root}/homelab-pilot-crew/values.yaml")"
+copy_crew homelab-pilot-crew
+git init -q -b main "${root}/nocand"
+git -C "${root}/nocand" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
+git -C "${root}/nocand" tag artifact-access-v0.343.0
+git -C "${root}/nocand" tag scheduling-mcp-v0.1.0
+KUBEMOOT_REMOTE="${root}/nocand" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
+check "a candidate build refuses an image with no candidate at all" 1 "$((status != 0))"
+check "and says which image" 1 "$(grep -c 'no code-sandbox-vX.Y.Z or code-sandbox-vX.Y.Z-rc.N tag' "${root}/stamp.log")"
+check "and leaves the images unstamped" 3 "$(rl_image_placeholders "${root}/homelab-pilot-crew/values.yaml" | wc -l | tr -d ' ')"
 copy_crew homelab-pilot-crew
 sed -i 's/"code-sandbox:0.0.0"/"code-sandbox:0.16.0"/' "${root}/homelab-pilot-crew/values.yaml"
 stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?

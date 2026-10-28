@@ -7,8 +7,10 @@
 # candidate, packages the chart from that candidate's commit with the final version and
 # the Kubemoot image tags the candidate ran, pushes it to Harbor (the homelab moves to
 # the final) and the release registry, tags the commit <crew>-vX.Y.Z, and
-# writes one GitHub Release per crew (.github/scripts/publish-release.sh). A crew that
-# pins a Kubemoot release candidate image is refused: publish Kubemoot first.
+# writes one GitHub Release per crew (.github/scripts/publish-release.sh). A candidate
+# pin of a Kubemoot release candidate image maps to its final when Kubemoot's final tag
+# exists and its image digest equals the candidate's; otherwise the crew is refused:
+# publish Kubemoot first, or rebuild the crew candidate.
 #
 # Each chart pushed to the release registry is signed there by digest with cosign,
 # keyless (no stored key), and the attest job records SLSA build provenance for it in
@@ -84,8 +86,11 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
+      - name: Install crane
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+
       - name: Set up the release helpers
-        uses: kubemoot/release-actions/setup@7accfbc33966d895bab2fc17a2a6c7f2520aaf76 # v0.11.1
+        uses: kubemoot/release-actions/setup@46be10555367466d5add34c0f37dc2ae86c40af6 # v0.12.0
 
       - name: Test the release scripts
         run: |
@@ -97,7 +102,10 @@ jobs:
           REGISTRY: ${{ vars.REGISTRY }}
           HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
-        run: echo "${HARBOR_PASSWORD}" | helm registry login --insecure "${REGISTRY}" -u "${HARBOR_USERNAME}" --password-stdin
+        run: |
+          echo "${HARBOR_PASSWORD}" | helm registry login --insecure "${REGISTRY}" -u "${HARBOR_USERNAME}" --password-stdin
+          # crane compares a candidate image's digest with its final's; in-cluster only.
+          echo "${HARBOR_PASSWORD}" | crane auth login "${REGISTRY}" -u "${HARBOR_USERNAME}" --password-stdin
 
       - name: Publish
         id: publish
