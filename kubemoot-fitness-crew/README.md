@@ -59,6 +59,20 @@ network:
 
 Empty, the default, renders no `network` field on the Crew, so the chart still installs on a Kubemoot operator whose Crew resource has no such field. Set it only on an operator that supports Crew network policies; see the Kubemoot documentation page on network policies.
 
+## Egress
+
+The `egress` value sets outbound network access for one tool server or agent at a time. Each entry is keyed by the rendered name of an Agent (`egress.agents`, here `fitness-judge` or `fitness-coordinator`) or an MCPServer (`egress.mcpServers`), and its value is copied as written into that resource's `spec.egress`. A field the Kubemoot operator adds to `spec.egress` later needs no chart change. An entry whose name matches no resource in this chart renders nothing and does not fail the install.
+
+```yaml
+egress:
+  agents:
+    fitness-judge:
+      allowedHosts: ["api.example.com"]
+      ports: [443]
+```
+
+This chart renders no tool server, so entries go under `agents`. The example lets the `fitness-judge` agent reach `api.example.com` on port 443, plus what the operator always allows (DNS, and for an agent the bus, gateway, and model servers). It needs a Kubemoot operator with egress policies, and the operator chart flag `security.networkPolicies.egress.mode: Declared`; without the flag `spec.egress` has no effect, and a workload without `spec.egress` is never restricted. Leave `egress` empty, the default, on a Kubemoot release that has no `spec.egress` field: the chart then renders the same manifests as before. See the Kubemoot documentation page on network policies for the fields and how host names are enforced on each network plugin.
+
 ## Fitness
 
 `fitness/` holds three scenarios that test the judge itself: it scores a correct answer high, flags a fabricated one, and handles a method-regime question. The chart deploys them with the crew as one ConfigMap, `kubemoot-fitness-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`, so CrewForge and the dashboard list them; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):

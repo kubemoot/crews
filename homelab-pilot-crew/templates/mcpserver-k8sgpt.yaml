@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "k8sgpt-mcp") }}
   image: {{ .Values.mcpServers.k8sgpt.image }}
   transport: stdio
   command:

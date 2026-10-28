@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "oguide-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
   # Read-ops over spilled discussion artifacts (head, tail, grep, count, rows, select,
   # jq). A search result too large for the discussion bus is stored as an artifact, and
   # the curator reads it through this server, so the whole result never enters a model

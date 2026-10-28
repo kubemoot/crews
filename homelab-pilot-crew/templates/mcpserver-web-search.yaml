@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "web-search-mcp") }}
   # Web search and page fetch for the internet-search researcher: the DuckDuckGo
   # MCP server (github.com/nickclyde/duckduckgo-mcp-server, MIT), tools search and
   # fetch_content. It needs egress to the internet and no cluster credentials.

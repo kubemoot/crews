@@ -10,7 +10,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "compute") }}
   type: chat
   description: "Computes exact answers (count, sort, filter, top-N, math) over data the toolers gathered, by writing and running small code via execute_code. Domain-agnostic."
   # Analyst role so it runs AFTER the toolers and receives their forwarded data,

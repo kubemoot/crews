@@ -10,7 +10,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "nvidia-gpu-history") }}
   type: chat
   # One question shape: "how has the GPU's behavior CHANGED OVER TIME?"
   # Time-series, trends, spikes, regressions. May need metric-metadata to

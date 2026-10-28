@@ -150,6 +150,21 @@ helm upgrade --install oguide \
 | `crew.name` | `oguide` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |
 | `network.allowedIngress` | `[]` | Namespace label selectors whose pods may reach the crew's discussion gateway when the operator generates network policies (Crew `spec.network.allowedIngress`). Empty renders no `network` field; set it only on a Kubemoot operator that supports Crew network policies |
+| `egress.mcpServers`, `egress.agents` | `{}` | Per-resource `spec.egress`, keyed by rendered name and copied as written; see [Egress](#egress) |
+
+## Egress
+
+The `egress` value sets outbound network access for one tool server or agent at a time. Each entry is keyed by the rendered name of an MCPServer (`egress.mcpServers`) or an Agent (`egress.agents`), and its value is copied as written into that resource's `spec.egress`. A field the Kubemoot operator adds to `spec.egress` later needs no chart change. Names are the ones in `templates/`, for example `search-mcp` or `library-search`. An entry whose name matches no resource in this chart renders nothing and does not fail the install.
+
+```yaml
+egress:
+  mcpServers:
+    search-mcp:
+      allowedHosts: ["api.example.com"]
+      ports: [443]
+```
+
+This lets `search-mcp` reach `api.example.com` on port 443, plus what the operator always allows (DNS, and for an agent the bus, gateway, and model servers). It needs a Kubemoot operator with egress policies, and the operator chart flag `security.networkPolicies.egress.mode: Declared`; without the flag `spec.egress` has no effect, and a workload without `spec.egress` is never restricted. Leave `egress` empty, the default, on a Kubemoot release that has no `spec.egress` field: the chart then renders the same manifests as before. See the Kubemoot documentation page on network policies for the fields and how host names are enforced on each network plugin.
 
 ## Example questions
 

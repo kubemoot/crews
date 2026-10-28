@@ -14,7 +14,7 @@ metadata:
     {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
   annotations:
     kubemoot.ai/discuss-priority: medium
-spec:
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" (.Values.gooseSeat.name)) }}
   type: chat
   description: "A goose-run seat that answers library questions: searches the O'Reilly catalog for books, videos, and courses, then ranks and links what it finds."
   discussRole: tooler

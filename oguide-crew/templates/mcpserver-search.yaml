@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "oguide-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "search-mcp") }}
   # The crew's search server (search-server/server.py): five fixed searches of the O'Reilly
   # catalog (find_released, find_scheduled, find_by_author, find_title, find_live_events), each taking one
   # text argument. It builds every date filter, the item count, and the order itself, and

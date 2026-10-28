@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "code-sandbox-mcp") }}
   # Kubemoot code-sandbox: the agent writes a short Python or bash program, the
   # server runs it inside THIS pod (no stdin, a time limit that kills the whole
   # process group, capped output) and returns stdout, stderr and the exit code.

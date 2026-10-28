@@ -29,3 +29,14 @@ scheduling:
 
 # No MCP server or gateway: the judge calls no tools. The operator assembles the
 # comparison document and hands it to the judge in the dispatch message.
+
+# Outbound network access per workload. Each map is keyed by the rendered name of an
+# MCPServer (mcpServers) or an Agent (agents); the value is copied verbatim into that
+# resource's spec.egress, so a field the operator adds later needs no chart change.
+# Empty renders no spec.egress, which is what a Kubemoot without egress policies needs.
+# Example: egress.mcpServers.search-mcp.allowedHosts=[api.example.com], ports=[443].
+# Needs a Kubemoot operator with egress policies and security.networkPolicies.egress.mode:
+# Declared on the operator chart; see the README.
+egress:
+  mcpServers: {}
+  agents: {}

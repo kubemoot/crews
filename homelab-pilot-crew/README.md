@@ -104,6 +104,20 @@ network:
 
 Empty, the default, renders no `network` field on the Crew, so the chart still installs on a Kubemoot operator whose Crew resource has no such field. Set it only on an operator that supports Crew network policies; see the Kubemoot documentation page on network policies.
 
+## Egress
+
+The `egress` value sets outbound network access for one tool server or agent at a time. Each entry is keyed by the rendered name of an MCPServer (`egress.mcpServers`) or an Agent (`egress.agents`), and its value is copied as written into that resource's `spec.egress`. A field the Kubemoot operator adds to `spec.egress` later needs no chart change. Names are the ones in `templates/`, for example `web-search-mcp`, `k8s-advisor`, or `<release>-kubernetes-mcp`. An entry whose name matches no resource in this chart renders nothing and does not fail the install.
+
+```yaml
+egress:
+  mcpServers:
+    web-search-mcp:
+      allowedHosts: ["api.example.com"]
+      ports: [443]
+```
+
+This lets `web-search-mcp` reach `api.example.com` on port 443, plus what the operator always allows (DNS, and for an agent the bus, gateway, and model servers). It needs a Kubemoot operator with egress policies, and the operator chart flag `security.networkPolicies.egress.mode: Declared`; without the flag `spec.egress` has no effect, and a workload without `spec.egress` is never restricted. Leave `egress` empty, the default, on a Kubemoot release that has no `spec.egress` field: the chart then renders the same manifests as before. See the Kubemoot documentation page on network policies for the fields and how host names are enforced on each network plugin.
+
 ## Code sandbox isolation
 
 The code sandbox runs Python or bash that a model wrote, so it is the pod in this chart most worth isolating. `mcpServers.codeSandbox.runtimeClassName` runs that pod under a Kubernetes RuntimeClass, for example `gvisor`, which puts a user-space kernel between the model-written code and the node:

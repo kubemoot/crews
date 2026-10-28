@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
     kubemoot.ai/role: coordinator
-spec:
+spec:{{ include "kubemoot-fitness-crew.egress" (dict "root" $ "kind" "agents" "name" "fitness-coordinator") }}
   type: chat
   description: "Fitness coordinator — relays a reference-grounded judging task to the fitness-judge and returns its verdict"
   discussRole: coordinator
