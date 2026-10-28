@@ -91,6 +91,10 @@ calibrated and observed speeds), or `shadow` (`algorithm` places; the learned ch
 logged beside it). Empty, the default, inherits the cluster's default. See the Kubemoot
 scheduler documentation, section "Placement policy".
 
+## Workspace query
+
+`compute.workspaceQuery` (default `false`) adds the `workspace_query` tool to the compute agent's `enabledTools`: read-only SQL over the discussion's staged artifacts. The tool's own description carries its usage and SQL dialect. The artifact read-ops server offers the tool only when the Kubemoot operator's `artifacts.queryEngine` is set to `sqlite` or `duckdb`; with the default `none` the tool does not exist, so set both together. With the default value the rendered chart is unchanged.
+
 ## Network policies
 
 When the Kubemoot operator generates network policies (its `security.networkPolicies.enabled` setting, off by default), a crew's discussion gateway admits only its own namespace and the operator. `network.allowedIngress` lists the other namespaces whose pods may reach it, such as the namespace of the web server that fronts the crew. Each entry is a Kubernetes namespace label selector:
