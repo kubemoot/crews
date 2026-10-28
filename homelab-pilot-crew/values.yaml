@@ -291,6 +291,10 @@ mcpServers:
     # The pod itself is the sandbox (no creds). The 0.0.0 tag is stamped at build with
     # Kubemoot's latest released code-sandbox version.
     image: "code-sandbox:0.0.0"
+    # The RuntimeClass to run the code sandbox pod under, for example gvisor. Empty runs it
+    # under the cluster's default runtime. Needs a Kubemoot operator that supports MCPServer
+    # runtime classes and the runtime installed on the nodes.
+    runtimeClassName: ""
   artifactAccess:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
     # two modes). The 0.0.0 tag is stamped at build with Kubemoot's latest released

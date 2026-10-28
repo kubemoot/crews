@@ -111,3 +111,13 @@ VALUES
 [ "$two" = '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}},{"matchExpressions":[{"key":"team","operator":"In","values":["web","edge"]}]}]}' ] \
   || fail "two selectors did not render exactly: $two"
 echo "PASS: network.allowedIngress"
+
+# mcpServers.codeSandbox.runtimeClassName renders spec.runtimeClassName on the code-sandbox
+# MCPServer only when set, so the MCPServer still applies to an operator whose CRD has no such field.
+sandbox_spec() { render "$@" | yq -N -o=json -I=0 'select(.kind == "MCPServer" and .metadata.name == "code-sandbox-mcp") | .spec'; }
+[ "$(sandbox_spec | yq -p=json 'has("runtimeClassName")')" = "false" ] || fail "the default must render no runtimeClassName"
+[ "$(sandbox_spec --set mcpServers.codeSandbox.runtimeClassName= | yq -p=json 'has("runtimeClassName")')" = "false" ] || fail "an empty runtimeClassName must render nothing"
+[ "$(sandbox_spec --set mcpServers.codeSandbox.runtimeClassName=gvisor | yq -p=json '.runtimeClassName')" = "gvisor" ] || fail "runtimeClassName not rendered on the code sandbox"
+withrc="$(render --set mcpServers.codeSandbox.runtimeClassName=gvisor)"
+[ "$(grep -c 'runtimeClassName' <<<"$withrc")" = "1" ] || fail "runtimeClassName must appear once, on the code sandbox only"
+echo "PASS: mcpServers.codeSandbox.runtimeClassName"

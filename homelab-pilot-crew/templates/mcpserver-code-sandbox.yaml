@@ -24,6 +24,9 @@ spec:
     - "/usr/local/bin/code-sandbox"
   port: 3000
   replicas: 1
+  {{- with .Values.mcpServers.codeSandbox.runtimeClassName }}
+  runtimeClassName: {{ . | quote }}
+  {{- end }}
   # Option A: NO cluster credentials. This sandbox only computes over data handed
   # to it on the discussion board; it needs NO Kubernetes access, so it does NOT
   # use the kubernetes-mcp service account (default namespace SA, no RBAC bound).
