@@ -98,16 +98,26 @@ ALWAYS reply with EXACTLY one token: CONTRIBUTE or NOTHING_TO_ADD. No explanatio
 {{/*
 spec.egress for one MCPServer or Agent, copied verbatim from the egress value:
 egress.mcpServers.<name> or egress.agents.<name>, keyed by the resource's rendered
-metadata.name. Call as: include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "<name>").
-Renders nothing (not even a blank line) when no entry matches, so a chart with the
-default values renders exactly as it did before the setting existed. Rendered directly
-after "spec:" at a two-space indent, so it starts with a newline.
+metadata.name. An Agent with no entry of its own takes egress.agentsDefault when that is
+set (an empty map included); a named entry replaces the default entirely, with no merging.
+MCP servers never take the default. Call as: include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "<name>").
+Renders nothing (not even a blank line) when nothing applies, so a chart with the
+default values renders exactly as it did before the setting existed. An empty map is
+a value, not an absence: it renders "egress: {}". Rendered directly after "spec:" at a
+two-space indent, so it starts with a newline.
 */}}
 {{- define "oguide-crew.egress" -}}
 {{- $egress := default dict .root.Values.egress -}}
-{{- $entry := get (default dict (get $egress .kind)) .name -}}
-{{- if $entry }}
+{{- $named := default dict (get $egress .kind) -}}
+{{- $entry := index $named .name -}}
+{{- if and (eq .kind "agents") (kindIs "invalid" $entry) -}}
+{{- $entry = index $egress "agentsDefault" -}}
+{{- end -}}
+{{- if not (kindIs "invalid" $entry) }}
   egress:
+    {{- if $entry }}
     {{- toYaml $entry | nindent 4 }}
+    {{- else }} {}
+    {{- end }}
 {{- end }}
 {{- end }}
