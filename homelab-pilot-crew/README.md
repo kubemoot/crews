@@ -104,6 +104,18 @@ network:
 
 Empty, the default, renders no `network` field on the Crew, so the chart still installs on a Kubemoot operator whose Crew resource has no such field. Set it only on an operator that supports Crew network policies; see the Kubemoot documentation page on network policies.
 
+## Code sandbox isolation
+
+The code sandbox runs Python or bash that a model wrote, so it is the pod in this chart most worth isolating. `mcpServers.codeSandbox.runtimeClassName` runs that pod under a Kubernetes RuntimeClass, for example `gvisor`, which puts a user-space kernel between the model-written code and the node:
+
+```yaml
+mcpServers:
+  codeSandbox:
+    runtimeClassName: gvisor
+```
+
+Empty, the default, renders no `runtimeClassName` on the MCPServer, so the pod runs under the cluster's default runtime and the chart still installs on a Kubemoot operator whose MCPServer resource has no such field. Set it only on an operator that supports MCPServer runtime classes, and only when the runtime is installed on the nodes and a RuntimeClass of that name exists. Only the code sandbox pod is affected.
+
 ## Deployment
 
 The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` on each release commit to `main`.
