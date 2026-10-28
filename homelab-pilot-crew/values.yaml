@@ -295,6 +295,12 @@ mcpServers:
     # under the cluster's default runtime. Needs a Kubemoot operator that supports MCPServer
     # runtime classes and the runtime installed on the nodes.
     runtimeClassName: ""
+    # How the gateway reaches the code sandbox: stdio (through the operator's bridge
+    # sidecar) or http (the sandbox serves MCP over Streamable HTTP itself, with no
+    # bridge). http needs a code-sandbox image that supports it (a Kubemoot release with
+    # Streamable HTTP in the code sandbox) and is required under a sandboxed runtime
+    # such as gvisor, where the bridge's FIFOs are not shared between containers.
+    transport: stdio
   artifactAccess:
     # Materializer sidecar for the code sandbox AND the read-ops server (one image,
     # two modes). The 0.0.0 tag is stamped at build with Kubemoot's latest released

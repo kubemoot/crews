@@ -1,4 +1,9 @@
 {{- if .Values.mcpServers.codeSandbox.enabled }}
+{{- $transport := .Values.mcpServers.codeSandbox.transport | default "stdio" }}
+{{- if not (has $transport (list "stdio" "http")) }}
+{{- fail (printf "mcpServers.codeSandbox.transport must be stdio or http, got %q" $transport) }}
+{{- end }}
+{{- $port := 3000 }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
@@ -10,10 +15,22 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   # Kubemoot code-sandbox: the agent writes a short Python or bash program, the
   # server runs it inside THIS pod (no stdin, a time limit that kills the whole
   # process group, capped output) and returns stdout, stderr and the exit code.
+  {{- if eq $transport "http" }}
+  # Tools: execute_code and validate_code. Streamable HTTP -> no bridge sidecar.
+  {{- else }}
   # Tools: execute_code and validate_code. Pure stdio -> operator adds the bridge
   # sidecar (port below is the bridge's TCP port, not a server listener).
+  {{- end }}
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.codeSandbox.image) | quote }}
-  transport: stdio
+  transport: {{ $transport }}
+  {{- if eq $transport "http" }}
+  # The server listens on the port itself (Streamable HTTP at /mcp) and the
+  # operator adds no bridge and no pipes volume. No explicit command: the image
+  # entrypoint runs the server under tini, which reaps processes a killed program
+  # leaves behind.
+  healthPath: /healthz
+  readinessPath: /readyz
+  {{- else }}
   # The bridge runs in exec mode (kubemoot-mcp-bridge exec -- <command>), so the
   # server's start command must be explicit. tini reaps processes a killed
   # program leaves behind.
@@ -22,7 +39,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - "-s"
     - "--"
     - "/usr/local/bin/code-sandbox"
-  port: 3000
+  {{- end }}
+  port: {{ $port }}
   replicas: 1
   {{- with .Values.mcpServers.codeSandbox.runtimeClassName }}
   runtimeClassName: {{ . | quote }}
@@ -35,6 +53,12 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     # comes back as the sandbox's own "stopped" result, not a gateway error.
     - name: EXECUTION_TIMEOUT
       value: "25"
+    {{- if eq $transport "http" }}
+    - name: MCP_TRANSPORT
+      value: "http"
+    - name: PORT
+      value: {{ $port | quote }}
+    {{- end }}
   capabilities:
     - compute
     - data-analysis
