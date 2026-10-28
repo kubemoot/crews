@@ -6,7 +6,7 @@ name: oguide-crew Release
 #
 # A Kubemoot Publish Release sends the kubemoot-published event when it succeeds; the
 # crew then builds a forced candidate, as force_release does, so the chart takes the new
-# Kubemoot finals (stamp-crew.sh) and the crews Publish Release needs nothing by hand.
+# Kubemoot finals (stamp-crew.sh picks the final once it exists) and the crews Publish Release needs nothing by hand.
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
 
       - name: Calculate the release candidate version
         id: version
-        uses: kubemoot/release-actions/release-candidate-version@7accfbc33966d895bab2fc17a2a6c7f2520aaf76 # v0.11.1
+        uses: kubemoot/release-actions/release-candidate-version@46be10555367466d5add34c0f37dc2ae86c40af6 # v0.12.0
         with:
           tag_prefix: "oguide-crew-v"
           change_path: "oguide-crew"
@@ -62,7 +62,7 @@ jobs:
           version: 'v3.14.0'
 
       # Git holds 0.0.0 for the chart version and for every Kubemoot image tag; the build
-      # stamps the candidate version and the latest final Kubemoot image tags into the
+      # stamps the candidate version and the newest Kubemoot candidate image tags (the final once it exists) into the
       # chart it packages and never commits them.
       - name: Stamp the chart version and the Kubemoot images
         if: steps.version.outputs.release_created == 'true'

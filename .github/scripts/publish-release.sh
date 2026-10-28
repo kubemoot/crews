@@ -19,8 +19,12 @@
 # ${OUT_DIR}/provenance.tsv maps each signed chart to its crew's release, which carries the
 # chart's provenance as <crew>_X.Y.Z.intoto.jsonl (create-github-releases.sh).
 #
-# A crew chart that pins a Kubemoot release candidate image is refused: publish
-# Kubemoot first, then build a new crew candidate, which resolves Kubemoot's finals.
+# A tested candidate chart may run Kubemoot release candidate images. Each such pin
+# maps to its final (rl_map_rc_images): the Kubemoot tag <image>-vX.Y.Z must exist, and
+# the digest of <image>:X.Y.Z must equal the digest of the candidate's <image>:X.Y.Z-rc.N
+# in Harbor (crane, on the in-cluster runner), so the final is the image the candidate
+# ran. Otherwise the crew is refused: publish Kubemoot first, or rebuild the crew
+# candidate (force), which then takes the final. A published chart pins finals only.
 #
 # Env:
 #   RC_TAG            "latest" (default) or a release-candidate tag on main
@@ -30,6 +34,9 @@
 #   REGISTRY          Harbor host (charts at oci://${REGISTRY}/crews)
 #   RELEASE_REGISTRY  registry plus namespace, e.g. ghcr.io/kubemoot (charts at .../charts)
 #   GHCR_USERNAME, GHCR_TOKEN  (the caller logs helm in to Harbor)
+#   KUBEMOOT_REMOTE   Kubemoot's repository (default https://github.com/kubemoot/kubemoot.git)
+#   KUBEMOOT_IMAGE_REGISTRY  Harbor path of Kubemoot's images (default ${REGISTRY}/kubemoot);
+#                     RL_DIGEST_CMD (default "crane digest --insecure") reads digests there
 #   CREWS             crew chart directories (default below)
 #   OUT_DIR           where packaged charts and notes land (default: release-files)
 #   RELEASE_LIB       release-lib.sh of kubemoot/release-actions (its actions set it)
@@ -43,6 +50,9 @@ CREWS="${CREWS:-homelab-pilot-crew kubemoot-fitness-crew oguide-crew}"
 OUT_DIR="$(mkdir -p "${OUT_DIR:-release-files}" && cd "${OUT_DIR:-release-files}" && pwd)"
 : "${REGISTRY:?REGISTRY required}"
 : "${RELEASE_REGISTRY:?RELEASE_REGISTRY required}"
+
+KUBEMOOT_REMOTE="${KUBEMOOT_REMOTE:-https://github.com/kubemoot/kubemoot.git}"
+KUBEMOOT_IMAGE_REGISTRY="${KUBEMOOT_IMAGE_REGISTRY:-${REGISTRY}/kubemoot}"
 
 here="$(cd "$(dirname "$0")" && pwd)"
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -60,7 +70,8 @@ candidate_values() {
 }
 
 # package_crew CREW RC_TAG FINAL: the chart from the candidate's commit, stamped with the
-# final version and the Kubemoot image tags of the tested candidate chart.
+# final version and the Kubemoot image tags of the tested candidate chart, each candidate
+# tag mapped to its verified final.
 package_crew() {
   local crew="$1" rc_tag="$2" final="$3" wt candidate pins=()
   rl_checkout_at "$(git rev-list -n 1 "$rc_tag")"
@@ -71,8 +82,10 @@ package_crew() {
   fi
   bash "${here}/stamp-crew.sh" "${wt}/${crew}" "${final}" "${pins[@]}"
   [ -z "${candidate:-}" ] || rm -f "$candidate"
+  rl_map_rc_images "${wt}/${crew}/values.yaml" "${KUBEMOOT_REMOTE}" "${KUBEMOOT_IMAGE_REGISTRY}" \
+    || die "${crew} at ${rc_tag} pins a Kubemoot release candidate image that is not yet a verified final; publish Kubemoot first, or rebuild the crew candidate with force"
   if grep -nE -- ':[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${wt}/${crew}/values.yaml"; then
-    die "${crew} at ${rc_tag} pins a release candidate image; publish Kubemoot first, then publish a crew candidate built after it"
+    die "${crew} at ${rc_tag} still pins a release candidate image after mapping; publish Kubemoot first, then publish a crew candidate built after it"
   fi
   helm package "${wt}/${crew}" --destination "${OUT_DIR}"
 }

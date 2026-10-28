@@ -114,6 +114,25 @@ main_before=$(git rev-parse origin/main)
 
 export REGISTRY=harbor.test RELEASE_REGISTRY=ghcr.test/kubemoot GHCR_USERNAME=u GHCR_TOKEN=t
 export CREWS="alpha beta gamma"
+# Kubemoot's repository (its tags) and the digest of each image in Harbor, which the
+# stub below reads from a "<name>:<tag>=<digest>" table instead of running crane.
+git init -q "${root}/kubemoot-src"
+git -C "${root}/kubemoot-src" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
+git clone -q --bare "${root}/kubemoot-src" "${root}/kubemoot.git"
+export KUBEMOOT_REMOTE="${root}/kubemoot.git"
+kubemoot_tag() {
+  git -C "${root}/kubemoot-src" tag "$1"
+  git -C "${root}/kubemoot-src" push -q "${root}/kubemoot.git" "$1"
+}
+export DIGESTS="${root}/digests"
+: > "$DIGESTS"
+cat > "${root}/bin/digest-stub" <<'EOF'
+#!/usr/bin/env bash
+ref="${1##*/}"
+grep -m1 "^${ref}=" "$DIGESTS" | cut -d= -f2 | grep .
+EOF
+chmod +x "${root}/bin/digest-stub"
+export RL_DIGEST_CMD=digest-stub
 # The variables GitHub Actions sets for a job with id-token: write.
 export ACTIONS_ID_TOKEN_REQUEST_URL=https://oidc.test ACTIONS_ID_TOKEN_REQUEST_TOKEN=t GITHUB_WORKFLOW_REF=kubemoot/crews/.github/workflows/publish-release.yaml@refs/heads/main
 run_publish() {
@@ -163,9 +182,25 @@ git tag -a gamma-v0.2.1-rc.0 -m rc
 harbor_candidate gamma 0.2.1-rc.0 0.16.32-rc.1
 git push -q origin pin:main --tags 2>/dev/null; git fetch -q origin
 DRY_RUN=false run_publish rcpin && status=0 || status=$?
-check "refuses a crew that pins a candidate image" 1 "$status"
-check "says why" 1 "$(grep -c 'pins a release candidate image' "${root}/run-rcpin.log")"
+check "refuses a crew that pins a candidate image with no Kubemoot final" 1 "$status"
+check "says why" 1 "$(grep -q 'publish Kubemoot first' "${root}/run-rcpin.log" && echo 1)"
 check "pushes no chart when one crew is refused" 0 "$(grep -c '^helm push' "$LOG" || true)"
+# The same candidate once Kubemoot has published, with a different image under the final tag.
+kubemoot_tag code-sandbox-v0.16.32
+printf '%s\n' "code-sandbox:0.16.32-rc.1=sha256:aaa" "code-sandbox:0.16.32=sha256:bbb" > "$DIGESTS"
+DRY_RUN=true run_publish rcdiff && status=0 || status=$?
+check "refuses a candidate whose final has a different digest" 1 "$status"
+check "says to rebuild with force" 1 "$(grep -q 'rebuild the crew candidate with force' "${root}/run-rcdiff.log" && echo 1)"
+# And with the same digest: the pin maps to the final.
+printf '%s\n' "code-sandbox:0.16.32-rc.1=sha256:aaa" "code-sandbox:0.16.32=sha256:aaa" > "$DIGESTS"
+DRY_RUN=true run_publish rcmatch && status=0 || status=$?
+check "publishes a candidate whose final has the same digest" 0 "$status"
+check "maps the candidate pin to its final" "1|0" \
+  "$(tar -xzOf "${root}/out-rcmatch/gamma-0.2.1.tgz" gamma/values.yaml | grep -c '"code-sandbox:0.16.32"')|$(tar -xzOf "${root}/out-rcmatch/gamma-0.2.1.tgz" gamma/values.yaml | grep -c -- '-rc\.' || true)"
+printf '%s\n' "code-sandbox:0.16.32=sha256:aaa" > "$DIGESTS"
+DRY_RUN=true run_publish rcnodigest && status=0 || status=$?
+check "refuses when the candidate's digest cannot be read" 1 "$status"
+: > "$DIGESTS"
 git push -q -f origin main:main 2>/dev/null; git push -q origin --delete gamma-v0.2.1-rc.0 2>/dev/null
 git tag -d gamma-v0.2.1-rc.0 >/dev/null; git checkout -q main; git fetch -q --prune origin
 
