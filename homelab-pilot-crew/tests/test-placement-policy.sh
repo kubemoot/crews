@@ -222,3 +222,11 @@ wq_on="$(render --set compute.workspaceQuery=true)"
 [ "$(grep -c 'workspace_query' <<<"$wq_on")" = "1" ] || fail "workspace_query must appear only in the compute agent"
 [ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "2" ] || fail "compute.workspaceQuery=true must change only the compute enabledTools line"
 echo "PASS: compute.workspaceQuery"
+
+# The compute prompt treats inputs stated in the question as data, and NO_DATA applies only
+# when neither the question nor the discussion has any.
+compute_prompt="$(render | yq -N 'select(.kind == "PromptModule" and .metadata.name == "compute-system") | .spec.content')"
+[ -n "$compute_prompt" ] || fail "compute-system PromptModule did not render"
+grep -q 'stated in the question' <<<"$compute_prompt" || fail "compute prompt must accept data stated in the question"
+grep -q 'NEITHER the question NOR the discussion' <<<"$compute_prompt" || fail "NO_DATA must apply only when neither the question nor the discussion has data"
+echo "PASS: compute prompt accepts inputs in the question"
