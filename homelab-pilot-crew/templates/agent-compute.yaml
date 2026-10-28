@@ -28,7 +28,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # execute_code/validate_code for math; the artifact read-ops tools to read spilled
   # findings server-side by key (passing a key to the readops server is far more reliable
   # for a 32B than authoring open('/artifacts/<key>') in sandbox code, which it flakily skips).
-  enabledTools: [execute_code, validate_code, artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
+  enabledTools: [execute_code, validate_code, artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq{{ if .Values.compute.workspaceQuery }}, workspace_query{{ end }}]
   discussKeywords:
     - count
     - number
