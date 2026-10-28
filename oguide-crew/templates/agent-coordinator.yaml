@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "coordinator") | nindent 4 }}
-spec:
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "oguide-coordinator") }}
   type: chat
   description: "O'guide coordinator: plans the turn, convenes the subcommittee, and writes the answer with a reader link for every item"
   discussRole: coordinator

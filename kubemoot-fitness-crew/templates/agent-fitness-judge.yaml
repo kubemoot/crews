@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "kubemoot-fitness-crew.egress" (dict "root" $ "kind" "agents" "name" "fitness-judge") }}
   type: chat
   description: "Fitness judge: scores a scenario's answers against the ground-truth reference (REFLECTS) from the comparison document provided in the task message, returning a JSON array of verdicts"
   capabilities:

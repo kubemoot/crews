@@ -7,7 +7,7 @@ metadata:
     {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "analyst") | nindent 4 }}
   annotations:
     kubemoot.ai/discuss-priority: medium
-spec:
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "curator") }}
   type: chat
   description: "Ranks catalog results by recency, depth, and audience, removes duplicate editions, and builds reading and learning paths. Has no search tool."
   discussRole: analyst

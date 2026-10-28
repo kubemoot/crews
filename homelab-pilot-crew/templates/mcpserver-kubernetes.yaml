@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-mcp" .Release.Name)) }}
   image: {{ .Values.mcpServers.kubernetes.image }}
   transport: stdio
   port: 8080
@@ -56,7 +56,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-legacy-mcp" .Release.Name)) }}
   image: {{ .Values.mcpServers.kubernetesLegacy.image }}
   transport: stdio
   port: 3000

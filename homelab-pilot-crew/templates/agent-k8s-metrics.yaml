@@ -10,7 +10,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-metrics") }}
   type: chat
   description: "Queries Kubernetes resource metrics via Prometheus: CPU, memory, pod resource usage."
   discussRole: tooler

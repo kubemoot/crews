@@ -11,7 +11,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "scheduler-advisor") }}
   type: chat
   description: "Manages scheduled reminders and follow-up discussions via the scheduling-mcp tools."
   discussRole: tooler

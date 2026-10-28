@@ -305,3 +305,14 @@ mcpServers:
     # network-capable agents call head/tail/grep/select/count/rows/jq over a
     # referenced artifact key to read a slice of the data where it is stored.
     enabled: true
+
+# Outbound network access per workload. Each map is keyed by the rendered name of an
+# MCPServer (mcpServers) or an Agent (agents); the value is copied verbatim into that
+# resource's spec.egress, so a field the operator adds later needs no chart change.
+# Empty renders no spec.egress, which is what a Kubemoot without egress policies needs.
+# Example: egress.mcpServers.search-mcp.allowedHosts=[api.example.com], ports=[443].
+# Needs a Kubemoot operator with egress policies and security.networkPolicies.egress.mode:
+# Declared on the operator chart; see the README.
+egress:
+  mcpServers: {}
+  agents: {}

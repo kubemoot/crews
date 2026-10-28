@@ -7,7 +7,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
     kubemoot.ai/crew: homelab-pilot
     kubemoot.ai/role: coordinator
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "homelab-coordinator") }}
   type: chat
   description: "Homelab coordinator — orchestrates the crew's agents via async NATS discussions with vector-based triage pre-filtering"
   discussRole: coordinator

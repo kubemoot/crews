@@ -7,7 +7,7 @@ metadata:
     {{- include "oguide-crew.agentLabels" (dict "root" $ "role" "tooler") | nindent 4 }}
   annotations:
     kubemoot.ai/discuss-priority: medium
-spec:
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "library-search") }}
   type: chat
   description: "Searches the O'Reilly catalog for books, videos, courses, interactive content, certifications, and audiobooks with several focused keyword queries and filters."
   discussRole: tooler

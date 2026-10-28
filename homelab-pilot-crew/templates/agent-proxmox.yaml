@@ -11,7 +11,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-pve") }}
   type: chat
   description: "Queries Proxmox VE hypervisor: nodes, storage, network, cluster status."
   discussRole: tooler
@@ -53,7 +53,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-qm") }}
   type: chat
   description: "Observes Proxmox QEMU/KVM virtual machines: listing, config, performance, snapshots, firewall."
   discussRole: tooler

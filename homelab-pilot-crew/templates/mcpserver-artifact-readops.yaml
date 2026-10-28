@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
   # Shared artifact read-ops service. Network-capable agents (analyst, RAG,
   # coordinator) call head/tail/grep/select/count/rows/jq over a referenced artifact
   # KEY to sip a slice near the data, so a bulk object never enters an LLM context -

@@ -327,5 +327,46 @@ VALUES
 check "two allowedIngress selectors render exactly, in order" \
   '{"allowedIngress":[{"matchLabels":{"kubernetes.io/metadata.name":"homelab-pilot"}},{"matchExpressions":[{"key":"team","operator":"In","values":["web","edge"]}]}]}' "$two"
 
+egress_fail() { echo "FAIL $*"; failures=$((failures + 1)); }
+# egress.mcpServers.<name> and egress.agents.<name> copy a map verbatim into that resource's
+# spec.egress. Nothing renders by default, so a Kubemoot without egress policies still
+# applies the chart, and a field the operator adds later needs no chart change.
+egress_extra=(--set gooseSeat.enabled=true)
+egress_render() { render "${egress_extra[@]}" "$@"; }
+# egress_holders RENDERED: Kind/name of every MCPServer and Agent that has spec.egress.
+egress_holders() {
+  yq -N 'select(.kind == "MCPServer" or .kind == "Agent") | select(.spec | has("egress")) | .kind + "/" + .metadata.name' <<<"$1" | paste -sd, -
+}
+egress_out="$(egress_render)"
+[ -z "$(egress_holders "$egress_out")" ] || egress_fail "the default renders spec.egress: $(egress_holders "$egress_out")"
+want_egress='{"allowedHosts":["api.example.com"],"ports":[443]}'
+egress_count=0
+for kind in MCPServer Agent; do
+  key=mcpServers; other=agents
+  if [ "$kind" = Agent ]; then key=agents; other=mcpServers; fi
+  for name in $(yq -N "select(.kind == \"$kind\") | .metadata.name" <<<"$egress_out"); do
+    # An entry renders on that resource only.
+    got="$(egress_render --set-json "egress={\"$key\":{\"$name\":$want_egress}}")"
+    [ "$(egress_holders "$got")" = "$kind/$name" ] || egress_fail "egress.$key.$name must render on $kind/$name only, got: $(egress_holders "$got")"
+    [ "$(yq -N -o=json -I=0 "select(.kind == \"$kind\" and .metadata.name == \"$name\") | .spec.egress" <<<"$got")" = "$want_egress" ] \
+      || egress_fail "egress for $name did not render verbatim"
+    # The same name under the other kind renders nothing.
+    got="$(egress_render --set-json "egress={\"$other\":{\"$name\":$want_egress}}")"
+    [ -z "$(egress_holders "$got")" ] || egress_fail "egress.$other.$name must not reach $kind/$name"
+    egress_count=$((egress_count + 1))
+  done
+done
+[ "$egress_count" -gt 0 ] || egress_fail "no MCPServer or Agent found to test"
+# An unknown name renders nothing, leaves the output unchanged, and does not fail.
+got="$(egress_render --set-json 'egress={"mcpServers":{"no-such-server":{"allowedHosts":["x.example.com"]}},"agents":{"no-such-agent":{"apiServer":true}}}')"
+[ "$got" = "$egress_out" ] || egress_fail "an unknown name changed the output"
+egress_render --set-json 'egress=null' >/dev/null || egress_fail "egress=null does not render"
+# A field the chart does not know copies through unchanged.
+first="$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$egress_out" | sed -n 1p)"
+got="$(egress_render --set-json "egress={\"agents\":{\"$first\":{\"apiServer\":true,\"future\":{\"a\":[1,2]}}}}")"
+[ "$(yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"$first\") | .spec.egress" <<<"$got")" = '{"apiServer":true,"future":{"a":[1,2]}}' ] \
+  || egress_fail "an unlisted egress field was not copied verbatim"
+echo "PASS: egress values (${egress_count} resources)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"
