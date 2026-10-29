@@ -1,9 +1,3 @@
-global:
-  # Registry and namespace prefixed to the Kubemoot-built image below (artifact-access).
-  # Releases are published to GHCR; a private mirror sets its own registry, e.g.
-  # harbor.example.com/kubemoot. Image values that already contain a "/" are used as-is.
-  imageRegistry: ghcr.io/kubemoot
-
 crew:
   name: oguide
   description: "O'guide: finds, compares, ranks and links O'Reilly library material (books, videos, courses, live events) through the O'Reilly catalog search"
@@ -77,12 +71,6 @@ nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
 
 mcpServers:
-  artifactAccess:
-    # Read-ops over spilled discussion artifacts (head, tail, grep, count, rows, select,
-    # jq). A search result too large for the discussion bus is stored as an artifact,
-    # and the curator reads it through this server. The 0.0.0 tag is stamped at build
-    # with Kubemoot's latest released artifact-access version.
-    image: "artifact-access:0.0.0"
   search:
     # The crew's search server runs in the official Python image, pinned by digest (never a
     # tag); its code is search-server/server.py, delivered through a Secret.

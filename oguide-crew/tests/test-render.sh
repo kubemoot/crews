@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Render tests for the O'guide chart: no Model of its own, the per-phase model selection
 # rules, the O'Reilly connection (endpoint, the Secret named and never a key), the
-# Kubemoot image stamping placeholder, and that every Agent's PromptModules ship with it.
+# read-ops server's Kubemoot image selection, and that every Agent's PromptModules ship with it.
 # Needs helm and yq.
 # Run from anywhere: oguide-crew/tests/test-render.sh   (exit 0 = all passed)
 set -euo pipefail
@@ -114,13 +114,15 @@ check "no pull secret by default" null "$(yq -N 'select(.kind == "MCPGateway") |
 check "a pull secret is a value" '[{"name":"p"}]' \
   "$(render --set 'imagePullSecrets[0].name=p' | yq -N -o=json -I=0 'select(.kind == "MCPGateway") | .spec.imagePullSecrets')"
 
-# The Kubemoot-built image: 0.0.0 in git (stamped at build), never :latest.
-readops() { yq -N 'select(.kind == "MCPServer" and .metadata.name == "artifact-readops-mcp") | .spec.image'; }
-check "the read-ops image is the stamping placeholder" ghcr.io/kubemoot/artifact-access:0.0.0 "$(readops <<<"$out")"
-check "global.imageRegistry prefixes it" harbor.test/kubemoot/artifact-access:0.0.0 \
-  "$(render --set global.imageRegistry=harbor.test/kubemoot | readops)"
-check "a full reference passes through" reg.test/x/artifact-access:1.2.3 \
-  "$(render --set mcpServers.artifactAccess.image=reg.test/x/artifact-access:1.2.3 | readops)"
+# The read-ops server selects Kubemoot's built-in artifact-access image; the chart names
+# no image of its own (the operator takes it from KubemootConfig spec.images).
+readops() { yq -N 'select(.kind == "MCPServer" and .metadata.name == "artifact-readops-mcp") | '"$1"; }
+check "the read-ops server selects kubemootImage artifactAccess" artifactAccess "$(readops .spec.kubemootImage <<<"$out")"
+check "the read-ops server names no image" null "$(readops .spec.image <<<"$out")"
+check "the read-ops server keeps its stdio transport" stdio "$(readops .spec.transport <<<"$out")"
+check "the read-ops server keeps the Buildpacks launcher" /cnb/process/web "$(readops '.spec.command[0]' <<<"$out")"
+check "the read-ops server keeps ARTIFACT_MODE mcp" mcp "$(readops '.spec.env[] | select(.name == "ARTIFACT_MODE") | .value' <<<"$out")"
+check "the chart pins no Kubemoot-built image value" "" "$(yq '.mcpServers.artifactAccess' "${chart}/values.yaml" | grep -v '^null$' || true)"
 check "no :latest anywhere" 0 "$(grep -rc ':latest' "${chart}/values.yaml" "${chart}/templates" | awk -F: '{s += $NF} END {print s}')"
 check "the NATS URL is a value" nats://n.test:4222 \
   "$(render --set nats.url=nats://n.test:4222 | yq -N 'select(.metadata.name == "artifact-readops-mcp") | .spec.env[] | select(.name == "NATS_URL") | .value')"

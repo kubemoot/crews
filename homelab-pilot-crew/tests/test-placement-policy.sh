@@ -230,3 +230,18 @@ compute_prompt="$(render | yq -N 'select(.kind == "PromptModule" and .metadata.n
 grep -q 'stated in the question' <<<"$compute_prompt" || fail "compute prompt must accept data stated in the question"
 grep -q 'NEITHER the question NOR the discussion' <<<"$compute_prompt" || fail "NO_DATA must apply only when neither the question nor the discussion has data"
 echo "PASS: compute prompt accepts inputs in the question"
+
+# The read-ops server selects Kubemoot's built-in artifact-access image (the operator takes
+# it from KubemootConfig and wires the query engine); the code sandbox sidecar keeps naming
+# its image from mcpServers.artifactAccess.image.
+ro_out="$(render | yq -N 'select(.kind == "MCPServer" and .metadata.name == "artifact-readops-mcp")')"
+[ "$(yq '.spec.kubemootImage' <<<"$ro_out")" = "artifactAccess" ] || fail "read-ops must select kubemootImage artifactAccess"
+[ "$(yq '.spec | has("image")' <<<"$ro_out")" = "false" ] || fail "read-ops must render no image beside kubemootImage"
+[ "$(yq '.spec.transport' <<<"$ro_out")" = "stdio" ] || fail "read-ops must keep the stdio transport"
+[ "$(yq '.spec.command[0]' <<<"$ro_out")" = "/cnb/process/web" ] || fail "read-ops must keep the Buildpacks launcher command"
+[ "$(yq '.spec.env[] | select(.name == "ARTIFACT_MODE") | .value' <<<"$ro_out")" = "mcp" ] || fail "read-ops must keep ARTIFACT_MODE=mcp"
+ro_override="$(render --set mcpServers.artifactAccess.image=reg.test/x/artifact-access:1.2.3)"
+[ "$(yq -N 'select(.metadata.name == "artifact-readops-mcp") | .spec | has("image")' <<<"$ro_override")" = "false" ] || fail "the artifactAccess image value must not reach the read-ops server"
+[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$ro_override")" = "reg.test/x/artifact-access:1.2.3" ] || fail "the code sandbox sidecar must use the artifactAccess image value"
+[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$out")" = "ghcr.io/kubemoot/artifact-access:0.0.0" ] || fail "the code sandbox sidecar must keep the stamped default image"
+echo "PASS: read-ops server selects kubemootImage artifactAccess"

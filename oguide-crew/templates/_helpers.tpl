@@ -48,20 +48,6 @@ kubemoot.ai/role: {{ .role }}
 {{- end }}
 
 {{/*
-Resolve an image reference. A bare "name:tag" or "name@sha256:..." is prefixed with
-global.imageRegistry; a reference that already names a registry (contains "/") is used
-as-is.
-Usage: include "oguide-crew.image" (dict "root" $ "image" .Values.mcpServers.x.image)
-*/}}
-{{- define "oguide-crew.image" -}}
-{{- if contains "/" .image -}}
-{{- .image -}}
-{{- else -}}
-{{- printf "%s/%s" .root.Values.global.imageRegistry .image -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 The name of the Secret that holds the O'Reilly subscriber key, after checking the auth
 values. The chart names the Secret and never holds a key.
 */}}

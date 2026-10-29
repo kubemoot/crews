@@ -139,7 +139,6 @@ helm upgrade --install oguide \
 | `oreilly.auth.secretName` | `oreilly-mcp-auth` | The Secret that holds your key |
 | `oreilly.auth.secretKey` | `bearer-token` | The key in that Secret: `bearer-token` (sent as `Authorization: Bearer`) or `api-key` |
 | `oreilly.auth.header` | empty | With `api-key` only: the header that carries it |
-| `global.imageRegistry` | `ghcr.io/kubemoot` | Registry for the Kubemoot-built artifact-access image |
 | `imagePullSecrets` | `[]` | Pull secrets for the gateway, for a private mirror |
 | `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
