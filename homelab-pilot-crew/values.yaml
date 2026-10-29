@@ -51,7 +51,12 @@ vectorStore:
   database: kubemoot
   existingSecret: ""
 
-# RAG sources configuration
+# RAG sources configuration. Each source is indexed once for the crew. A source's agents
+# map names the agents that retrieve from it, keyed by the agent's rendered name; the value
+# may set topK (chunks per question) and priority. An agent with no source listing it gets
+# no spec.ragSources and retrieves nothing. kubernetes-mcp-tools lists no agent: it
+# documents a tool server, not a question domain. ragSources.enabled=false renders no
+# source and no binding.
 ragSources:
   enabled: true
   sources:
@@ -61,6 +66,8 @@ ragSources:
       collection: kubectl_reference
       paths:
         - "content/en/docs/reference/kubectl"
+      agents:
+        k8s-advisor: {topK: 2}
 
     - name: helm-reference
       gitUrl: https://github.com/helm/helm-www
@@ -68,6 +75,8 @@ ragSources:
       collection: helm_reference
       paths:
         - "docs"
+      agents:
+        k8s-advisor: {topK: 2}
 
     - name: talos-reference
       gitUrl: https://github.com/siderolabs/talos
@@ -75,6 +84,8 @@ ragSources:
       collection: talos_reference
       paths:
         - "website/content"
+      agents:
+        k8s-advisor: {topK: 2}
 
     - name: proxmox-api-reference
       gitUrl: https://github.com/0xlynett/proxmox-api-docs
@@ -82,6 +93,8 @@ ragSources:
       collection: proxmox_api_reference
       paths:
         - "."
+      agents:
+        proxmox-advisor: {topK: 2}
 
     - name: proxmox-pve-docs
       gitUrl: https://github.com/proxmox/pve-docs
@@ -89,6 +102,8 @@ ragSources:
       collection: proxmox_pve_docs
       paths:
         - "."
+      agents:
+        proxmox-advisor: {topK: 3}
 
     - name: kubernetes-concepts
       gitUrl: https://github.com/kubernetes/website
@@ -101,6 +116,8 @@ ragSources:
         - "content/en/docs/concepts/storage"
         - "content/en/docs/concepts/configuration"
         - "content/en/docs/concepts/cluster-administration"
+      agents:
+        k8s-advisor: {topK: 3}
 
     - name: kubernetes-mcp-tools
       gitUrl: https://github.com/containers/kubernetes-mcp-server
@@ -116,6 +133,8 @@ ragSources:
       paths:
         - "gpu-operator"
         - "gpu-telemetry"
+      agents:
+        nvidia-gpu-advisor: {topK: 3}
 
     - name: prometheus-reference
       gitUrl: https://github.com/prometheus/docs
@@ -123,6 +142,8 @@ ragSources:
       collection: prometheus_reference
       paths:
         - "docs"
+      agents:
+        obs-advisor: {topK: 3}
 
 # MCP Gateway configuration
 # Note: MCPServers are managed by Kubemoot, not by this chart.

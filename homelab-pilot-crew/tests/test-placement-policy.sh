@@ -2,7 +2,8 @@
 # Render tests for the crew's CrewSchedulingPolicy: the placement policy value, the
 # per-phase model selection rules, that the chart ships no Model of its own (the
 # cluster's model catalog supplies them), and that the EmbeddingModel and the gateway
-# tool index name no server. Needs helm and yq.
+# tool index name no server, and that the documentation advisors bind the RAG sources the
+# chart declares for them (and nothing binds when RAG is off). Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-placement-policy.sh
 set -euo pipefail
 chart="$(cd "$(dirname "$0")/.." && pwd)"
@@ -245,3 +246,44 @@ ro_override="$(render --set mcpServers.artifactAccess.image=reg.test/x/artifact-
 [ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$ro_override")" = "reg.test/x/artifact-access:1.2.3" ] || fail "the code sandbox sidecar must use the artifactAccess image value"
 [ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$out")" = "ghcr.io/kubemoot/artifact-access:0.0.0" ] || fail "the code sandbox sidecar must keep the stamped default image"
 echo "PASS: read-ops server selects kubemootImage artifactAccess"
+
+# RAG bindings: an advisor's spec.ragSources lists the sources whose agents map names it, with
+# the declared topK; no other agent binds a source; RAG off, or a source that lists no agent,
+# binds nothing.
+rag_out="$(render --set ragSources.enabled=true --set vectorStore.host=db.test --set vectorStore.existingSecret=s)"
+refs() { yq -N -o=json -I0 "select(.kind == \"Agent\" and .metadata.name == \"$1\") | .spec.ragSources" <<<"$2"; }
+[ "$(refs k8s-advisor "$rag_out")" = '[{"name":"kubectl-reference","topK":2},{"name":"helm-reference","topK":2},{"name":"talos-reference","topK":2},{"name":"kubernetes-concepts","topK":3}]' ] || fail "k8s-advisor must bind its four documentation sources"
+[ "$(refs nvidia-gpu-advisor "$rag_out")" = '[{"name":"nvidia-gpu-reference","topK":3}]' ] || fail "nvidia-gpu-advisor must bind nvidia-gpu-reference"
+[ "$(refs obs-advisor "$rag_out")" = '[{"name":"prometheus-reference","topK":3}]' ] || fail "obs-advisor must bind prometheus-reference"
+[ "$(refs proxmox-advisor "$rag_out")" = '[{"name":"proxmox-api-reference","topK":2},{"name":"proxmox-pve-docs","topK":3}]' ] || fail "proxmox-advisor must bind the two Proxmox sources"
+bound="$(yq -N 'select(.kind == "Agent" and .spec.ragSources) | .metadata.name' <<<"$rag_out" | sort | tr '\n' ' ')"
+[ "$bound" = "k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor " ] || fail "only the four advisors may bind sources, got: $bound"
+# Every bound name is a RAGSource the chart renders, so no agent queries an endpoint that does not exist.
+rendered="$(yq -N 'select(.kind == "RAGSource") | .metadata.name' <<<"$rag_out" | sort -u)"
+for n in $(yq -N 'select(.kind == "Agent") | .spec.ragSources[].name' <<<"$rag_out" | sort -u); do
+  grep -qx "$n" <<<"$rendered" || fail "an agent binds $n, which the chart does not render as a RAGSource"
+done
+! grep -q 'kubernetes-mcp-tools' <<<"$(yq -N 'select(.kind == "Agent") | .spec.ragSources' <<<"$rag_out")" || fail "kubernetes-mcp-tools lists no agent and must not be bound"
+off="$(render | yq -N 'select(.kind == "Agent" and .spec.ragSources) | .metadata.name')"
+[ -z "$off" ] || fail "ragSources.enabled=false must bind nothing, got: $off"
+# A source with no agents map binds nothing, and an agents entry sets topK and priority.
+none="$(render --set ragSources.enabled=true --set vectorStore.host=db.test --set vectorStore.existingSecret=s --set 'ragSources.sources[0].name=solo' --set 'ragSources.sources[0].gitUrl=https://x.test/r' --set 'ragSources.sources[0].paths[0]=.' | yq -N 'select(.kind == "Agent" and .metadata.name == "obs-advisor") | .spec.ragSources[].name')"
+[ "$none" != "solo" ] && ! grep -qx solo <<<"$none" || fail "a source with no agents map must bind no agent"
+prio="$(render --set ragSources.enabled=true --set vectorStore.host=db.test --set vectorStore.existingSecret=s --set 'ragSources.sources[0].name=solo' --set 'ragSources.sources[0].gitUrl=https://x.test/r' --set 'ragSources.sources[0].paths[0]=.' --set 'ragSources.sources[0].agents.obs-advisor.priority=7' | yq -N -o=json -I0 'select(.kind == "Agent" and .metadata.name == "obs-advisor") | .spec.ragSources[0]')"
+[ "$prio" = '{"name":"solo","priority":7}' ] || fail "an agents entry must carry its priority and leave topK to the CRD default, got: $prio"
+echo "PASS: advisors bind their declared RAG sources"
+
+# Every agents key in the default values names a rendered Agent, so a typo cannot leave an advisor unbound.
+agents_rendered="$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$rag_out" | sort -u)"
+for a in $(yq '.ragSources.sources[].agents // {} | keys | .[]' "$chart/values.yaml" | sort -u); do
+  grep -qx "$a" <<<"$agents_rendered" || fail "values.yaml binds a source to $a, which is not a rendered Agent"
+done
+# topK and priority: an explicit value is forwarded, bad values fail the render, null unbinds.
+bind() { render --set ragSources.enabled=true --set vectorStore.host=db.test --set vectorStore.existingSecret=s --set 'ragSources.sources[0].name=solo' --set 'ragSources.sources[0].gitUrl=https://x.test/r' --set 'ragSources.sources[0].paths[0]=.' "$@"; }
+[ "$(bind --set 'ragSources.sources[0].agents.obs-advisor.topK=8' | yq -N -o=json -I0 'select(.metadata.name == "obs-advisor") | .spec.ragSources[0]')" = '{"name":"solo","topK":8}' ] || fail "an explicit topK must be forwarded"
+bind --set 'ragSources.sources[0].agents.obs-advisor.topK=0' >/dev/null 2>&1 && fail "topK 0 must fail the render"
+bind --set 'ragSources.sources[0].agents.obs-advisor.topK=abc' >/dev/null 2>&1 && fail "a non-numeric topK must fail the render"
+bind --set 'ragSources.sources[0].agents.obs-advisor.priority=high' >/dev/null 2>&1 && fail "a non-numeric priority must fail the render"
+[ "$(bind --set-json 'ragSources.sources[0].agents={"obs-advisor":{}}' | yq -N -o=json -I0 'select(.metadata.name == "obs-advisor") | .spec.ragSources[-1]')" = '{"name":"solo"}' ] || fail "an empty agents entry must bind with defaults"
+[ "$(bind --set 'ragSources.sources[0].agents.obs-advisor=null' | yq -N -o=json -I0 'select(.metadata.name == "obs-advisor") | .spec.ragSources')" = 'null' ] || fail "a null agents entry must unbind"
+echo "PASS: RAG binding values are validated"
