@@ -48,7 +48,7 @@ for crew in "${crews[@]}"; do
 done
 check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox scheduling-mcp" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "O'guide pins its Kubemoot image as a placeholder" "artifact-access" \
+check "O'guide pins no Kubemoot image (its read-ops server selects the operator's)" "" \
   "$(rl_image_placeholders "${repo}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
@@ -128,12 +128,14 @@ copy_crew homelab-pilot-crew
 KUBEMOOT_PINS=newest stamp "${root}/homelab-pilot-crew" 0.47.2-rc.3 && status=0 || status=$?
 check "refuses an unknown KUBEMOOT_PINS" 1 "$((status != 0))"
 
-# O'guide stamps its one Kubemoot image the same way.
+# O'guide pins no Kubemoot image: its read-ops server selects the operator's with
+# kubemootImage, so it stamps without a Kubemoot remote.
 copy_crew oguide-crew
-stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
+KUBEMOOT_REMOTE="${root}/missing.git" stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'guide candidate stamp succeeds" 0 "$status"
-check "O'guide renders the newest candidate artifact-access" "ghcr.io/kubemoot/artifact-access:0.345.0-rc.1" \
-  "$(rendered_images oguide-crew | grep '^ghcr.io/kubemoot/')"
+check "O'guide renders no Kubemoot-built image" 0 "$(rendered_images oguide-crew | grep -c '^ghcr.io/kubemoot/' || true)"
+check "O'guide read-ops selects kubemootImage artifactAccess" 1 \
+  "$(helm template t "${root}/oguide-crew" | grep -cx '  kubemootImage: artifactAccess')"
 check "O'guide keeps the search server's Python image pinned by digest, unstamped" 1 \
   "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
 check "O'guide stamped chart lints" 0 "$(helm lint "${root}/oguide-crew" >/dev/null 2>&1; echo $?)"

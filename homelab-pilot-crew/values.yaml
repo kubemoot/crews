@@ -302,12 +302,12 @@ mcpServers:
     # such as gvisor, where the bridge's FIFOs are not shared between containers.
     transport: stdio
   artifactAccess:
-    # Materializer sidecar for the code sandbox AND the read-ops server (one image,
-    # two modes). The 0.0.0 tag is stamped at build with Kubemoot's latest released
-    # artifact-access version.
+    # Materializer sidecar of the code sandbox only. The read-ops server below takes its
+    # image from the operator (kubemootImage: artifactAccess), not from this value. The
+    # 0.0.0 tag is stamped at build with Kubemoot's latest released artifact-access version.
     image: "artifact-access:0.0.0"
   artifactReadOps:
-    # Shared read-ops MCP service (same artifact-access image, ARTIFACT_MODE=mcp):
+    # Shared read-ops MCP service (the operator's artifact-access image, ARTIFACT_MODE=mcp):
     # network-capable agents call head/tail/grep/select/count/rows/jq over a
     # referenced artifact key to read a slice of the data where it is stored.
     enabled: true

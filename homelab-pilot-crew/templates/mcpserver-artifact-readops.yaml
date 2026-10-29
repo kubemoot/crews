@@ -13,7 +13,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   # the non-code counterpart to the no-network sandbox's materializer. Same binary as
   # the sandbox sidecar (kubemoot/artifact-access), run in mcp mode. Pure stdio ->
   # operator adds the bridge sidecar (port below is the bridge's TCP port).
-  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
+  # kubemootImage selects the artifact-access image the operator's KubemootConfig names
+  # (spec.images.artifactAccess), so the operator also wires the artifact query engine
+  # (ARTIFACT_QUERY_ENGINE, the /artifacts emptyDir and TMPDIR). It is exclusive with image.
+  kubemootImage: artifactAccess
   transport: stdio
   # Buildpacks image: the launcher /cnb/process/web starts the binary. The bridge runs
   # exec mode, so the start command must be explicit.
