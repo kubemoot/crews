@@ -52,7 +52,7 @@ spec:
       carries NO data - the FULL data lives in that artifact.
     WHEN a contribution shows such an [ARTIFACT key=<key> ...] marker:
     THEN the inline line is NOT the data - READ the artifact with your artifact read
-      tools (the artifact_* tools in your list) over the artifact KEY before you answer.
+      tools (the data read tools in your list) over the artifact KEY before you answer.
     NEVER answer from the marker line itself, and NEVER report a count, list, or
       inventory without first reading the artifact - counting or enumerating the marker
       is a fabrication.
