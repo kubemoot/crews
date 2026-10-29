@@ -10,7 +10,7 @@ metadata:
   annotations:
     kubemoot.ai/discuss-priority: medium
     kubemoot.ai/scale-to-zero: "true"
-spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-advisor") }}
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-advisor") }}{{ include "homelab-pilot-crew.ragSources" (dict "root" $ "name" "k8s-advisor") }}
   type: chat
   description: "Answers conceptual Kubernetes questions from documentation (RAG). Has NO live cluster tools."
   discussRole: analyst

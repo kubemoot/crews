@@ -116,6 +116,25 @@ network:
 
 Empty, the default, renders no `network` field on the Crew, so the chart still installs on a Kubemoot operator whose Crew resource has no such field. Set it only on an operator that supports Crew network policies; see the Kubemoot documentation page on network policies.
 
+## RAG sources
+
+`ragSources.sources` lists the documentation the crew indexes; each entry becomes a `RAGSource`. An entry's `agents` map names the agents that retrieve from it, keyed by the agent's rendered name, with an optional `topK` (chunks per question) and `priority`:
+
+```yaml
+ragSources:
+  sources:
+    - name: prometheus-reference
+      gitUrl: https://github.com/prometheus/docs
+      collection: prometheus_reference
+      paths: ["docs"]
+      agents:
+        obs-advisor: {topK: 3}
+```
+
+The chart renders that as `spec.ragSources` on the agent, and the Kubemoot operator gives the agent the source's query endpoint. An agent that no source lists retrieves nothing. By default `k8s-advisor` binds the Kubernetes, kubectl, Helm, and Talos sources, `proxmox-advisor` the two Proxmox sources, `nvidia-gpu-advisor` the NVIDIA source, and `obs-advisor` the Prometheus source. `kubernetes-mcp-tools` is indexed but lists no agent. `ragSources.enabled=false` renders no source and no binding.
+
+`topK` must be at least 1 and `priority` a number (higher retrieves first, default 0); either one wrong fails the render. Omitting `topK` takes the Agent CRD default of 5, which the default values never use. An entry set to `null` unbinds that agent and `{}` binds it with the defaults. A key that names no agent in the chart is a typo the chart does not catch at install; the render tests check the default values. Bindings live on the source, so a new agent is added to each source it should read. Overriding `ragSources.sources` replaces the whole list, bindings included.
+
 ## Egress
 
 The `egress` value sets outbound network access for one tool server or agent at a time. Each entry is keyed by the rendered name of an MCPServer (`egress.mcpServers`) or an Agent (`egress.agents`), and its value is copied as written into that resource's `spec.egress`. A field the Kubemoot operator adds to `spec.egress` later needs no chart change. Names are the ones in `templates/`, for example `web-search-mcp`, `k8s-advisor`, or `<release>-kubernetes-mcp`. An entry whose name matches no resource in this chart renders nothing and does not fail the install.

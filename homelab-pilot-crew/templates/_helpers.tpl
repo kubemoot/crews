@@ -116,3 +116,46 @@ two-space indent, so it starts with a newline.
     {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+spec.ragSources for one Agent: every entry of ragSources.sources that lists the agent under
+its agents map, in the order the sources are declared. The map is keyed by the agent's
+rendered metadata.name; its value may set topK (at least 1) and priority, both numbers.
+An entry set to null (for example --set ragSources.sources[0].agents.x=null) unbinds that
+agent; {} binds it with the CRD defaults. Renders nothing when
+ragSources.enabled is false or no source lists the agent, so a crew without RAG renders
+agents with no ragSources and the runtime queries no endpoint. Call as:
+include "homelab-pilot-crew.ragSources" (dict "root" $ "name" "<name>").
+Rendered directly after "spec:" (and after the egress helper) at a two-space indent, so
+it starts with a newline.
+*/}}
+{{- define "homelab-pilot-crew.ragSources" -}}
+{{- $agent := .name -}}
+{{- $refs := list -}}
+{{- if .root.Values.ragSources.enabled -}}
+{{- range .root.Values.ragSources.sources -}}
+{{- $src := .name -}}
+{{- $use := index (default dict .agents) $agent -}}
+{{- if not (kindIs "invalid" $use) -}}
+{{- $ref := dict "name" $src -}}
+{{- range $k := list "topK" "priority" -}}
+{{- if hasKey $use $k -}}
+{{- $v := index $use $k -}}
+{{- if not (or (kindIs "float64" $v) (kindIs "int64" $v) (kindIs "int" $v)) -}}
+{{- fail (printf "ragSources.sources[%s].agents.%s.%s must be a number, got %v" $src $agent $k $v) -}}
+{{- end -}}
+{{- if and (eq $k "topK") (lt (float64 $v) 1.0) -}}
+{{- fail (printf "ragSources.sources[%s].agents.%s.topK must be at least 1" $src $agent) -}}
+{{- end -}}
+{{- $_ := set $ref $k $v -}}
+{{- end -}}
+{{- end -}}
+{{- $refs = append $refs $ref -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $refs }}
+  ragSources:
+    {{- toYaml $refs | nindent 4 }}
+{{- end }}
+{{- end }}
