@@ -11,7 +11,7 @@ ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic ground truth: the cluster has 28 namespaces with pods, so the top-5-by
+# Deterministic ground truth: the cluster has 27 namespaces with pods, so the top-5-by
 # -pod-count is fully answerable. The observed failure returned "could not be retrieved"
 # - a non-answer to an answerable question. Forbid that.
 ASSERT(synthesis does NOT CONTAIN "could not be retrieved")

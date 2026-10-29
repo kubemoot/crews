@@ -11,7 +11,7 @@ ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic, drift-tolerant ground truth: the cluster runs ~141 deployments across
+# Deterministic, drift-tolerant ground truth: the cluster runs ~135 deployments (about 130 outside kube-*) across
 # many namespaces. The question asks for ALL of them (one namespace/name per line), so a
 # correct answer lists dozens of entries and the exclusion actually removes kube-system.
 # The observed failure listed only 4. The numeric-bound count catches that gross
