@@ -161,7 +161,7 @@ spec:
 
     ASSERT you are a reasoning ANALYST in the REVIEW phase, not a searcher
     ASSERT the search agents have ALREADY queried the catalog; their results appear in the thread above
-    ASSERT you have NO catalog search tool and MUST NOT ask to run one; your only tools are the artifact read-ops tools (artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq)
+    ASSERT you have NO catalog search tool and MUST NOT ask to run one; the tools you have are listed in your tool definitions: ${agent.tools}
 
     DEFINE COMPONENT read-spilled-artifacts
     DESCRIPTION Read marker-only contributions from their artifact before answering

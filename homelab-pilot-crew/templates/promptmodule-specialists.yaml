@@ -36,7 +36,7 @@ spec:
     WHEN checking pod CPU/memory THEN use pods_top(all_namespaces=true) or pods_top(name="<pod>", namespace="<ns>")
     WHEN investigating events for a SPECIFIC workload you are examining THEN use events_list(namespace="<ns>") and filter to that pod/workload
     WHEN the question is about cluster-wide Events or Warning-level events across any object type THEN defer to the k8sgpt diagnostics tooler (events are cross-cutting, not workload-only)
-    WHEN executing commands in pods THEN use pods_exec(name="<pod>", namespace="<ns>", command=[...])
+    WHEN executing commands in pods THEN use your pod exec tool, if you have one, with name="<pod>", namespace="<ns>", command=[...]
     WHEN viewing pod logs THEN use pods_log(name="<pod>", container="<c>", namespace="<ns>", tail=N, previous=bool)
 
     DEFINE COMPONENT cross-namespace-and-multi-kind
@@ -172,13 +172,13 @@ spec:
     WHEN question is about anything other than Helm releases THEN defer to other toolers
 
     DEFINE COMPONENT tool-selection
-    DESCRIPTION The scope of each helm_list call follows the namespaces the question names
+    DESCRIPTION The scope of each Helm list call follows the namespaces the question names
 
-    WHEN the question names no namespace THEN use helm_list(all_namespaces=true)
-    WHEN the question names one namespace X THEN use helm_list(namespace="X")
-    WHEN the question names several namespaces THEN call helm_list(namespace="<ns>") once for each
-    WHEN installing a Helm chart THEN use helm_install
-    WHEN removing a Helm release THEN use helm_uninstall
+    WHEN the question names no namespace THEN use your Helm list tool with all_namespaces=true
+    WHEN the question names one namespace X THEN use your Helm list tool with namespace="X"
+    WHEN the question names several namespaces THEN call your Helm list tool with namespace="<ns>" once for each
+    WHEN installing a Helm chart THEN use your Helm install tool, if you have one
+    WHEN removing a Helm release THEN use your Helm uninstall tool, if you have one
 ---
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
@@ -329,8 +329,8 @@ spec:
     WHEN checking Kubernetes version THEN use resources_list(apiVersion="v1", kind="Node") which returns kubelet version per node
     WHEN listing all CRDs THEN use resources_list(apiVersion="apiextensions.k8s.io/v1", kind="CustomResourceDefinition")
     WHEN getting CRD details THEN use resources_get(apiVersion="apiextensions.k8s.io/v1", kind="CustomResourceDefinition", name="<crd>")
-    WHEN listing available API resource types THEN use list_api_resources
-    WHEN explaining a resource schema THEN use explain_resource
+    WHEN listing available API resource types THEN use your API-resource listing tool
+    WHEN explaining a resource schema THEN use your resource schema explain tool
 
     DEFINE COMPONENT domain-scope
     DESCRIPTION Node domain boundaries
@@ -414,8 +414,8 @@ spec:
     WHEN listing all LimitRanges THEN use resources_list(apiVersion="v1", kind="LimitRange")
     WHEN getting LimitRange details THEN use resources_get(apiVersion="v1", kind="LimitRange", name="<lr>", namespace="<ns>")
     WHEN checking pod CPU/memory THEN use pods_top(all_namespaces=true) or pods_top(name="<pod>", namespace="<ns>")
-    WHEN manually scaling a deployment THEN use resources_scale(apiVersion="apps/v1", kind="Deployment", name="<deploy>", namespace="<ns>", scale=N)
-    WHEN manually scaling a statefulset THEN use resources_scale(apiVersion="apps/v1", kind="StatefulSet", name="<sts>", namespace="<ns>", scale=N)
+    WHEN manually scaling a deployment THEN use your scale tool, if you have one, with apiVersion="apps/v1", kind="Deployment", name="<deploy>", namespace="<ns>", scale=N
+    WHEN manually scaling a statefulset THEN use your scale tool, if you have one, with apiVersion="apps/v1", kind="StatefulSet", name="<sts>", namespace="<ns>", scale=N
     WHEN troubleshooting scaling events THEN use events_list()
 
     DEFINE COMPONENT domain-scope
@@ -524,7 +524,7 @@ spec:
     ALWAYS answer questions about CURRENT GPU state (utilization, temperature, VRAM use, power draw, clock speeds)
     WHEN question is about HISTORICAL trends / time series THEN defer to nvidia-gpu-history tooler
     WHEN question is about WHICH metrics exist OR scrape-target health THEN defer to nvidia-gpu-meta tooler
-    NEVER call execute_range_query, list_metrics, get_metric_metadata, or get_targets — only execute_query is available
+    NEVER try a range query, a metric listing, metric metadata, or a scrape-target call; your only tool is the instant query tool
 
     DEFINE COMPONENT topology-discovery
     DESCRIPTION Discover the cluster's GPU topology before answering — never assume labels
@@ -569,7 +569,7 @@ spec:
     ALWAYS answer questions about GPU TRENDS, time-series, spikes, averages over a window, regressions
     WHEN question is about CURRENT instant state (what is X right now?) THEN defer to nvidia-gpu-now tooler
     WHEN question is about WHICH metrics exist OR scrape-target health THEN defer to nvidia-gpu-meta tooler
-    NEVER call execute_query, list_metrics, or get_targets — only execute_range_query and get_metric_metadata are available
+    NEVER try an instant query, a metric listing, or a scrape-target call; your only tools are the range query and metric metadata tools
 
     DEFINE COMPONENT topology-discovery
     DESCRIPTION Discover label dimensions before constructing a range query
@@ -607,7 +607,7 @@ spec:
     ALWAYS answer questions about WHICH metrics exist in the GPU domain (discovery), and WHETHER the DCGM exporter scrape targets are healthy
     WHEN question is about the metric VALUE itself (current OR historical) THEN defer to nvidia-gpu-now or nvidia-gpu-history
     WHEN question is about general Prometheus / cluster observability (not GPU-specific) THEN defer to obs-metrics tooler
-    NEVER call execute_query, execute_range_query, or get_metric_metadata — only list_metrics and get_targets are available
+    NEVER try an instant query, a range query, or a metric metadata call; your only tools are the metric listing and scrape-target tools
 
     DEFINE COMPONENT discovery
     DESCRIPTION How to discover what GPU metrics exist
@@ -699,17 +699,17 @@ spec:
 
     WHEN listing all cluster nodes THEN use proxmox-list-nodes — ALWAYS call this first
     WHEN getting detailed node info (CPU, memory, uptime, kernel) THEN use proxmox-node-status(node="<name>")
-    WHEN getting node performance metrics over time THEN use proxmox-node-metrics(node="<name>")
+    WHEN getting node performance metrics over time THEN use your node metrics tool, if you have one, with node="<name>"
     WHEN listing all storage backends THEN use proxmox-list-storage
-    WHEN browsing storage contents (ISOs, backups, disk images) THEN use proxmox-storage-content
+    WHEN browsing storage contents (ISOs, backups, disk images) THEN use your storage content tool, if you have one
     WHEN listing LXC containers THEN:
-      1. Call proxmox-list-all-vms-from-all-clusters()
+      1. Call your tool that lists every VM and container across the clusters, if you have one
       2. Filter entries where "type" is "lxc" — IGNORE all "qemu" entries
       3. Report: name, vmid, node, status, CPU, memory for each LXC container
-    NEVER use proxmox-list-lxc or proxmox-lxc-info — they have a known API bug
+    NEVER use a per-container LXC list or info tool; they have a known API bug
     WHEN listing network bridges THEN use proxmox-list-bridges
     WHEN listing recent tasks THEN use proxmox-list-tasks
-    WHEN checking task status THEN use proxmox-task-status
+    WHEN checking task status THEN use your task status tool, if you have one
 
     WHEN asked about LXC containers THEN report ONLY LXC containers (type=lxc), NEVER list VMs (type=qemu)
 
@@ -1052,7 +1052,7 @@ spec:
     DEFINE DOMAIN scheduler-advisor
     DESCRIPTION Manages scheduled reminders and follow-up discussions via the scheduling-mcp tools
 
-    ASSERT You provide four tools: set_reminder, schedule_followup, list_scheduled, cancel_scheduled
+    ASSERT You provide these tools: ${agent.tools}
     ASSERT The user never sees scheduleId UUIDs — always refer to schedules by their content + relative time
     ASSERT Time expressions are natural-language: "in 30 minutes", "tomorrow at 9am", "Monday at 14:30", or RFC 3339
 

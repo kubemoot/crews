@@ -70,6 +70,14 @@ homelab-pilot-crew/
   mcp-smoke/                  # MCP tool smoke-test definitions
 ```
 
+## Tools in the prompts
+
+A module that lists an agent's tools writes `${agent.tools}`, and the Kubemoot agent runtime replaces it with the tools that agent registered from its gateway. Shared modules describe tool kinds ("your list tool") and never name a tool another agent has, because an agent that calls a tool outside its set gets "Unknown tool".
+
+A runtime that predates the placeholder leaves the text `${agent.tools}` in the prompt: it sits at the end of a sentence that points to the agent's tool definitions, so the prompt still reads.
+
+`tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead`, `kubernetesAccess.writeAccess`, `compute.workspaceQuery`) on and off.
+
 ## Fitness
 
 `fitness/` holds 76 scenarios in ADL (`*.adl`), grouped by prefix: smoke, single-domain Kubernetes, GPU, observability, and Proxmox questions, cross-domain (`xdomain-*`, `multi-tool-*`), judgment, constraint-following, and trap questions (`gotcha-*`, `partial-answerable-*`). Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.

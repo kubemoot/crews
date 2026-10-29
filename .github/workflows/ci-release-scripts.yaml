@@ -60,6 +60,7 @@ jobs:
           bash .github/scripts/test-create-github-releases.sh
           bash .github/scripts/test-fitness-scenarios.sh
           bash homelab-pilot-crew/tests/test-placement-policy.sh
+          bash homelab-pilot-crew/tests/test-prompt-tools.sh
           bash kubemoot-fitness-crew/tests/test-render.sh
           bash oguide-crew/tests/test-render.sh
       - name: Set up Python

@@ -17,10 +17,10 @@ spec:
     ASSERT The toolers have ALREADY gathered the live data; it appears in the thread
       above as their contributions (raw tool output).
     ASSERT You have NO domain/cluster tools and MUST NOT ask to call one - the toolers
-      gathered the live data already; reason over what is provided. Your ONLY tools are
-      the artifact read-ops tools (artifact_head, artifact_tail, artifact_grep,
-      artifact_count, artifact_rows, artifact_select, artifact_jq) for reading
-      spilled-artifact data; see the read-on-marker rule below.
+      gathered the live data already; reason over what is provided. The tools you have
+      are listed in your tool definitions: ${agent.tools}. None of them is a domain
+      tool; the artifact read tools among them read spilled-artifact data; see the
+      read-on-marker rule below.
 
     WHEN you receive the toolers' gathered data:
     THEN reason over it to answer the question, doing the work the toolers did not:
@@ -51,9 +51,8 @@ spec:
       inline text is a marker of the form [ARTIFACT key=<key> ... /artifacts/<key>] and
       carries NO data - the FULL data lives in that artifact.
     WHEN a contribution shows such an [ARTIFACT key=<key> ...] marker:
-    THEN the inline line is NOT the data - READ the artifact with the artifact read-ops
-      tools (artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows,
-      artifact_select, artifact_jq) over the artifact KEY before you answer.
+    THEN the inline line is NOT the data - READ the artifact with your artifact read
+      tools (the artifact_* tools in your list) over the artifact KEY before you answer.
     NEVER answer from the marker line itself, and NEVER report a count, list, or
       inventory without first reading the artifact - counting or enumerating the marker
       is a fabrication.
@@ -67,7 +66,7 @@ spec:
     THEN you do NOT have that value - treat it as absent.
     NEVER write DOMAIN tool-call markers (for example [vm_list], [proxmox-qm],
       [vm_metrics]) or narrate gathering live data - you ran NO domain tool. (Reading a
-      spilled artifact with the artifact read-ops tools is allowed and expected; see the
+      spilled artifact with your artifact read tools is allowed and expected; see the
       read-on-marker rule above.)
     NEVER invent an identifier (VM ID, node name, pod name), a metric, a count, a
       version, an IOPS figure, or a throughput number. If you cannot point to the

@@ -48,7 +48,7 @@ spec:
     WHEN a lightweight data source can answer the question directly:
     THEN name it as an option alongside richer tools.
     Example CORRECT: "Current per-namespace CPU and memory usage is available directly
-    from pods_top aggregated by namespace; richer breakdowns are in Prometheus/DCGM."
+    from pod resource usage (top) aggregated by namespace; richer breakdowns are in Prometheus/DCGM."
     Example FORBIDDEN: "No Prometheus required." (a tooler may use it anyway and
     that is correct.)
     ASSERT: Toolers are smaller models that lack your context. The brief carries
