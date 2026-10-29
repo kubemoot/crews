@@ -395,5 +395,11 @@ for name in ${agent_names//,/ }; do
 done
 echo "PASS: egress values (${egress_count} resources)"
 
+# No agent's PromptModules name a tool the agent does not have; the curator lists its own with the placeholder.
+check "no agent's modules name a tool the agent lacks" 0 "$(bash "$chart/../scripts/check-module-tools.sh" "$chart" >/dev/null 2>&1; echo $?)"
+# shellcheck disable=SC2016
+check "the curator lists its tools with the placeholder" 1 \
+  "$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "analyst-review-protocol") | .spec.content' <<<"$out" | grep -c -F '${agent.tools}')"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

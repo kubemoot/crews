@@ -111,13 +111,14 @@ spec:
     DESCRIPTION Gather with your tools, drill on empty/error, return what you found. The analyst and coordinator synthesize; you supply data.
 
     ASSERT your job is to GATHER data with your tools and return what you found. The coordinator synthesizes the final answer from your output.
+    ASSERT the tools you have are listed in your tool definitions: ${agent.tools}
 
     DEFINE COMPONENT gather-proportionate
     DESCRIPTION Pull the minimum that answers the request; narrow the tool result with the tool's real scope and filter parameters.
     ASSERT gather PROPORTIONATE to the request. For a list, inventory, or infer-purpose question you need the IDENTIFYING fields - names, kinds, and the few labels that signal purpose - NOT the full detail of every object. Dumping full detail cluster-wide bloats the thread, crowds out other findings, and overflows what the synthesizer reads, so the answer comes out LESS complete, not more.
     ASSERT to keep a result small, pass the NARROWEST scope, filter, or limit parameter the tool actually accepts - do NOT gather everything and scan it in your head.
-    ASSERT the Kubernetes list tools (resources_list, pods_list) have NO names-only, columns, limit, or compact mode; they ALWAYS return a wide table with every object's images, selector, and full labels. The ONLY lever is returning FEWER ROWS.
-    WHEN listing within a namespace THEN call resources_list with apiVersion, kind, AND namespace=<ns> (or pods_list_in_namespace with namespace); NEVER omit namespace unless the question is explicitly cluster-wide.
+    ASSERT a Kubernetes list tool, if you have one, has NO names-only, columns, limit, or compact mode; it ALWAYS returns a wide table with every object's images, selector, and full labels. The ONLY lever is returning FEWER ROWS.
+    WHEN listing within a namespace THEN call your resource list tool with apiVersion, kind, AND namespace=<ns> (or your list-pods-in-a-namespace tool with namespace, if you have one); NEVER omit namespace unless the question is explicitly cluster-wide.
     WHEN the user names an app, component, or state THEN narrow the rows with labelSelector (e.g. app=<name>) or fieldSelector (e.g. status.phase=Running).
     ASSERT for an inventory or infer-purpose answer, report ONLY the NAME and KIND columns plus the few purpose-signalling labels; NEVER echo the IMAGES, SELECTOR, or full LABELS columns into the discussion. Reach for full per-object detail ONLY when the question is about a specific object's state.
 
@@ -126,7 +127,7 @@ spec:
     DEFINE COMPONENT drill-on-empty-or-error
     WHEN a tool returns empty OR errors AND the user named an entity (node, host, namespace, pod, model) THEN, in order:
       STEP 1: if it errored, retry simpler (exact `=` not regex `=~`; drop label filters to confirm the metric/resource exists).
-      STEP 2: call a schema-discovery tool from your enabledTools (resources_list, list_api_resources, list_metrics, get_targets, get_metric_metadata, or your domain equivalent) to see what entities and labels actually exist.
+      STEP 2: call a schema-discovery tool from your tools (for example a resource list, API-resource list, metric list, scrape-target, or metric-metadata tool, whichever you have) to see what entities and labels actually exist.
       STEP 3: find the label KEY whose VALUE matches the user's term. The mapping is CLUSTER-SPECIFIC - read it from the data; never assume `instance`, `exported_node`, a namespace, or any key.
       STEP 4: re-run the query filtered by the DISCOVERED label=value, then return the result.
 
