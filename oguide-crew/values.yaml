@@ -46,6 +46,13 @@ oreilly:
     # Only with secretKey api-key: the header that carries the key.
     header: ""
 
+# The curator. workspaceQuery adds the workspace_query tool (read-only SQL over the
+# discussion's staged artifacts, such as spilled search results) to its tools. The artifact
+# read-ops server offers it only when the operator setting artifacts.queryEngine is sqlite
+# or duckdb; otherwise the curator does not register it.
+curator:
+  workspaceQuery: true
+
 # MCP gateway the search agents and the curator call their tools through. It registers
 # this release's MCPServers.
 mcpGateway:

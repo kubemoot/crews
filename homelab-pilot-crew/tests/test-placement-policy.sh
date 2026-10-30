@@ -214,14 +214,14 @@ err="$(render --set mcpServers.codeSandbox.transport=grpc 2>&1 >/dev/null || tru
 grep -q 'mcpServers.codeSandbox.transport must be stdio or http, got "grpc"' <<<"$err" || fail "an unknown transport must fail the render with a clear message: $err"
 echo "PASS: mcpServers.codeSandbox.transport"
 
-# compute.workspaceQuery: off by default; on adds workspace_query to the compute agent only.
+# compute.workspaceQuery: on by default; off removes workspace_query from the compute agent.
 tools() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | .spec.enabledTools | join(\",\")"; }
-wq_off="$(render)"
-wq_on="$(render --set compute.workspaceQuery=true)"
-! grep -q 'workspace_query' <<<"$wq_off" || fail "workspace_query rendered with the default"
-[ "$(tools compute <<<"$wq_on")" = "execute_code,validate_code,artifact_head,artifact_tail,artifact_grep,artifact_count,artifact_rows,artifact_select,artifact_jq,workspace_query" ] || fail "compute.workspaceQuery=true must append workspace_query to compute"
+wq_off="$(render --set compute.workspaceQuery=false)"
+wq_on="$(render)"
+! grep -q 'workspace_query' <<<"$wq_off" || fail "workspace_query rendered with compute.workspaceQuery=false"
+[ "$(tools compute <<<"$wq_on")" = "execute_code,validate_code,artifact_head,artifact_tail,artifact_grep,artifact_count,artifact_rows,artifact_select,artifact_jq,workspace_query" ] || fail "compute.workspaceQuery must append workspace_query to compute"
 [ "$(grep -c 'workspace_query' <<<"$wq_on")" = "1" ] || fail "workspace_query must appear only in the compute agent"
-[ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "2" ] || fail "compute.workspaceQuery=true must change only the compute enabledTools line"
+[ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "2" ] || fail "compute.workspaceQuery must change only the compute enabledTools line"
 echo "PASS: compute.workspaceQuery"
 
 # The compute prompt treats inputs stated in the question as data, and NO_DATA applies only

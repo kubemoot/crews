@@ -147,7 +147,11 @@ check "library search leaves scheduled releases to the events agent" 1 "$(has li
 check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released,find_title" \
   "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "library-search" or .metadata.name == "events-scout")) | .metadata.name + "=" + (.spec.enabledTools | sort | join(","))' <<<"$out" | sort | paste -sd' ')"
 check "the curator reads artifacts only" 0 \
-  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vc '^artifact_' || true)"
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vcE '^(artifact_|workspace_query$)' || true)"
+check "the curator has workspace_query by default" 1 \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -c '^workspace_query$' || true)"
+check "curator.workspaceQuery=false leaves it out" 0 \
+  "$(render --set curator.workspaceQuery=false 2>/dev/null | yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' | grep -c '^workspace_query$' || true)"
 check "no agent lists the raw search tool" 0 \
   "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$out" | grep -c '^search_oreilly_content$' || true)"
 check "no prompt names the raw search tool or builds search arguments" 0 \

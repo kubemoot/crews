@@ -101,7 +101,7 @@ scheduler documentation, section "Placement policy".
 
 ## Workspace query
 
-`compute.workspaceQuery` (default `false`) adds the `workspace_query` tool to the compute agent's `enabledTools`: read-only SQL over the discussion's staged artifacts. The tool's own description carries its usage and SQL dialect. The artifact read-ops server offers the tool only when the Kubemoot operator's `artifacts.queryEngine` is set to `sqlite` or `duckdb`; with the default `none` the tool does not exist, so set both together. With the default value the rendered chart is unchanged.
+`compute.workspaceQuery` (default `true`) adds the `workspace_query` tool to the compute agent's `enabledTools`: read-only SQL over the discussion's staged artifacts, the way to count, filter, sort and total a listing. The tool's own description carries its usage and SQL dialect. The artifact read-ops server offers the tool only when the Kubemoot operator's `artifacts.queryEngine` is set to `sqlite` or `duckdb`. With the operator's default `none` the agent does not register the tool (an agent registers only the tools its gateway offers), so the crew works either way and gains the tool when the operator turns an engine on. Set `false` to leave it out.
 
 ## Network policies
 
