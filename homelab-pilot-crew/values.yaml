@@ -351,6 +351,6 @@ egress:
 # The compute agent. workspaceQuery adds the workspace_query tool (read-only SQL over the
 # discussion's staged artifacts) to its tools. The artifact read-ops server offers the tool
 # only when the operator setting artifacts.queryEngine is sqlite or duckdb; with it off, the
-# agent lists a tool that does not exist.
+# agent registers only the tools its gateway offers, so the tool is simply absent.
 compute:
-  workspaceQuery: false
+  workspaceQuery: true
