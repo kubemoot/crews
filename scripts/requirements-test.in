@@ -4,4 +4,4 @@
 #   pip-compile --allow-unsafe --generate-hashes --strip-extras --output-file=requirements-test.txt requirements-test.in
 # (Python 3.12, the quality workflow's Python). Dependabot updates both.
 
-coverage==7.16.2
+coverage==7.17.0
