@@ -286,11 +286,22 @@ mcpServers:
     endpoint: "http://kube-prometheus-stack-prometheus.monitoring:9090"
   proxmox:
     # Proxmox VE tools for the proxmox-pve and proxmox-qm agents, which render only
-    # when this is enabled. No public Proxmox MCP image ships with Kubemoot; set
-    # image to your own and secretRef to a Secret with the Proxmox API credentials.
+    # when this is enabled. Kubemoot ships no Proxmox MCP image, so image stays empty
+    # and the chart requires yours. The recommended one is akmalovaa/proxmox-mcp (MIT,
+    # multi-arch, Streamable HTTP): ghcr.io/akmalovaa/proxmox-mcp, pinned by digest
+    # rather than by tag, for example
+    #   ghcr.io/akmalovaa/proxmox-mcp@sha256:c14fe296fc49d40ae1ac72578f06939a9ea89baec77e21c9e3ead03b96b9323f
+    # (the 2.3.0 release). The chart starts it at the read risk level with only the
+    # tools the two agents use. Another server needs its own tool names in the agents.
     enabled: false
     image: ""
+    # A Secret in the crew namespace whose keys are the server's environment variables:
+    # PROXMOX_HOST (host or IP, no scheme), PROXMOX_USER (for example mcp@pve),
+    # PROXMOX_TOKEN_NAME and PROXMOX_TOKEN_VALUE. Give the token a read-only role such as
+    # PVEAuditor.
     secretRef: proxmox-secret
+    # Check the Proxmox certificate. Leave true unless the nodes serve a self-signed one.
+    verifySsl: true
   webSearch:
     # DuckDuckGo MCP server for internet-search (search, fetch_content). Docker's MCP
     # catalog publishes it only as latest, so it is pinned by digest.
