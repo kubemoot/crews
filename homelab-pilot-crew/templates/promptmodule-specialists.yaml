@@ -699,17 +699,17 @@ spec:
 
     WHEN listing all cluster nodes THEN use proxmox-list-nodes — ALWAYS call this first
     WHEN getting detailed node info (CPU, memory, uptime, kernel) THEN use proxmox-node-status(node="<name>")
-    WHEN getting node performance metrics over time THEN use your node metrics tool, if you have one, with node="<name>"
+    WHEN getting node performance metrics over time THEN use proxmox-node-metrics(node="<name>")
     WHEN listing all storage backends THEN use proxmox-list-storage
-    WHEN browsing storage contents (ISOs, backups, disk images) THEN use your storage content tool, if you have one
+    WHEN browsing storage contents (ISOs, backups, disk images) THEN use proxmox-storage-content(node="<name>", storage="<storage>")
     WHEN listing LXC containers THEN:
-      1. Call your tool that lists every VM and container across the clusters, if you have one
+      1. Call proxmox-list-all-vms-from-all-clusters (it returns VMs and containers)
       2. Filter entries where "type" is "lxc" — IGNORE all "qemu" entries
       3. Report: name, vmid, node, status, CPU, memory for each LXC container
     NEVER use a per-container LXC list or info tool; they have a known API bug
     WHEN listing network bridges THEN use proxmox-list-bridges
     WHEN listing recent tasks THEN use proxmox-list-tasks
-    WHEN checking task status THEN use your task status tool, if you have one
+    WHEN checking task status THEN use proxmox-task-status(upid="<upid>") with the UPID from proxmox-list-tasks
 
     WHEN asked about LXC containers THEN report ONLY LXC containers (type=lxc), NEVER list VMs (type=qemu)
 
