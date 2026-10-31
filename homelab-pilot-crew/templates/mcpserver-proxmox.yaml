@@ -21,6 +21,18 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - lxc-containers
     - storage
     - backup
+  # The server's own proxmox-node-metrics text names no allowed values; Proxmox's RRD API
+  # rejects anything outside them with 400 "Parameter verification failed".
+  toolOverrides:
+    - name: proxmox-node-metrics
+      description: "Performance history of one Proxmox node (CPU, memory, load, network, disk) from its RRD data, as a list of samples."
+      parameters:
+        node:
+          description: "The Proxmox node name, exactly as proxmox-list-nodes returns it."
+        timeframe:
+          description: "One of: hour, day, week, month, year. The default is hour."
+        cf:
+          description: "One of: AVERAGE, MAX (uppercase). The default is AVERAGE."
   resources:
     requests:
       cpu: "50m"
