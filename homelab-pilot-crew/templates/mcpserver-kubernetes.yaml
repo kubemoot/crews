@@ -1,4 +1,7 @@
 {{- if .Values.mcpServers.kubernetes.enabled }}
+{{- $podFields := "metadata.name, metadata.namespace, spec.nodeName, spec.restartPolicy, spec.schedulerName, spec.serviceAccountName, status.phase, status.podIP, status.nominatedNodeName" }}
+{{- $labelSyntax := "kubectl -l syntax: key=value, key!=value, key in (a,b), key, !key; a comma means AND." }}
+{{- $cantSelectStates := "Container states such as CrashLoopBackOff cannot be selected; read STATUS and RESTARTS in the table." }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
@@ -32,10 +35,55 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - resources
     - events
     - nodes
-  {{- if .Values.kubernetesAccess.secretRead }}
-  # The server's own helm_list text says it lists all namespaces by default; it lists
-  # only its own namespace unless all_namespaces is true.
+  # The server prints every list as a wide table with a LABELS column and has no option
+  # for fewer columns (--list-output offers table, the default, or the larger yaml), so the
+  # size of a list is set by what a call selects. These descriptions say which selectors
+  # the server and the Kubernetes API accept, so agents narrow a list on the server and do
+  # not retry selectors the API rejects. Each one restates what the parameter does in the
+  # server's source (the version the image pins) and the API server's field-selector support.
   toolOverrides:
+    - name: pods_list
+      description: "Lists pods in every namespace as a table with one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS). With no selector the result grows with the number of pods in the cluster. Narrow it on the server with fieldSelector or labelSelector, or use pods_list_in_namespace when the question names a namespace. An empty result means no pod matched."
+      parameters:
+        fieldSelector:
+          description: "Server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error. spec.nodeName=<node> lists one node's pods. status.phase=Running matches nearly every pod, so it does not narrow; status.phase!=Running,status.phase!=Succeeded finds pods outside those phases. {{ $cantSelectStates }}"
+        labelSelector:
+          description: "Server-side filter on pod labels, {{ $labelSyntax }} It matches labels only, never fields such as status.phase."
+    - name: pods_list_in_namespace
+      description: "Lists the pods of one namespace as a table with one wide row per pod (same columns as pods_list). namespace must be the exact name of an existing namespace: it is not a wildcard, and all or * match no namespace and return an empty result, not an error. To list every namespace use pods_list. An empty result means no pod matched."
+      parameters:
+        namespace:
+          description: "Exact namespace name. Not a wildcard: all and * return an empty result."
+        fieldSelector:
+          description: "Server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error. {{ $cantSelectStates }}"
+        labelSelector:
+          description: "Server-side filter on pod labels, {{ $labelSyntax }}"
+    - name: resources_list
+      description: "Lists resources of one apiVersion and kind as a table with one wide row per object (columns depend on the kind and include LABELS). With no namespace it lists every namespace (or only the server's own namespace when its account cannot list cluster-wide), so a cluster-wide list of a common kind such as Deployments, ConfigMaps, NetworkPolicies, Nodes or Pods is large. Narrow it on the server with namespace, labelSelector or fieldSelector when the question allows. A kind or apiVersion the cluster does not serve is an error; an empty result means no object matched."
+      parameters:
+        namespace:
+          description: "Exact namespace name, for a namespaced kind; cluster-scoped kinds such as Node and Namespace ignore it. Omit it, or pass an empty string, to list every namespace. all and * are not wildcards: they match no namespace and return an empty result."
+        labelSelector:
+          description: "Server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes."
+        fieldSelector:
+          description: "Server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace. Conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table."
+    - name: pods_top
+      description: "Lists CPU and memory from the Metrics Server as one row per container, not per pod. all_namespaces defaults to true, so a call with no namespace and no name returns every container in the cluster, which is large. namespace returns that one namespace, name with namespace returns one pod (name alone fails), and label_selector narrows by pod label."
+      parameters:
+        all_namespaces:
+          description: "Defaults to true: with no namespace, every container of every pod in the cluster is returned. Pass namespace (and name for one pod) to narrow; a namespace limits the result to that namespace."
+        label_selector:
+          description: "Server-side filter on pod labels, kubectl -l syntax (for example app=web,env=prod); used only when name is not given."
+    - name: events_list
+      description: "Lists events as YAML, one entry per event with the involved object, reason, and message, from every namespace unless namespace is given. Pass fieldSelector type=Warning to leave out the Normal events."
+      parameters:
+        namespace:
+          description: "Exact namespace name. Omit it to list events from every namespace."
+        fieldSelector:
+          description: "Server-side filter on event fields. Accepted fields: type (Normal or Warning), reason, involvedObject.kind, involvedObject.name, involvedObject.namespace, involvedObject.uid, involvedObject.apiVersion, involvedObject.resourceVersion, involvedObject.fieldPath, reportingComponent, source. For example type=Warning,involvedObject.kind=Pod."
+    {{- if .Values.kubernetesAccess.secretRead }}
+    # The server's own helm_list text says it lists all namespaces by default; it lists
+    # only its own namespace unless all_namespaces is true.
     - name: helm_list
       description: "Lists Helm releases. namespace lists only that namespace. all_namespaces=true lists every namespace. With neither set it lists only the server's own namespace."
       parameters:
@@ -43,7 +91,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: "List only this namespace."
         all_namespaces:
           description: "Boolean true lists releases in every namespace."
-  {{- end }}
+    {{- end }}
   resources:
     {{- toYaml .Values.mcpServers.kubernetes.resources | nindent 4 }}
 {{- end }}

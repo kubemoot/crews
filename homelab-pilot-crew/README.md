@@ -109,6 +109,20 @@ A runtime that predates the placeholder leaves the text `${agent.tools}` in the 
 
 `tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead`, `kubernetesAccess.writeAccess`, `compute.workspaceQuery`) on and off.
 
+## Tool overrides
+
+A list call is as large as what it selects. The Kubernetes MCP server prints every list as a wide table with a `LABELS` column and has no option for fewer columns; its only other list format (`--list-output yaml`) is larger, so the chart leaves the default. The chart instead rewrites the descriptions agents see, through the `toolOverrides` on the Kubernetes `MCPServer` (`templates/mcpserver-kubernetes.yaml`), so a list is narrowed on the server before it comes back:
+
+| Tool | What the description says |
+|---|---|
+| `pods_list`, `pods_list_in_namespace` | The pod fields `fieldSelector` accepts (`spec.nodeName=<node>` lists one node's pods), that `status.phase=Running` matches nearly every pod and does not narrow, that container states such as `CrashLoopBackOff` cannot be selected (read `STATUS` and `RESTARTS`), and the `labelSelector` syntax. `pods_list_in_namespace` takes one exact namespace name: `all` and `*` are not wildcards and return an empty result. |
+| `resources_list` | `namespace` is an exact name (omit it, or pass an empty string, for every namespace; `all` and `*` return an empty result), the `labelSelector` syntax, and the few fields `fieldSelector` accepts per kind (Node: `metadata.name`, `spec.unschedulable`; Namespace: `metadata.name`, `status.phase`; Job: `status.successful`; most other kinds: `metadata.name`, `metadata.namespace`), so an agent stops sending selectors the API rejects, such as Node conditions. |
+| `pods_top` | The result has one row per container, `all_namespaces` defaults to true (a call with no `namespace` returns every container in the cluster), and `namespace`, `name` (with `namespace`) and `label_selector` narrow it. |
+| `events_list` | `fieldSelector` accepts `type`, `reason`, and the `involvedObject.*` fields; `type=Warning` leaves out the Normal events. |
+| `helm_list` | With `kubernetesAccess.secretRead`: `namespace` lists one namespace, `all_namespaces=true` lists every namespace, and with neither it lists only the server's own namespace. |
+
+Each description restates what the parameter does in the server's own source (the version `mcpServers.kubernetes.image` pins) and the Kubernetes API's field-selector support. A question that needs every object of a kind, such as a count per namespace, still gets the full table; the overrides only stop a call from asking for more than the question needs. `tests/test-prompt-tools.sh` pins the overrides.
+
 ## Fitness
 
 `fitness/` holds 76 scenarios in ADL (`*.adl`), grouped by prefix: smoke, single-domain Kubernetes, GPU, observability, and Proxmox questions, cross-domain (`xdomain-*`, `multi-tool-*`), judgment, constraint-following, and trap questions (`gotcha-*`, `partial-answerable-*`). Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
