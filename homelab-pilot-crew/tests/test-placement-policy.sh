@@ -228,6 +228,12 @@ echo "PASS: compute.workspaceQuery"
 [ "$(tools proxmox-pve <<<"$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x)")" = "proxmox-list-nodes,proxmox-node-status,proxmox-node-metrics,proxmox-list-storage,proxmox-storage-content,proxmox-list-bridges,proxmox-list-tasks,proxmox-task-status,proxmox-list-all-vms-from-all-clusters" ] || fail "proxmox-pve tools changed"
 echo "PASS: proxmox-pve tools"
 
+# proxmox-node-metrics: the override names the values Proxmox accepts.
+pve_on="$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x)"
+[ "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "proxmox-mcp") | .spec.toolOverrides[] | select(.name == "proxmox-node-metrics") | .parameters.timeframe.description' <<<"$pve_on")" = "One of: hour, day, week, month, year. The default is hour." ] || fail "proxmox-node-metrics timeframe override missing"
+[ "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "proxmox-mcp") | .spec.toolOverrides[] | select(.name == "proxmox-node-metrics") | .parameters.cf.description' <<<"$pve_on")" = "One of: AVERAGE, MAX (uppercase). The default is AVERAGE." ] || fail "proxmox-node-metrics cf override missing"
+echo "PASS: proxmox-node-metrics override"
+
 # The compute prompt treats inputs stated in the question as data, and NO_DATA applies only
 # when neither the question nor the discussion has any.
 compute_prompt="$(render | yq -N 'select(.kind == "PromptModule" and .metadata.name == "compute-system") | .spec.content')"
