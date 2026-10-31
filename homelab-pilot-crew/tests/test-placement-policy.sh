@@ -224,15 +224,38 @@ wq_on="$(render)"
 [ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "2" ] || fail "compute.workspaceQuery must change only the compute enabledTools line"
 echo "PASS: compute.workspaceQuery"
 
-# proxmox-pve holds a read-only tool for every job its module names.
-[ "$(tools proxmox-pve <<<"$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x)")" = "proxmox-list-nodes,proxmox-node-status,proxmox-node-metrics,proxmox-list-storage,proxmox-storage-content,proxmox-list-bridges,proxmox-list-tasks,proxmox-task-status,proxmox-list-all-vms-from-all-clusters" ] || fail "proxmox-pve tools changed"
-echo "PASS: proxmox-pve tools"
-
-# proxmox-node-metrics: the override names the values Proxmox accepts.
+# proxmox-pve and proxmox-qm hold a read-only tool for every job their modules name.
 pve_on="$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x)"
-[ "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "proxmox-mcp") | .spec.toolOverrides[] | select(.name == "proxmox-node-metrics") | .parameters.timeframe.description' <<<"$pve_on")" = "One of: hour, day, week, month, year. The default is hour." ] || fail "proxmox-node-metrics timeframe override missing"
-[ "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "proxmox-mcp") | .spec.toolOverrides[] | select(.name == "proxmox-node-metrics") | .parameters.cf.description' <<<"$pve_on")" = "One of: AVERAGE, MAX (uppercase). The default is AVERAGE." ] || fail "proxmox-node-metrics cf override missing"
-echo "PASS: proxmox-node-metrics override"
+[ "$(tools proxmox-pve <<<"$pve_on")" = "list_nodes,get_node_status,get_node_rrd_data,list_storage,get_storage_content,get_node_networks,get_node_tasks,get_task_status,get_cluster_resources" ] || fail "proxmox-pve tools changed"
+[ "$(tools proxmox-qm <<<"$pve_on")" = "list_vms,get_vm_config,get_vm_rrd_data,list_vm_snapshots" ] || fail "proxmox-qm tools changed"
+echo "PASS: proxmox-pve and proxmox-qm tools"
+
+# The Proxmox MCP server registers read tools only, and exactly the tools the two agents use.
+pve_mcp() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"proxmox-mcp\") | $1" <<<"${2:-$pve_on}"; }
+[ "$(pve_mcp '.spec.env[] | select(.name == "PROXMOX_RISK_LEVEL") | .value')" = "read" ] || fail "proxmox-mcp must run at the read risk level"
+allow="$(pve_mcp '.spec.env[] | select(.name == "PROXMOX_TOOLS_ALLOW") | .value' | tr ',' '\n' | sort)"
+agent_tools="$( (tools proxmox-pve <<<"$pve_on"; tools proxmox-qm <<<"$pve_on") | tr ',' '\n' | sort)"
+[ -n "$allow" ] && [ "$allow" = "$agent_tools" ] || fail "PROXMOX_TOOLS_ALLOW must list exactly the tools proxmox-pve and proxmox-qm enable"
+echo "PASS: proxmox-mcp read-only tool list"
+
+# The Proxmox MCP server speaks Streamable HTTP: no bridge, probes on its own endpoints.
+[ "$(pve_mcp '.spec.transport')" = "http" ] || fail "proxmox-mcp transport must be http"
+[ "$(pve_mcp '.spec.healthPath + " " + .spec.readinessPath + " " + (.spec.port | tostring)')" = "/healthz /readyz 8000" ] || fail "proxmox-mcp probes or port changed"
+[ "$(pve_mcp '.spec.env[] | select(.name == "PROXMOX_MCP_TRANSPORT") | .value')" = "streamable-http" ] || fail "proxmox-mcp must serve streamable-http"
+[ "$(pve_mcp '.spec.env[] | select(.name == "PROXMOX_MCP_ALLOWED_HOSTS") | .value')" = "proxmox-mcp:*,proxmox-mcp.default:*,proxmox-mcp.default.svc:*,proxmox-mcp.default.svc.cluster.local:*" ] || fail "PROXMOX_MCP_ALLOWED_HOSTS must name the Service in the release namespace"
+[ "$(pve_mcp '.spec.env[] | select(.name == "PROXMOX_VERIFY_SSL") | .value')" = "true" ] || fail "proxmox-mcp must verify TLS by default"
+pve_insecure="$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x --set mcpServers.proxmox.verifySsl=false)"
+[ "$(pve_mcp '.spec.env[] | select(.name == "PROXMOX_VERIFY_SSL") | .value' "$pve_insecure")" = "false" ] || fail "mcpServers.proxmox.verifySsl=false must reach the server"
+echo "PASS: proxmox-mcp transport"
+
+# get_node_rrd_data: the override names the values Proxmox accepts.
+[ "$(pve_mcp '.spec.toolOverrides[] | select(.name == "get_node_rrd_data") | .parameters.timeframe.description')" = "One of: hour, day, week, month, year. The default is day." ] || fail "get_node_rrd_data timeframe override missing"
+[ "$(pve_mcp '.spec.toolOverrides[] | select(.name == "get_node_rrd_data") | .parameters.cf.description')" = "One of: AVERAGE, MAX (uppercase). The default is AVERAGE." ] || fail "get_node_rrd_data cf override missing"
+echo "PASS: get_node_rrd_data override"
+
+# No rendered resource still names a tool of the previous Proxmox MCP server.
+! grep -qE 'proxmox-(list-(nodes|storage|bridges|tasks|vms|snapshots|all-vms-from-all-clusters)|node-(status|metrics)|storage-content|task-status|vm-(info|metrics|firewall-get))([^a-z-]|$)' <<<"$pve_on" || fail "a Proxmox tool name of the previous server remains"
+echo "PASS: no previous Proxmox tool names"
 
 # The compute prompt treats inputs stated in the question as data, and NO_DATA applies only
 # when neither the question nor the discussion has any.

@@ -2,7 +2,7 @@
 # Render tests for the tools the pilot crew's prompts name: the shared modules list an
 # agent's tools with the ${agent.tools} placeholder instead of naming tools, and no agent's
 # PromptModules name a tool the agent does not have, with the optional tools switched on and
-# off (kubernetesAccess.secretRead and writeAccess, compute.workspaceQuery). Needs helm and yq.
+# off (kubernetesAccess.secretRead and writeAccess, compute.workspaceQuery, mcpServers.proxmox). Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-prompt-tools.sh   (exit 0 = all passed)
 set -euo pipefail
 chart="$(cd "$(dirname "$0")/.." && pwd)"
@@ -38,12 +38,14 @@ check "no module puts the placeholder inside a call" 0 \
   "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out" | grep -cE '\([^)]*\$\{agent\.tools\}'|| true)"
 
 # No agent's modules name a tool the agent lacks, whichever optional tools are on.
-all_on=(--set kubernetesAccess.secretRead=true --set kubernetesAccess.writeAccess=true --set compute.workspaceQuery=true)
+all_on=(--set kubernetesAccess.secretRead=true --set kubernetesAccess.writeAccess=true --set compute.workspaceQuery=true --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x)
 export VOCAB_ARGS="${all_on[*]}"
 check "default values: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" >/dev/null 2>&1; echo $?)"
 check "optional tools on: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" "${all_on[@]}" >/dev/null 2>&1; echo $?)"
 check "secretRead only: modules name only the agent's own tools" 0 \
   "$(bash "$checker" "$chart" --set kubernetesAccess.secretRead=true >/dev/null 2>&1; echo $?)"
+check "proxmox only: modules name only the agent's own tools" 0 \
+  "$(bash "$checker" "$chart" --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x >/dev/null 2>&1; echo $?)"
 check "workspaceQuery only: modules name only the agent's own tools" 0 \
   "$(bash "$checker" "$chart" --set compute.workspaceQuery=true >/dev/null 2>&1; echo $?)"
 

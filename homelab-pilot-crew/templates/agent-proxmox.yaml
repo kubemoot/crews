@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - proxmox
   triageSummary: "Queries Proxmox VE node health, storage backends (ZFS, NFS, Ceph, LVM), LXC containers, network bridges, and task history."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-pve-system]
-  enabledTools: [proxmox-list-nodes, proxmox-node-status, proxmox-node-metrics, proxmox-list-storage, proxmox-storage-content, proxmox-list-bridges, proxmox-list-tasks, proxmox-task-status, proxmox-list-all-vms-from-all-clusters]
+  enabledTools: [list_nodes, get_node_status, get_node_rrd_data, list_storage, get_storage_content, get_node_networks, get_node_tasks, get_task_status, get_cluster_resources]
   discussKeywords:
     - proxmox
     - pve
@@ -55,7 +55,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-qm") }}
   type: chat
-  description: "Observes Proxmox QEMU/KVM virtual machines: listing, config, performance, snapshots, firewall."
+  description: "Observes Proxmox QEMU/KVM virtual machines: listing, config, performance, snapshots."
   discussRole: tooler
   capabilities: [tool-calling]
   # MUST be set or DiscussionSubscriber logs "No discussion channels configured
@@ -64,9 +64,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # because proxmox-qm was silent (sibling proxmox-pve had ["proxmox"]).
   discussChannels:
     - proxmox
-  triageSummary: "Observes Proxmox QEMU/KVM virtual machines: listing, configuration (CPU, memory, disks, PCIe passthrough), performance metrics, snapshots, and firewall rules."
+  triageSummary: "Observes Proxmox QEMU/KVM virtual machines: listing, configuration (CPU, memory, disks, PCIe passthrough), performance metrics, and snapshots."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-qm-system]
-  enabledTools: [proxmox-list-vms, proxmox-vm-info, proxmox-vm-metrics, proxmox-list-snapshots, proxmox-vm-firewall-get]
+  enabledTools: [list_vms, get_vm_config, get_vm_rrd_data, list_vm_snapshots]
   discussKeywords:
     - proxmox
     - qemu

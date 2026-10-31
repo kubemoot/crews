@@ -7,13 +7,39 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "proxmox-mcp") }}
-  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" (required "mcpServers.proxmox.image is required when mcpServers.proxmox.enabled is true: no public Proxmox MCP image ships with this chart, so supply your own" .Values.mcpServers.proxmox.image)) | quote }}
-  transport: stdio
-  command:
-    - "proxmox-mcp"
-  port: 3000
+  image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" (required "mcpServers.proxmox.image is required when mcpServers.proxmox.enabled is true: the chart ships no Proxmox MCP image; the recommended one is ghcr.io/akmalovaa/proxmox-mcp (see values.yaml)" .Values.mcpServers.proxmox.image)) | quote }}
+  # akmalovaa/proxmox-mcp serves Streamable HTTP itself, so the operator adds no bridge
+  # sidecar. /healthz only says the process is up; /readyz asks Proxmox for its version and
+  # gates traffic until the API answers.
+  transport: http
+  healthPath: /healthz
+  readinessPath: /readyz
+  port: 8000
   replicas: 1
+  # The Proxmox API credentials come from the Secret as environment variables named for
+  # the server: PROXMOX_HOST, PROXMOX_USER, PROXMOX_TOKEN_NAME and PROXMOX_TOKEN_VALUE
+  # (see the README for the Secret).
   secretRef: {{ .Values.mcpServers.proxmox.secretRef }}
+  env:
+    # Registers read tools only: nothing that starts, stops, clones, migrates or
+    # snapshots is offered to the model.
+    - name: PROXMOX_RISK_LEVEL
+      value: "read"
+    # Narrows the read tools to the ones the proxmox-pve and proxmox-qm agents use.
+    - name: PROXMOX_TOOLS_ALLOW
+      value: "list_nodes,get_node_status,get_node_rrd_data,get_node_networks,get_node_tasks,get_task_status,list_storage,get_storage_content,get_cluster_resources,list_vms,get_vm_config,get_vm_rrd_data,list_vm_snapshots"
+    - name: PROXMOX_VERIFY_SSL
+      value: {{ .Values.mcpServers.proxmox.verifySsl | quote }}
+    - name: PROXMOX_MCP_TRANSPORT
+      value: "streamable-http"
+    - name: PROXMOX_MCP_HOST
+      value: "0.0.0.0"
+    - name: PROXMOX_MCP_PORT
+      value: "8000"
+    # The server refuses to bind beyond loopback without the Host headers it should accept:
+    # the names the operator's Service answers to.
+    - name: PROXMOX_MCP_ALLOWED_HOSTS
+      value: "proxmox-mcp:*,proxmox-mcp.{{ .Release.Namespace }}:*,proxmox-mcp.{{ .Release.Namespace }}.svc:*,proxmox-mcp.{{ .Release.Namespace }}.svc.cluster.local:*"
   capabilities:
     - proxmox
     - hypervisor
@@ -21,16 +47,16 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - lxc-containers
     - storage
     - backup
-  # The server's own proxmox-node-metrics text names no allowed values; Proxmox's RRD API
-  # rejects anything outside them with 400 "Parameter verification failed".
+  # Names the values Proxmox's RRD API accepts; anything else is rejected with 400
+  # "Parameter verification failed".
   toolOverrides:
-    - name: proxmox-node-metrics
+    - name: get_node_rrd_data
       description: "Performance history of one Proxmox node (CPU, memory, load, network, disk) from its RRD data, as a list of samples."
       parameters:
         node:
-          description: "The Proxmox node name, exactly as proxmox-list-nodes returns it."
+          description: "The Proxmox node name, exactly as list_nodes returns it."
         timeframe:
-          description: "One of: hour, day, week, month, year. The default is hour."
+          description: "One of: hour, day, week, month, year. The default is day."
         cf:
           description: "One of: AVERAGE, MAX (uppercase). The default is AVERAGE."
   resources:

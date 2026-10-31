@@ -9,8 +9,8 @@ The Kubemoot reference crew: a coordinator and up to 22 specialists that answer 
   - a pgvector database and a Secret with its credentials in the crew namespace, for the RAG sources and the gateway tool index (or turn RAG off);
   - Prometheus (and DCGM for GPU questions) reachable from the crew; the chart deploys its own MCP servers for Kubernetes, Prometheus, k8sgpt, web search, the code sandbox, and artifact read-ops;
   - NATS JetStream for the discussions;
-  - optionally a Proxmox MCP image of your own and a `proxmox-secret` with Proxmox API credentials.
-- **What it does not do:** it does not change the cluster by default (its Kubernetes access is read-only until you enable `kubernetesAccess.writeAccess`), it does not read Secrets unless `kubernetesAccess.secretRead` is on, it ships no Proxmox image, and its fitness reference answers describe the maintainer's homelab, not your cluster.
+  - optionally a Proxmox MCP image ([akmalovaa/proxmox-mcp](https://github.com/akmalovaa/proxmox-mcp) is the recommended one) and a `proxmox-secret` with a read-only Proxmox API token.
+- **What it does not do:** it does not change the cluster by default (its Kubernetes access is read-only until you enable `kubernetesAccess.writeAccess`), it does not read Secrets unless `kubernetesAccess.secretRead` is on, it ships no Proxmox image (it asks for yours), and its fitness reference answers describe the maintainer's homelab, not your cluster.
 
 ## Before you install
 
@@ -20,7 +20,7 @@ This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on 
 |---|---|---|
 | `vectorStore.host`, `.database`, `.existingSecret` | empty (required) | Your pgvector database and a Secret with its credentials. Or set `ragSources.enabled=false` and `mcpGateway.toolIndex=null` to run without RAG. |
 | `mcpServers.prometheus.endpoint` | `http://kube-prometheus-stack-prometheus.monitoring:9090` | Your Prometheus. |
-| `mcpServers.proxmox.*` | disabled | Proxmox needs your own Proxmox MCP image and an API-credentials Secret. No public image ships with Kubemoot. The `proxmox-pve` and `proxmox-qm` agents render only when this is enabled; `proxmox-advisor` answers from Proxmox documentation (RAG) and always renders. |
+| `mcpServers.proxmox.*` | disabled | Proxmox needs a Proxmox MCP image and a credentials Secret; Kubemoot ships no image, so `image` is required. The recommended image is `ghcr.io/akmalovaa/proxmox-mcp` (MIT, multi-arch), pinned by digest; see [Proxmox](#proxmox). The `proxmox-pve` and `proxmox-qm` agents render only when this is enabled; `proxmox-advisor` answers from Proxmox documentation (RAG) and always renders. |
 | `mcpServers.scheduling.enabled` | `false` | Reminders and follow-ups. The scheduling-mcp image is published to GHCR as `ghcr.io/kubemoot/scheduling-mcp`, and each chart release pins the latest Kubemoot release of it at build. The `scheduler-advisor` agent renders only when this is enabled. |
 | `kubernetesAccess.secretRead`, `.writeAccess` | `false` | See [Cluster permissions](#cluster-permissions). |
 | `nats.url`, `nats.namespace` | release `nats` in namespace `nats` | Your NATS JetStream. |
@@ -28,6 +28,37 @@ This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on 
 The prompts and fitness scenarios also carry the reference cluster's vocabulary (host aliases such as `rig0`, two GPUs, its namespaces). The crew discovers the real topology at run time, so they work elsewhere, but the fitness reference answers describe the maintainer's cluster and will not match yours.
 
 See the [repository README](../README.md#install) for prerequisites and the install command.
+
+## Proxmox
+
+The `proxmox-pve` and `proxmox-qm` agents get their tools from a Proxmox MCP server that you enable with `mcpServers.proxmox.enabled=true`. The chart ships no image, so `mcpServers.proxmox.image` is required. The recommended one is [akmalovaa/proxmox-mcp](https://github.com/akmalovaa/proxmox-mcp) (MIT, multi-arch, Streamable HTTP, released as tags). Pin it by digest:
+
+```yaml
+mcpServers:
+  proxmox:
+    enabled: true
+    image: ghcr.io/akmalovaa/proxmox-mcp@sha256:c14fe296fc49d40ae1ac72578f06939a9ea89baec77e21c9e3ead03b96b9323f   # 2.3.0
+    secretRef: proxmox-secret
+    verifySsl: true   # false for nodes with self-signed certificates
+```
+
+The chart starts the server over Streamable HTTP (no bridge sidecar) at `PROXMOX_RISK_LEVEL=read`, and `PROXMOX_TOOLS_ALLOW` narrows it to the 13 tools the two agents use, so nothing that starts, stops, clones, or migrates a guest is registered. The Secret in `secretRef` holds the server's environment variables:
+
+| Key | Value |
+|---|---|
+| `PROXMOX_HOST` | The Proxmox host or IP, without a scheme or port |
+| `PROXMOX_USER` | The API user, for example `mcp@pve` |
+| `PROXMOX_TOKEN_NAME` | The token name, for example `mcp` |
+| `PROXMOX_TOKEN_VALUE` | The token secret |
+
+Give the token its own user and the `PVEAuditor` role (with privilege separation on, grant the role to the token too). Another server needs its own tool names in the two agents and their modules.
+
+| Agent | Tools |
+|---|---|
+| `proxmox-pve` | `list_nodes`, `get_node_status`, `get_node_rrd_data`, `list_storage`, `get_storage_content`, `get_node_networks`, `get_node_tasks`, `get_task_status`, `get_cluster_resources` |
+| `proxmox-qm` | `list_vms`, `get_vm_config`, `get_vm_rrd_data`, `list_vm_snapshots` |
+
+Network bridges come from `get_node_networks`, whose entries with `type` `bridge` are the bridges. The server has no VM firewall tool, so `proxmox-qm` does not answer from firewall rules. Allow the pod to reach the Proxmox API with an egress entry such as `egress.mcpServers.proxmox-mcp` with `allowedCIDRs` for your Proxmox host and `ports: [8006]` (see [Egress](#egress)).
 
 ## Cluster permissions
 
