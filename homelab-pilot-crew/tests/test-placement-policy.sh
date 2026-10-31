@@ -224,6 +224,10 @@ wq_on="$(render)"
 [ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "2" ] || fail "compute.workspaceQuery must change only the compute enabledTools line"
 echo "PASS: compute.workspaceQuery"
 
+# proxmox-pve holds a read-only tool for every job its module names.
+[ "$(tools proxmox-pve <<<"$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x)")" = "proxmox-list-nodes,proxmox-node-status,proxmox-node-metrics,proxmox-list-storage,proxmox-storage-content,proxmox-list-bridges,proxmox-list-tasks,proxmox-task-status,proxmox-list-all-vms-from-all-clusters" ] || fail "proxmox-pve tools changed"
+echo "PASS: proxmox-pve tools"
+
 # The compute prompt treats inputs stated in the question as data, and NO_DATA applies only
 # when neither the question nor the discussion has any.
 compute_prompt="$(render | yq -N 'select(.kind == "PromptModule" and .metadata.name == "compute-system") | .spec.content')"

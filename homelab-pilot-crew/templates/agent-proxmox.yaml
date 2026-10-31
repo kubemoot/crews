@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - proxmox
   triageSummary: "Queries Proxmox VE node health, storage backends (ZFS, NFS, Ceph, LVM), LXC containers, network bridges, and task history."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-pve-system]
-  enabledTools: [proxmox-list-nodes, proxmox-node-status, proxmox-list-storage, proxmox-list-bridges, proxmox-list-tasks]
+  enabledTools: [proxmox-list-nodes, proxmox-node-status, proxmox-node-metrics, proxmox-list-storage, proxmox-storage-content, proxmox-list-bridges, proxmox-list-tasks, proxmox-task-status, proxmox-list-all-vms-from-all-clusters]
   discussKeywords:
     - proxmox
     - pve
