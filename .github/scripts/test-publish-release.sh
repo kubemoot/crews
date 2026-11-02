@@ -172,6 +172,11 @@ ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=false run_publish nooidcreal && status=0
 check "a real run without an OIDC token fails before any push" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
 GHCR_TOKEN='' DRY_RUN=false run_publish notoken && status=0 || status=$?
 check "a real run without a registry token fails before any push" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
+GHCR_USERNAME='' GHCR_TOKEN='' DRY_RUN=true run_publish dryntoken && status=0 || status=$?
+check "a dry run needs no registry token" 0 "${status}"
+# GHCR is written with the workflow's own token, never a stored one.
+check "no workflow reads a GHCR secret" "" "$(grep -n 'secrets.GHCR' "${here}"/../workflows/*.yaml || true)"
+check "publish and attest hold packages: write" 2 "$(grep -c '^      packages: write' "${here}/../workflows/publish-release.yaml")"
 COSIGN_BROKEN=1 DRY_RUN=true run_publish nocosign && status=0 || status=$?
 check "a run where cosign does not run fails" "1|1" "${status}|$(grep -c 'cosign is required' "${root}/run-nocosign.log")"
 

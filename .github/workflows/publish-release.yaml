@@ -62,6 +62,7 @@ jobs:
     runs-on: homelab-runners
     permissions:
       contents: write
+      packages: write # push the charts to GHCR with the workflow's own token
       id-token: write # cosign keyless signing of the published charts
     outputs:
       subjects: ${{ steps.publish.outputs.subjects }}
@@ -114,8 +115,8 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ vars.REGISTRY }}
           RELEASE_REGISTRY: ${{ vars.RELEASE_REGISTRY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OUT_DIR: release-files
         run: |
           git config user.name "github-actions[bot]"
@@ -139,6 +140,7 @@ jobs:
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
+      packages: write # attach the attestation to the package in GHCR
       id-token: write # sign the provenance attestation keylessly
       attestations: write # store the attestation in the repository
     strategy:
@@ -149,8 +151,8 @@ jobs:
       - name: Log in to the release registry
         env:
           RELEASE_REGISTRY: ${{ vars.RELEASE_REGISTRY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "${GHCR_TOKEN}" | docker login "${RELEASE_REGISTRY%%/*}" -u "${GHCR_USERNAME}" --password-stdin
 
       - name: Attest the build provenance

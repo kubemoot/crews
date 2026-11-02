@@ -33,7 +33,8 @@
 #                     identity are in place
 #   REGISTRY          Harbor host (charts at oci://${REGISTRY}/crews)
 #   RELEASE_REGISTRY  registry plus namespace, e.g. ghcr.io/kubemoot (charts at .../charts)
-#   GHCR_USERNAME, GHCR_TOKEN  (the caller logs helm in to Harbor)
+#   GHCR_USERNAME, GHCR_TOKEN  the workflow actor and its GITHUB_TOKEN (job with packages: write);
+#                     a dry run needs neither (the caller logs helm in to Harbor)
 #   KUBEMOOT_REMOTE   Kubemoot's repository (default https://github.com/kubemoot/kubemoot.git)
 #   KUBEMOOT_IMAGE_REGISTRY  Harbor path of Kubemoot's images (default ${REGISTRY}/kubemoot);
 #                     RL_DIGEST_CMD (default "crane digest --insecure") reads digests there
