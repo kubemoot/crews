@@ -20,10 +20,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - kubernetes
   triageSummary: "Lists, installs, and uninstalls Helm chart releases."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
-  # helm_* tools exist only with the helm toolset (kubernetesAccess.secretRead);
-  # install and uninstall also need writeAccess. An empty list would enable every
-  # tool, so without the helm toolset the agent keeps the read-only resource tools.
-  enabledTools: [{{ if .Values.kubernetesAccess.secretRead }}helm_list{{ if .Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}{{ else }}resources_list, resources_get{{ end }}]
+  # The Kubernetes MCP server always loads its helm toolset. helm_list reads release
+  # state from Secrets, so it answers only with kubernetesAccess.secretRead and fails as
+  # forbidden without it; install and uninstall register only with writeAccess.
+  enabledTools: [helm_list{{ if .Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}]
   discussKeywords:
     - helm
     - chart

@@ -1,7 +1,30 @@
 {{- if .Values.mcpServers.kubernetes.enabled }}
 {{- $podFields := "metadata.name, metadata.namespace, spec.nodeName, spec.restartPolicy, spec.schedulerName, spec.serviceAccountName, status.phase, status.podIP, status.nominatedNodeName" }}
 {{- $labelSyntax := "kubectl -l syntax: key=value, key!=value, key in (a,b), key, !key; a comma means AND." }}
-{{- $cantSelectStates := "Container states such as CrashLoopBackOff cannot be selected; read STATUS and RESTARTS in the table." }}
+{{- $cantSelectStates := "ASSERT container states such as CrashLoopBackOff cannot be selected; read STATUS and RESTARTS in the table." }}
+{{- $noWildcard := "NEVER pass all or * as a namespace: they are not wildcards, match no namespace, and return an empty result." }}
+{{- $countHow := "pass limit=1 with no labelSelector and no fieldSelector" }}
+{{- $countHeader := "# remainingItemCount: N in the header lines of the reply, so the total is N+1" }}
+{{- $countRule := printf "WHEN the question asks only how many THEN %s (namespace is fine) and read %s; a reply with no such line holds every match." $countHow $countHeader }}
+{{- $limitParam := printf "ASSERT the most rows to return; omit it or pass 0 for every row.\nWHEN counting THEN %s and read %s.\nASSERT a list with a labelSelector or fieldSelector reports no remainingItemCount, so count a selected list from its rows." $countHow $countHeader }}
+{{- /* The server takes its settings from a TOML file only (no runtime flags). Without
+     port it speaks MCP over stdio, which the operator's bridge sidecar carries. */}}
+{{- $config := printf "toolsets = [\"core\", \"helm\"]\nread_only = %t\n" (not .Values.kubernetesAccess.writeAccess) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-kubernetes-mcp-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  # core: pods, resources, events, nodes and namespaces. helm: helm_list, plus
+  # helm_install and helm_uninstall when read_only is false (kubernetesAccess.writeAccess).
+  # read_only registers only the tools that do not change the cluster.
+  config.toml: |
+    {{- $config | nindent 4 }}
+---
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
@@ -16,18 +39,20 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   replicas: 1
   serviceAccountName: {{ .Release.Name }}-kubernetes-mcp
   securityMode: relaxed
+  # --config replaces the image's default config file, which sets an HTTP port; this
+  # file sets none, so the server speaks stdio.
   command:
     - "/app/kubernetes-mcp-server"
-    {{- if .Values.kubernetesAccess.secretRead }}
-    # The helm toolset (helm_list, and helm_install and helm_uninstall with write
-    # access) reads release state from Secrets, so it registers only with Secret reads.
-    # The server's default toolsets are core and config.
-    - "--toolsets=core,config,helm"
-    {{- end }}
-    {{- if not .Values.kubernetesAccess.writeAccess }}
-    # Registers only tools that do not change the cluster.
-    - "--read-only"
-    {{- end }}
+    - "--config"
+    - "/etc/kubernetes-mcp/config.toml"
+  # MCPServer mounts Secrets only, so the config file comes from one.
+  secretVolumes:
+    - name: {{ .Release.Name }}-kubernetes-mcp-config
+      mountPath: /etc/kubernetes-mcp
+  env:
+    # The server reads its config file at start, so a changed config rolls the pod.
+    - name: CONFIG_SHA256
+      value: {{ $config | sha256sum | quote }}
   capabilities:
     - kubernetes
     - pods
@@ -36,62 +61,102 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - events
     - nodes
   # The server prints every list as a wide table with a LABELS column and has no option
-  # for fewer columns (--list-output offers table, the default, or the larger yaml), so the
-  # size of a list is set by what a call selects. These descriptions say which selectors
-  # the server and the Kubernetes API accept, so agents narrow a list on the server and do
-  # not retry selectors the API rejects. Each one restates what the parameter does in the
-  # server's source (the version the image pins) and the API server's field-selector support.
+  # for fewer columns, so the size of a list is set by the rows a call asks for: the
+  # namespace, the selectors, and limit (a page of rows; limit=1 with no selector also
+  # reports how many rows remain, which answers a count). These descriptions, in ADL, say
+  # which of those the server and the Kubernetes API accept, so agents narrow a list on
+  # the server and do not retry selectors the API rejects. Each restates what the
+  # parameter does in the server's source at the version the image pins.
   toolOverrides:
     - name: pods_list
-      description: "Lists pods in every namespace as a table with one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS). With no selector the result grows with the number of pods in the cluster. Narrow it on the server with fieldSelector or labelSelector, or use pods_list_in_namespace when the question names a namespace. An empty result means no pod matched."
+      description: |-
+        DESCRIPTION Lists pods in every namespace as a table, one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS); with no selector the result grows with the number of pods in the cluster
+        WHEN the question names a namespace THEN use the list tool that takes a namespace
+        {{ $countRule }}
+        WHEN the question names a node, a phase or a label THEN narrow the rows on the server with fieldSelector or labelSelector
+        {{ $noWildcard }}
+        ASSERT an empty result means no pod matched
       parameters:
         fieldSelector:
-          description: "Server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error. spec.nodeName=<node> lists one node's pods. status.phase=Running matches nearly every pod, so it does not narrow; status.phase!=Running,status.phase!=Succeeded finds pods outside those phases. {{ $cantSelectStates }}"
+          description: |-
+            ASSERT a server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error.
+            WHEN the question is about one node's pods THEN pass spec.nodeName=<node>
+            ASSERT status.phase=Running matches nearly every pod, so it does not narrow; status.phase!=Running,status.phase!=Succeeded finds pods outside those phases.
+            {{ $cantSelectStates }}
         labelSelector:
-          description: "Server-side filter on pod labels, {{ $labelSyntax }} It matches labels only, never fields such as status.phase."
+          description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }} It matches labels only, never fields such as status.phase."
+        limit:
+          description: {{ $limitParam | toJson }}
     - name: pods_list_in_namespace
-      description: "Lists the pods of one namespace as a table with one wide row per pod (same columns as pods_list). namespace must be the exact name of an existing namespace: it is not a wildcard, and all or * match no namespace and return an empty result, not an error. To list every namespace use pods_list. An empty result means no pod matched."
+      description: |-
+        DESCRIPTION Lists the pods of one namespace as a table, one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS)
+        ASSERT namespace is the exact name of one existing namespace
+        {{ $noWildcard }}
+        {{ $countRule }}
+        ASSERT an empty result means no pod matched
       parameters:
         namespace:
-          description: "Exact namespace name. Not a wildcard: all and * return an empty result."
+          description: "ASSERT the exact namespace name.\n{{ $noWildcard }}"
         fieldSelector:
-          description: "Server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error. {{ $cantSelectStates }}"
+          description: "ASSERT a server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error.\n{{ $cantSelectStates }}"
         labelSelector:
-          description: "Server-side filter on pod labels, {{ $labelSyntax }}"
+          description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }}"
+        limit:
+          description: {{ $limitParam | toJson }}
     - name: resources_list
-      description: "Lists resources of one apiVersion and kind as a table with one wide row per object (columns depend on the kind and include LABELS). With no namespace it lists every namespace (or only the server's own namespace when its account cannot list cluster-wide), so a cluster-wide list of a common kind such as Deployments, ConfigMaps, NetworkPolicies, Nodes or Pods is large. Narrow it on the server with namespace, labelSelector or fieldSelector when the question allows. A kind or apiVersion the cluster does not serve is an error; an empty result means no object matched."
+      description: |-
+        DESCRIPTION Lists objects of one apiVersion and kind as a table, one wide row per object with a LABELS column; with no namespace it lists every namespace (or only the server's own namespace when its account cannot list cluster-wide), so a cluster-wide list of a common kind such as Deployment, ConfigMap, NetworkPolicy, Node or Pod is large
+        {{ $countRule }}
+        WHEN the question names a namespace THEN pass namespace
+        WHEN the question names labels or a selectable field THEN pass labelSelector or fieldSelector
+        {{ $noWildcard }} Omit namespace to list every namespace.
+        ASSERT a kind or apiVersion the cluster does not serve is an error, and an empty result means no object matched
       parameters:
         namespace:
-          description: "Exact namespace name, for a namespaced kind; cluster-scoped kinds such as Node and Namespace ignore it. Omit it, or pass an empty string, to list every namespace. all and * are not wildcards: they match no namespace and return an empty result."
+          description: "ASSERT the exact namespace name, for a namespaced kind; cluster-scoped kinds such as Node and Namespace ignore it.\nWHEN the question covers every namespace THEN omit namespace or pass an empty string\n{{ $noWildcard }}"
         labelSelector:
-          description: "Server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes."
+          description: "ASSERT a server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes."
         fieldSelector:
-          description: "Server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace. Conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table."
+          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table."
+        limit:
+          description: {{ $limitParam | toJson }}
     - name: pods_top
-      description: "Lists CPU and memory from the Metrics Server as one row per container, not per pod. all_namespaces defaults to true, so a call with no namespace and no name returns every container in the cluster, which is large. namespace returns that one namespace, name with namespace returns one pod (name alone fails), and label_selector narrows by pod label."
+      description: |-
+        DESCRIPTION CPU and memory from the Metrics Server, one row per container, not per pod
+        ASSERT all_namespaces defaults to true, so a call with no namespace and no name returns every container in the cluster
+        WHEN the question names a namespace THEN pass namespace
+        WHEN the question names one pod THEN pass name and namespace (name alone fails)
+        WHEN the question names a label THEN pass label_selector
+        ASSERT the Metrics API ignores limit and continue; only namespace, name and label_selector make the result smaller
       parameters:
         all_namespaces:
-          description: "Defaults to true: with no namespace, every container of every pod in the cluster is returned. Pass namespace (and name for one pod) to narrow; a namespace limits the result to that namespace."
+          description: "ASSERT defaults to true: with no namespace, every container of every pod in the cluster is returned.\nWHEN the question names a namespace THEN pass namespace instead, which limits the result to that namespace"
         label_selector:
-          description: "Server-side filter on pod labels, kubectl -l syntax (for example app=web,env=prod); used only when name is not given."
+          description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }} Used only when name is not given."
     - name: events_list
-      description: "Lists events as YAML, one entry per event with the involved object, reason, and message, from every namespace unless namespace is given. Pass fieldSelector type=Warning to leave out the Normal events."
+      description: |-
+        DESCRIPTION Lists events as YAML, one entry per event with the involved object, reason and message, from every namespace unless namespace is given
+        WHEN the question is about problems or failures THEN pass fieldSelector type=Warning to leave out the Normal events
+        WHEN the question names a namespace or one object THEN pass namespace, or fieldSelector involvedObject.name=<name>
       parameters:
         namespace:
-          description: "Exact namespace name. Omit it to list events from every namespace."
+          description: "ASSERT the exact namespace name; omit it for every namespace.\n{{ $noWildcard }}"
         fieldSelector:
-          description: "Server-side filter on event fields. Accepted fields: type (Normal or Warning), reason, involvedObject.kind, involvedObject.name, involvedObject.namespace, involvedObject.uid, involvedObject.apiVersion, involvedObject.resourceVersion, involvedObject.fieldPath, reportingComponent, source. For example type=Warning,involvedObject.kind=Pod."
-    {{- if .Values.kubernetesAccess.secretRead }}
+          description: "ASSERT a server-side filter on event fields. Accepted fields: type (Normal or Warning), reason, involvedObject.kind, involvedObject.name, involvedObject.namespace, involvedObject.uid, involvedObject.apiVersion, involvedObject.resourceVersion, involvedObject.fieldPath, reportingComponent, source. For example type=Warning,involvedObject.kind=Pod."
     # The server's own helm_list text says it lists all namespaces by default; it lists
     # only its own namespace unless all_namespaces is true.
     - name: helm_list
-      description: "Lists Helm releases. namespace lists only that namespace. all_namespaces=true lists every namespace. With neither set it lists only the server's own namespace."
+      description: |-
+        DESCRIPTION Lists Helm releases as YAML: name, namespace, revision, status, chart, chart and app version, last deployed
+        WHEN the question names no namespace THEN pass all_namespaces=true
+        WHEN the question names one namespace THEN pass namespace
+        ASSERT with neither set it lists only the server's own namespace
+        ASSERT Helm keeps each release in a Secret, so this tool needs Secret read on the server's account; without it every call fails with a forbidden error, which means the cluster did not grant that access, not that there are no releases
       parameters:
         namespace:
-          description: "List only this namespace."
+          description: "ASSERT lists only this namespace."
         all_namespaces:
-          description: "Boolean true lists releases in every namespace."
-    {{- end }}
+          description: "ASSERT boolean true lists releases in every namespace."
   resources:
     {{- toYaml .Values.mcpServers.kubernetes.resources | nindent 4 }}
 {{- end }}

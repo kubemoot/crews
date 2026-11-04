@@ -27,6 +27,42 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - promql
     - metrics
     - monitoring
+  # The descriptions agents see, in ADL. PromQL itself is how a query asks for less
+  # (topk, aggregation by a label, a function over a range), and Prometheus rejects a
+  # bare range vector inside an aggregation with a 400 error. list_metrics returns every
+  # metric name unless filter_pattern and limit narrow it.
+  {{- $rangeRule := "WHEN the query needs a rate or a value over time THEN wrap the range vector in rate(...[5m]) or a *_over_time function such as avg_over_time(...[5m]) before any aggregation, for example sum by (namespace) (rate(metric_total[5m]))\nNEVER pass a bare range vector to sum, avg, max, count or topk, such as sum(metric[5m]): Prometheus rejects it with a 400 error" }}
+  toolOverrides:
+    - name: execute_query
+      description: |-
+        DESCRIPTION Runs one PromQL instant query and returns every series it matches with all its labels, so the result grows with the number of series
+        WHEN the question asks for the largest or smallest few THEN wrap the query in topk(5, ...) or bottomk(5, ...)
+        WHEN the question asks for a total or a count per group THEN aggregate with sum by (label) (...) or count by (label) (...)
+        {{- $rangeRule | nindent 8 }}
+        WHEN the question asks which scrape jobs exist or are up THEN query count by (job) (up), and up == 0 for the targets that are down
+    - name: execute_range_query
+      description: |-
+        DESCRIPTION Runs one PromQL range query and returns every sample of every series it matches from start to end at each step
+        ASSERT the result size is the number of series times (end - start) / step
+        WHEN the question asks for a trend THEN aggregate to a few series (sum by, topk) and pick a step that gives about 60 points, such as 1m for an hour or 30m for a day
+        WHEN the question asks for one number over a window (peak, average) THEN query max_over_time(...[1h]) or avg_over_time(...[1h]) with start equal to end, which returns one point per series
+        {{- $rangeRule | nindent 8 }}
+    - name: list_metrics
+      description: |-
+        DESCRIPTION Lists the metric names Prometheus knows, with total_count and has_more; with no filter it returns every name, which is very large
+        ALWAYS pass filter_pattern and limit
+        WHEN the question asks only how many metrics match THEN pass limit=1 and read total_count
+        WHEN has_more is true and the question needs more names THEN call again with offset
+      parameters:
+        filter_pattern:
+          description: "ASSERT a case-insensitive substring of the metric names wanted, such as DCGM_FI_ or apiserver_request."
+        limit:
+          description: "ASSERT the most names to return, for example 50; omitted returns every name."
+    - name: get_metric_metadata
+      description: |-
+        DESCRIPTION Returns the type, help text and unit of metrics; with no metric and no filter it returns the metadata of every metric, which is very large
+        WHEN the question is about one metric THEN pass metric with its exact name
+        WHEN searching THEN pass filter_pattern and limit
   resources:
     requests:
       cpu: "50m"

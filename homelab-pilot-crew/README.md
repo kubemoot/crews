@@ -64,7 +64,7 @@ Network bridges come from `get_node_networks`, whose entries with `type` `bridge
 
 The Kubernetes MCP servers (`kubernetes-mcp`, `kubernetes-legacy-mcp`, and k8sgpt) share one ServiceAccount. By default it is read-only: the built-in `view` ClusterRole plus get/list/watch on Flux, storage, networking, metrics, and Kubemoot resources, and the servers run in their read-only modes.
 
-- `kubernetesAccess.secretRead: true` adds cluster-wide Secret reads. `helm_list` needs it, because Helm stores release state in Secrets; without it the `k8s-helm` agent has no Helm tools and falls back to the read-only resource tools.
+- `kubernetesAccess.secretRead: true` adds cluster-wide Secret reads. `helm_list` needs it, because Helm stores release state in Secrets. The `k8s-helm` agent always has `helm_list`; without Secret reads its calls fail as forbidden, and the tool's description tells the agent that this means the access was not granted, not that there are no releases.
 - `kubernetesAccess.writeAccess: true` adds `pods/exec`, patch and scale on workloads, and the `pods_exec`, `resources_scale`, `helm_install`, and `helm_uninstall` agent tools.
 
 Agents act on text they read from tools and the web, so treat either setting as giving that access to anyone who can put text in front of the crew.
@@ -111,17 +111,24 @@ A runtime that predates the placeholder leaves the text `${agent.tools}` in the 
 
 ## Tool overrides
 
-A list call is as large as what it selects. The Kubernetes MCP server prints every list as a wide table with a `LABELS` column and has no option for fewer columns; its only other list format (`--list-output yaml`) is larger, so the chart leaves the default. The chart instead rewrites the descriptions agents see, through the `toolOverrides` on the Kubernetes `MCPServer` (`templates/mcpserver-kubernetes.yaml`), so a list is narrowed on the server before it comes back:
+A tool result is as large as what the call asks for. The chart rewrites the descriptions agents see, through the `toolOverrides` on each `MCPServer`, so the narrow form of a call is the obvious one. The descriptions are ADL, like the prompts.
+
+The Kubernetes MCP server (containers/kubernetes-mcp-server, pinned by digest in `mcpServers.kubernetes.image`) prints every list as a wide table with a `LABELS` column and has no option for fewer columns, so the size of a list is set by the rows a call asks for. The server reads its settings from a TOML file only; the chart renders one in a Secret (`<release>-kubernetes-mcp-config`) that loads the `core` and `helm` toolsets and sets `read_only` unless `kubernetesAccess.writeAccess` is true. Its overrides (`templates/mcpserver-kubernetes.yaml`):
 
 | Tool | What the description says |
 |---|---|
-| `pods_list`, `pods_list_in_namespace` | The pod fields `fieldSelector` accepts (`spec.nodeName=<node>` lists one node's pods), that `status.phase=Running` matches nearly every pod and does not narrow, that container states such as `CrashLoopBackOff` cannot be selected (read `STATUS` and `RESTARTS`), and the `labelSelector` syntax. `pods_list_in_namespace` takes one exact namespace name: `all` and `*` are not wildcards and return an empty result. |
-| `resources_list` | `namespace` is an exact name (omit it, or pass an empty string, for every namespace; `all` and `*` return an empty result), the `labelSelector` syntax, and the few fields `fieldSelector` accepts per kind (Node: `metadata.name`, `spec.unschedulable`; Namespace: `metadata.name`, `status.phase`; Job: `status.successful`; most other kinds: `metadata.name`, `metadata.namespace`), so an agent stops sending selectors the API rejects, such as Node conditions. |
-| `pods_top` | The result has one row per container, `all_namespaces` defaults to true (a call with no `namespace` returns every container in the cluster), and `namespace`, `name` (with `namespace`) and `label_selector` narrow it. |
+| `pods_list`, `pods_list_in_namespace`, `resources_list` | For a count, `limit=1` with no `labelSelector` and no `fieldSelector`: the reply's header lines carry `# remainingItemCount: N`, so the total is N+1, and a selector suppresses that count. `namespace` is an exact name; `all` and `*` are not wildcards and return an empty result. |
+| `pods_list`, `pods_list_in_namespace` | The pod fields `fieldSelector` accepts (`spec.nodeName=<node>` lists one node's pods), that `status.phase=Running` matches nearly every pod and does not narrow, that container states such as `CrashLoopBackOff` cannot be selected (read `STATUS` and `RESTARTS`), and the `labelSelector` syntax. |
+| `resources_list` | The few fields `fieldSelector` accepts per kind (Node: `metadata.name`, `spec.unschedulable`; Namespace: `metadata.name`, `status.phase`; Job: `status.successful`; most other kinds: `metadata.name`, `metadata.namespace`), so an agent stops sending selectors the API rejects, such as Node conditions. |
+| `pods_top` | One row per container; `all_namespaces` defaults to true (a call with no `namespace` returns every container in the cluster); `namespace`, `name` (with `namespace`) and `label_selector` narrow it; the Metrics API ignores `limit`. |
 | `events_list` | `fieldSelector` accepts `type`, `reason`, and the `involvedObject.*` fields; `type=Warning` leaves out the Normal events. |
-| `helm_list` | With `kubernetesAccess.secretRead`: `namespace` lists one namespace, `all_namespaces=true` lists every namespace, and with neither it lists only the server's own namespace. |
+| `helm_list` | `namespace` lists one namespace, `all_namespaces=true` lists every namespace, and with neither it lists only the server's own namespace; a forbidden error means the server's account has no Secret read. |
 
-Each description restates what the parameter does in the server's own source (the version `mcpServers.kubernetes.image` pins) and the Kubernetes API's field-selector support. A question that needs every object of a kind, such as a count per namespace, still gets the full table; the overrides only stop a call from asking for more than the question needs. `tests/test-prompt-tools.sh` pins the overrides.
+The Prometheus server's overrides (`templates/mcpserver-prometheus.yaml`) make PromQL do the narrowing: `topk` or `bottomk` for the largest or smallest few, `sum by` or `count by` for totals, a range vector only inside `rate(...[5m])` or a `*_over_time` function (Prometheus rejects `sum(metric[5m])`), a range-query step of about 60 points, and `filter_pattern` with `limit` on `list_metrics` (whose `total_count` answers a count). No agent has `get_targets`: it takes no argument that narrows it and its result outgrows a tool call, so `nvidia-gpu-meta` reads scrape health from the `up` series (`count by (job) (up)`) with the instant query.
+
+The Proxmox server's overrides (`templates/mcpserver-proxmox.yaml`) keep `verbose` off on `list_nodes`, `list_vms`, and `get_cluster_resources` (the compact row carries status, CPU, and memory), point questions about several VMs at one `list_vms` or `get_cluster_resources` call instead of one history call per VM, and give the RRD tools' exact `timeframe` values (`hour`, `day`, `week`, `month`, `year`) and `cf` values (`AVERAGE`, `MAX`), and that they take no `limit`.
+
+Each description restates what the parameter does in the server's own source at the pinned version, and the Kubernetes API's field-selector support. A question that needs every object of a kind, such as a count per namespace, still gets the full table; the overrides only stop a call from asking for more than the question needs. `tests/test-prompt-tools.sh` pins the overrides. `tests/test-server-tools.sh` checks every tool an agent enables, and every tool an override names, against the tools each server lists at its pinned image (`tests/server-tools.yaml`).
 
 ## Fitness
 
