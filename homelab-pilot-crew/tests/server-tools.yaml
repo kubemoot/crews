@@ -1,0 +1,61 @@
+# The tools each MCP server the chart deploys lists in tools/list, at the image the chart
+# pins. test-server-tools.sh checks the chart against it: every tool an agent enables and
+# every tool a toolOverride names must be one of these, and each server's image must be the
+# one recorded here, so a changed pin fails until this list is read again from the new image.
+#
+# mcpServer: the MCPServer's name when the release is named t (the test's render).
+# image: the image the chart renders for it (Kubemoot's own images render with tag 0.0.0,
+#   stamped at build; artifact-readops takes its image from the operator).
+# tools: the tools the server lists with the chart defaults (read-only modes).
+# write: the tools it adds when kubernetesAccess.writeAccess is true.
+servers:
+  kubernetes:
+    # containers/kubernetes-mcp-server v0.1.1, toolsets core and helm. From the source at the
+    # v0.1.1 tag (pkg/mcp/testdata/toolsets-core-tools.json and toolsets-helm-tools.json):
+    # tools holds the ones annotated readOnlyHint=true, which are the only ones
+    # read_only = true registers.
+    mcpServer: t-kubernetes-mcp
+    image: quay.io/containers/kubernetes_mcp_server@sha256:d616331a99184d42f7471eac5ae257192e7065bb684ad115cc95c2e76cfbc2d1
+    tools: [events_list, namespaces_list, nodes_log, nodes_stats_summary, nodes_top, pods_get, pods_list, pods_list_in_namespace, pods_log, pods_top, projects_list, resources_get, resources_list, helm_list]
+    write: [pods_delete, pods_exec, pods_run, resources_create_or_update, resources_delete, resources_scale, helm_install, helm_uninstall]
+  kubernetes-legacy:
+    # Flux159/mcp-server-kubernetes with ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS: the image's tools/list.
+    mcpServer: t-kubernetes-legacy-mcp
+    image: mcp/kubernetes@sha256:0de7c3ea2dacf13bba03579a6911a899f8c213c8b86c7ca2bd216359efb79e3a
+    tools: [exec_in_pod, explain_resource, install_helm_chart, kubectl_apply, kubectl_context, kubectl_create, kubectl_describe, kubectl_get, kubectl_logs, kubectl_patch, kubectl_reconnect, kubectl_rollout, kubectl_scale, list_api_resources, ping, port_forward, stop_port_forward, upgrade_helm_chart]
+  prometheus:
+    # pab1it0/prometheus-mcp-server: the tools in src/prometheus_mcp_server/server.py at
+    # v1.6.2, the same names the image lists.
+    mcpServer: prometheus-mcp
+    image: ghcr.io/pab1it0/prometheus-mcp-server@sha256:ed91f3f9e4f6fb92c5b8fd48a29f3382c11498de405f59da5eac16398d47d43b
+    tools: [execute_query, execute_range_query, get_metric_metadata, get_targets, health_check, list_metrics]
+  proxmox:
+    # akmalovaa/proxmox-mcp 2.3.0 at PROXMOX_RISK_LEVEL=read, narrowed by PROXMOX_TOOLS_ALLOW
+    # in templates/mcpserver-proxmox.yaml. The chart ships no image (the user supplies one),
+    # so no image is recorded.
+    mcpServer: proxmox-mcp
+    tools: [get_cluster_resources, get_node_networks, get_node_rrd_data, get_node_status, get_node_tasks, get_storage_content, get_task_status, get_vm_config, get_vm_rrd_data, list_nodes, list_storage, list_vm_snapshots, list_vms]
+  k8sgpt:
+    # k8sgpt serving MCP: the image's tools/list.
+    mcpServer: k8sgpt-mcp
+    image: ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26
+    tools: [analyze, cluster-info, config]
+  web-search:
+    # The DuckDuckGo MCP server: the image's tools/list.
+    mcpServer: web-search-mcp
+    image: docker.io/mcp/duckduckgo@sha256:5617c4c60f48f47556c0735de7a73f6abd731c132c65ec8c720b511819c9f88f
+    tools: [fetch_content, search]
+  artifact-readops:
+    # Kubemoot's artifact-access image in MCP mode; workspace_query only when the operator's
+    # artifacts.queryEngine is sqlite or duckdb.
+    mcpServer: artifact-readops-mcp
+    image: "kubemootImage:artifactAccess"
+    tools: [artifact_count, artifact_grep, artifact_head, artifact_jq, artifact_rows, artifact_select, artifact_tail, workspace_query]
+  code-sandbox:
+    mcpServer: code-sandbox-mcp
+    image: ghcr.io/kubemoot/code-sandbox:0.0.0
+    tools: [execute_code, validate_code]
+  scheduling:
+    mcpServer: scheduling-mcp
+    image: ghcr.io/kubemoot/scheduling-mcp:0.0.0
+    tools: [cancel_scheduled, list_scheduled, schedule_followup, set_reminder]

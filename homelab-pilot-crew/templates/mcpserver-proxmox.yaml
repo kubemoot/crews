@@ -47,18 +47,60 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - lxc-containers
     - storage
     - backup
-  # Names the values Proxmox's RRD API accepts; anything else is rejected with 400
-  # "Parameter verification failed".
+  # The descriptions agents see, in ADL. The list tools return a compact row per object
+  # unless verbose is true, which adds mostly per-second IO counters. The RRD tools take
+  # only node (and vmid), timeframe and cf, the arguments Proxmox's RRD API has, and
+  # return every sample of the window; the API rejects any other timeframe or cf with
+  # 400 "Parameter verification failed".
+  {{- $compact := "ASSERT false (the default) returns the compact row: identity, status, uptime, cpu and memory.\nNEVER pass verbose=true unless the question asks for disk or network IO counters: the full rows are several times larger and are mostly per-second IO counters." }}
+  {{- $timeframe := "ASSERT exactly one of: hour, day, week, month, year (the default is day).\nNEVER pass another form such as 1h, 1hour, 24h or 7d: it is rejected." }}
+  {{- $cf := "ASSERT exactly AVERAGE or MAX, uppercase (the default is AVERAGE).\nWHEN the question is about typical load THEN pass AVERAGE\nWHEN the question is about spikes or peaks THEN pass MAX" }}
+  {{- $rrdArgs := "ASSERT the only arguments are the ones listed here: there is no limit, field or step argument, and every sample of the window comes back with every field" }}
   toolOverrides:
+    - name: list_nodes
+      parameters:
+        verbose:
+          description: {{ $compact | toJson }}
+    - name: list_vms
+      description: |-
+        DESCRIPTION Lists the QEMU VMs of the cluster, or of one node, one row per VM
+        WHEN the question asks for the status, CPU or memory of several VMs right now THEN read them from this one call, not one history call per VM
+        WHEN the question names a node THEN pass node
+      parameters:
+        verbose:
+          description: {{ $compact | toJson }}
+    - name: get_cluster_resources
+      description: |-
+        DESCRIPTION Lists the cluster's resources (VMs and containers, storage, nodes, sdn) in one call, one row per resource
+        WHEN the question covers every VM or container in the cluster, including their current CPU and memory THEN call this once with type=vm instead of one call per VM
+        WHEN the question is about one kind of resource THEN pass type
+      parameters:
+        verbose:
+          description: {{ $compact | toJson }}
     - name: get_node_rrd_data
-      description: "Performance history of one Proxmox node (CPU, memory, load, network, disk) from its RRD data, as a list of samples."
+      description: |-
+        DESCRIPTION Performance history of one Proxmox node (CPU, memory, load, network, disk) from its RRD data, as a list of samples
+        {{ $rrdArgs }}
+        WHEN the question asks for a value right now THEN use the node status tool instead
+        WHEN the question asks for a trend THEN pick the shortest timeframe that covers it
       parameters:
         node:
-          description: "The Proxmox node name, exactly as list_nodes returns it."
+          description: "ASSERT the Proxmox node name, exactly as list_nodes returns it."
         timeframe:
-          description: "One of: hour, day, week, month, year. The default is day."
+          description: {{ $timeframe | toJson }}
         cf:
-          description: "One of: AVERAGE, MAX (uppercase). The default is AVERAGE."
+          description: {{ $cf | toJson }}
+    - name: get_vm_rrd_data
+      description: |-
+        DESCRIPTION Performance history of one VM (CPU, memory, disk and network) from its RRD data, as a list of samples
+        {{ $rrdArgs }}
+        WHEN the question asks for the current CPU or memory of a VM THEN read it from list_vms instead
+        WHEN the question asks for a trend THEN pick the shortest timeframe that covers it, and call once per VM the question names
+      parameters:
+        timeframe:
+          description: {{ $timeframe | toJson }}
+        cf:
+          description: {{ $cf | toJson }}
   resources:
     requests:
       cpu: "50m"

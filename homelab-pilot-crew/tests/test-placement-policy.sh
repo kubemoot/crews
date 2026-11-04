@@ -249,8 +249,8 @@ pve_insecure="$(render --set mcpServers.proxmox.enabled=true --set mcpServers.pr
 echo "PASS: proxmox-mcp transport"
 
 # get_node_rrd_data: the override names the values Proxmox accepts.
-[ "$(pve_mcp '.spec.toolOverrides[] | select(.name == "get_node_rrd_data") | .parameters.timeframe.description')" = "One of: hour, day, week, month, year. The default is day." ] || fail "get_node_rrd_data timeframe override missing"
-[ "$(pve_mcp '.spec.toolOverrides[] | select(.name == "get_node_rrd_data") | .parameters.cf.description')" = "One of: AVERAGE, MAX (uppercase). The default is AVERAGE." ] || fail "get_node_rrd_data cf override missing"
+grep -qF "exactly one of: hour, day, week, month, year" <<<"$(pve_mcp '.spec.toolOverrides[] | select(.name == "get_node_rrd_data") | .parameters.timeframe.description')" || fail "get_node_rrd_data timeframe override missing"
+grep -qF "exactly AVERAGE or MAX" <<<"$(pve_mcp '.spec.toolOverrides[] | select(.name == "get_node_rrd_data") | .parameters.cf.description')" || fail "get_node_rrd_data cf override missing"
 echo "PASS: get_node_rrd_data override"
 
 # No rendered resource still names a tool of the previous Proxmox MCP server.

@@ -24,7 +24,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - observability
   triageSummary: "Answers 'what GPU metrics are available?' and 'is the DCGM exporter being scraped?' — Prometheus topology and metric discovery for the GPU domain. NOT for the metric values themselves, NOT for trends."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-meta-system]
-  enabledTools: [list_metrics, get_targets]
+  # Scrape health comes from the up series through the instant query; a full scrape-target
+  # listing has no argument that narrows it and outgrows a tool result.
+  enabledTools: [list_metrics, execute_query]
   discussKeywords:
     - gpu
     - dcgm

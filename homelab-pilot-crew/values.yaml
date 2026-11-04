@@ -241,7 +241,8 @@ mcpQualityPolicy:
 # text from tools and the web, so grant more only on a cluster you trust them with.
 kubernetesAccess:
   # Adds get/list/watch on Secrets cluster-wide. helm_list needs it (Helm stores
-  # release state in Secrets), and so does any question that counts Secrets.
+  # release state in Secrets; without it the k8s-helm agent's calls fail as
+  # forbidden), and so does any question that counts Secrets.
   secretRead: false
   # Adds pods/exec, workload patch and scale, and the matching agent tools
   # (pods_exec, resources_scale, helm_install, helm_uninstall). When false the
@@ -259,10 +260,12 @@ nats:
 mcpServers:
   kubernetes:
     enabled: true
-    # v0.0.58-0.63 return failed k8s API calls via the MCP isError flag (the agent
-    # runtime already maps that to a failure signal); v0.0.57 returned them as
-    # successful content, which got laundered into the discussion as fake data.
-    image: "quay.io/containers/kubernetes_mcp_server:v0.0.63"
+    # containers/kubernetes-mcp-server v0.1.1, pinned by digest. It reports a failed
+    # Kubernetes API call with the MCP isError flag, which the agent runtime maps to a
+    # failure signal, and its list tools take limit and continue. It reads its settings
+    # from a TOML file only, which the chart renders (templates/mcpserver-kubernetes.yaml),
+    # so another version may need a different file.
+    image: "quay.io/containers/kubernetes_mcp_server@sha256:d616331a99184d42f7471eac5ae257192e7065bb684ad115cc95c2e76cfbc2d1"
     resources:
       requests:
         cpu: 100m

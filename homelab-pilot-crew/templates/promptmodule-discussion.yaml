@@ -117,9 +117,9 @@ spec:
     DESCRIPTION Pull the minimum that answers the request; narrow the tool result with the tool's real scope and filter parameters.
     ASSERT gather PROPORTIONATE to the request. For a list, inventory, or infer-purpose question you need the IDENTIFYING fields - names, kinds, and the few labels that signal purpose - NOT the full detail of every object. Dumping full detail cluster-wide bloats the thread, crowds out other findings, and overflows what the synthesizer reads, so the answer comes out LESS complete, not more.
     ASSERT to keep a result small, pass the NARROWEST scope, filter, or limit parameter the tool actually accepts - do NOT gather everything and scan it in your head.
-    ASSERT a Kubernetes list tool, if you have one, has NO names-only, columns, limit, or compact mode; it ALWAYS returns a wide table with every object's images, selector, and full labels. The ONLY lever is returning FEWER ROWS.
+    ASSERT a Kubernetes list tool, if you have one, has NO names-only, columns, or compact mode; it ALWAYS returns a wide table with every object's images, selector, and full labels. The ONLY lever is returning FEWER ROWS: namespace, selectors, and limit, as its tool description says.
     WHEN listing within a namespace THEN call your resource list tool with apiVersion, kind, AND namespace=<ns> (or your list-pods-in-a-namespace tool with namespace, if you have one); NEVER omit namespace unless the question is explicitly cluster-wide.
-    WHEN the user names an app, component, or state THEN narrow the rows with labelSelector (e.g. app=<name>) or fieldSelector (e.g. status.phase=Running).
+    WHEN the user names an app, component, or node THEN narrow the rows with labelSelector (e.g. app=<name>) or fieldSelector (e.g. spec.nodeName=<node>).
     ASSERT for an inventory or infer-purpose answer, report ONLY the NAME and KIND columns plus the few purpose-signalling labels; NEVER echo the IMAGES, SELECTOR, or full LABELS columns into the discussion. Reach for full per-object detail ONLY when the question is about a specific object's state.
 
     ASSERT an empty result or a tool error ("Invalid request", "Bad Request", HTTP 4xx, "parse failed") is NOT the answer and NOT the question's fault - your query string or label match was wrong. Drill; do not conclude.

@@ -607,7 +607,7 @@ spec:
     ALWAYS answer questions about WHICH metrics exist in the GPU domain (discovery), and WHETHER the DCGM exporter scrape targets are healthy
     WHEN question is about the metric VALUE itself (current OR historical) THEN defer to nvidia-gpu-now or nvidia-gpu-history
     WHEN question is about general Prometheus / cluster observability (not GPU-specific) THEN defer to obs-metrics tooler
-    NEVER try an instant query, a range query, or a metric metadata call; your only tools are the metric listing and scrape-target tools
+    NEVER try a range query or a metric metadata call; your only tools are the metric listing tool and the instant query tool, which you use for scrape health only
 
     DEFINE COMPONENT discovery
     DESCRIPTION How to discover what GPU metrics exist
@@ -619,9 +619,9 @@ spec:
     DEFINE COMPONENT scrape-health
     DESCRIPTION How to verify DCGM exporters are being scraped
 
-    WHEN asked whether DCGM is healthy / being scraped THEN call get_targets and filter to job names containing "dcgm" or "nvidia"
-    WHEN any DCGM target is down (health != "up") THEN report it explicitly with the target's instance label
-    WHEN scrape latency is high (lastScrape - lastScrapeDuration > 30s) THEN call that out as a degraded-scrape signal
+    WHEN asked whether DCGM is healthy / being scraped THEN call execute_query with count by (job) (up) and keep the job names containing "dcgm" or "nvidia", then query up{job="<that job>"} for its targets
+    WHEN any DCGM target is down (up == 0) THEN report it explicitly with the target's instance label
+    WHEN scrape_duration_seconds{job="<that job>"} is above 30 THEN call that out as a degraded-scrape signal
 ---
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
@@ -750,7 +750,7 @@ spec:
 
     WHEN listing all QEMU VMs across the cluster THEN use list_vms
     WHEN getting detailed VM configuration (CPU, memory, disks, network, PCIe passthrough) THEN use get_vm_config
-    WHEN getting VM performance metrics (CPU%, memory%, disk I/O, network I/O) THEN use get_vm_rrd_data
+    WHEN getting VM performance history over a window (CPU%, memory%, disk I/O, network I/O) THEN use get_vm_rrd_data
     WHEN listing snapshots for a VM THEN use list_vm_snapshots
 
     DEFINE COMPONENT domain-scope
