@@ -144,7 +144,11 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         fieldSelector:
           description: "ASSERT a server-side filter on event fields. Accepted fields: type (Normal or Warning), reason, involvedObject.kind, involvedObject.name, involvedObject.namespace, involvedObject.uid, involvedObject.apiVersion, involvedObject.resourceVersion, involvedObject.fieldPath, reportingComponent, source. For example type=Warning,involvedObject.kind=Pod."
     # The server's own helm_list text says it lists all namespaces by default; it lists
-    # only its own namespace unless all_namespaces is true.
+    # only its own namespace unless all_namespaces is true. Only the k8s-helm agent has
+    # helm_list, so the route for a cluster without Secret read lives here, not in the
+    # resources_list text every Kubernetes agent sees. A Flux HelmRelease names its chart
+    # in spec.chart.spec, or points at a source through spec.chartRef and then carries the
+    # chart only in status.history, so the text names both.
     - name: helm_list
       description: |-
         DESCRIPTION Lists Helm releases as YAML: name, namespace, revision, status, chart, chart and app version, last deployed
@@ -152,6 +156,11 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         WHEN the question names one namespace THEN pass namespace
         ASSERT with neither set it lists only the server's own namespace
         ASSERT Helm keeps each release in a Secret, so this tool needs Secret read on the server's account; without it every call fails with a forbidden error, which means the cluster did not grant that access, not that there are no releases
+        WHEN this tool fails with a forbidden error THEN list the Flux HelmRelease objects instead: resources_list with apiVersion helm.toolkit.fluxcd.io/v2 and kind HelmRelease, and no namespace to cover every namespace
+        WHEN reading a HelmRelease THEN take the chart name and version from status.history[0] (chartName, chartVersion, status), or from spec.chart.spec (chart, version) when present; status.lastAttemptedRevision is the version Flux last tried
+        ASSERT a HelmRelease list holds only the releases Flux manages; report the answer as Flux-managed releases, not every release in the cluster
+        WHEN resources_list says the HelmRelease kind is not served THEN report that the cluster has no Flux and that Helm releases cannot be listed without Secret read
+        NEVER request kind Release or apiVersion helm.sh/v3: the API does not serve it, because Helm stores releases in Secrets
       parameters:
         namespace:
           description: "ASSERT lists only this namespace."
