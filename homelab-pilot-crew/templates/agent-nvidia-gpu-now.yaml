@@ -18,13 +18,13 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # Coupling, and Question Shape" for the rationale behind splitting the
   # original monolithic nvidia-gpu (which carried 5 tools across 4 question
   # shapes and took ~3 min per call).
-  description: "Real-time NVIDIA GPU state — current utilization, temperature, VRAM use, power draw."
+  description: "Fetches live NVIDIA GPU readings from the DCGM exporter in Prometheus: current utilization, VRAM used and free, temperature, power draw, and clocks per GPU."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:
     - observability
-  triageSummary: "Answers 'what is GPU X doing right now?' — current utilization, temperature, VRAM use, power draw, clock speeds. NOT for historical trends, not for metric semantics, not for scrape-target health."
+  triageSummary: "Answers what each NVIDIA GPU is doing right now: current utilization, VRAM use, temperature, power draw, and clock speeds. Not trends over time, not which metrics exist, not scrape health."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-now-system]
   enabledTools: [execute_query]
   discussKeywords:

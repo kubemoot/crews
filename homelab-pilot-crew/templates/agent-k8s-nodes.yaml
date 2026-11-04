@@ -12,18 +12,33 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-nodes") }}
   type: chat
-  description: "Inspects Kubernetes node status: conditions, labels, taints, capacity, allocatable resources."
+  description: "Fetches live Node data from the Kubernetes API: each node's CPU, memory, pod, and ephemeral-storage capacity and allocatable, roles, Ready and pressure conditions, labels, taints, and kubelet version. Answers how much CPU or memory the cluster has. Also lists CRDs and API resource types."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Inspects Kubernetes Nodes (conditions, taints, labels, capacity, kubelet version), CustomResourceDefinitions, and API resource schemas."
+  triageSummary: "Answers how big the cluster and each node are and whether the nodes are healthy: total and per-node CPU and memory capacity and allocatable, how much RAM the nodes have, node roles (control plane or worker), Ready, MemoryPressure, DiskPressure, and PIDPressure conditions, labels, taints, cordoned nodes, and kubelet and Kubernetes version. Also discovers installed CustomResourceDefinitions and API resource schemas."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-nodes-system]
   enabledTools: [list_api_resources, explain_resource, resources_list, resources_get, events_list]
   discussKeywords:
     - node
     - nodes
+    - capacity
+    - allocatable
+    - memory
+    - cpu
+    - ram
+    - role
+    - roles
+    - ready
+    - condition
+    - pressure
+    - taint
+    - label
+    - cordon
+    - drain
+    - kubelet
     - crd
     - crds
     - operator
@@ -33,13 +48,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - api
     - schema
     - explain
-    - cluster
-    - taint
-    - capacity
-    - condition
-    - cordon
-    - drain
-    - talos
   temperature: "0.3"
   maxTokens: 4096
   deployment:

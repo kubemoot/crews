@@ -12,13 +12,13 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-services") }}
   type: chat
-  description: "Inspects Kubernetes networking: Services, Endpoints, Ingresses, NetworkPolicies."
+  description: "Fetches live networking objects from the Kubernetes API: Services with type, ports, and cluster and external IPs, Endpoints, Ingresses with hosts and paths, and NetworkPolicies in any or all namespaces."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Lists and inspects Services, Endpoints, Ingresses, and NetworkPolicies."
+  triageSummary: "Answers how traffic reaches workloads: which Services exist with their type, ports, and selectors, which endpoints back them, Ingress hosts and paths, and which namespaces have NetworkPolicies and which have none."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-services-system]
   enabledTools: [resources_list, resources_get, events_list]
   discussKeywords:

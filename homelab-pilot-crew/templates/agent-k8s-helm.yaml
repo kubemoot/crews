@@ -12,13 +12,13 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-helm") }}
   type: chat
-  description: "Manages Helm releases: list, status, values."
+  description: "Fetches live Helm release data: each release's name, namespace, chart, chart version, app version, and status, in one namespace or all of them.{{ if .Values.kubernetesAccess.writeAccess }} Installs and uninstalls releases.{{ end }}"
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Lists, installs, and uninstalls Helm chart releases."
+  triageSummary: "Answers which Helm releases are installed and at what versions: release name, namespace, chart name and chart version, app version, revision, and deployed or failed status.{{ if .Values.kubernetesAccess.writeAccess }} Also installs a chart or uninstalls a release when asked.{{ end }}"
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
   # The Kubernetes MCP server always loads its helm toolset. helm_list reads release
   # state from Secrets, so it answers only with kubernetesAccess.secretRead and fails as
@@ -31,11 +31,12 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - charts
     - release
     - releases
-    - install
-    - upgrade
-    - uninstall
+    - version
+    - versions
     - values
     - repository
+    - install
+    - uninstall
   temperature: "0.3"
   maxTokens: 4096
   deployment:

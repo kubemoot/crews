@@ -74,6 +74,20 @@ Agents act on text they read from tools and the web, so treat either setting as 
 - **1 coordinator** (`homelab-coordinator`) declares the `reasoning` capability and leans to a large model.
 - **Up to 22 specialists** (19 with the chart defaults, which leave Proxmox VE and scheduling off) cover Kubernetes (`k8s-*`, `k8sgpt`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), computation (`compute`), scheduling, and internet search. They declare `tool-calling` plus their domain capability, and lean to medium models through `CrewSchedulingPolicy.spec.qualityBias`.
 
+## Agent descriptions
+
+The coordinator picks agents for a question from what each Agent says about itself. It reads each candidate's `description` and tool names. The resume search that narrows the candidates also embeds the `triageSummary`, the `discussKeywords`, and the agent's prompt.
+
+Each description names the live data its agent fetches, in the words a question uses. Neighbors do not claim the same data:
+
+- `k8s-nodes`: node CPU and memory capacity and allocatable, roles, conditions.
+- `k8s-workloads`: pods and controllers, and each container's CPU and memory requests and limits.
+- `k8s-metrics`: CPU and memory usage, now and over time.
+- `obs-metrics`: the monitoring stack itself and its alerts.
+- `proxmox-pve`: the hypervisor hosts. `proxmox-qm`: the virtual machines.
+
+An agent that fetches live data opens its description with "Fetches". The compute agent fetches nothing: its sandbox has no cluster API, no kubectl, and no network, so its description says to pick it together with the agents that fetch the data. No description names a particular cluster. `tests/test-prompt-tools.sh` checks these rules.
+
 ## Models
 
 The chart ships no Model objects and names no model server for its chat models. The cluster owner's model catalog supplies them: the Model objects in the operator namespace plus the models each ModelServer reports. The crew's CrewSchedulingPolicy says what each phase needs, by the labels the catalog carries:

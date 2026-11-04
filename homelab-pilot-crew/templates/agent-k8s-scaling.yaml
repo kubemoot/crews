@@ -12,13 +12,13 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-scaling") }}
   type: chat
-  description: "Inspects Kubernetes scaling: HorizontalPodAutoscalers, ScaledObjects, resource quotas."
+  description: "Fetches live autoscaling and quota objects from the Kubernetes API: HorizontalPodAutoscalers with current and desired replicas and targets, VerticalPodAutoscalers, ResourceQuotas with namespace limits and use, and LimitRanges.{{ if $.Values.kubernetesAccess.writeAccess }} Scales a Deployment's or StatefulSet's replicas.{{ end }}"
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Inspects HorizontalPodAutoscalers, VerticalPodAutoscalers, ResourceQuotas, LimitRanges, and performs manual replica scaling."
+  triageSummary: "Answers how workloads scale and what each namespace is allowed: HPA current, desired, minimum, and maximum replicas and their metric targets, VPA recommendations, ResourceQuota hard limits and used amounts per namespace, and LimitRange container defaults.{{ if $.Values.kubernetesAccess.writeAccess }} Also scales a workload's replicas when asked.{{ end }}"
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-scaling-system]
   enabledTools: [resources_list, resources_get{{ if $.Values.kubernetesAccess.writeAccess }}, resources_scale{{ end }}, pods_top, events_list]
   discussKeywords:
@@ -32,7 +32,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - resourcequota
     - limitrange
     - replicas
-    - capacity
   temperature: "0.3"
   maxTokens: 4096
   deployment:

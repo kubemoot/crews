@@ -12,13 +12,13 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-storage") }}
   type: chat
-  description: "Inspects Kubernetes storage: PersistentVolumes, PersistentVolumeClaims, StorageClasses, VolumeSnapshots."
+  description: "Fetches live storage objects from the Kubernetes API: PersistentVolumes, PersistentVolumeClaims, and StorageClasses, with size, access modes, bound status, reclaim policy, and provisioner."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Lists and inspects PersistentVolumes, PersistentVolumeClaims, and StorageClasses including capacity, access modes, reclaim policies, and provisioners."
+  triageSummary: "Answers questions about persistent storage: which claims exist and whether they are bound, their requested size, the volumes behind them, access modes, reclaim policies, and the StorageClasses and provisioners that create them."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-storage-system]
   enabledTools: [resources_list, resources_get, events_list]
   discussKeywords:

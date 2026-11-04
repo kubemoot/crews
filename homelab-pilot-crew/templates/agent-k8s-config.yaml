@@ -12,18 +12,20 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-config") }}
   type: chat
-  description: "Lists and inspects Kubernetes configuration objects: Namespaces, ConfigMaps, ServiceAccounts, Roles, ClusterRoles, RoleBindings."
+  description: "Fetches live configuration objects from the Kubernetes API: Namespaces, ConfigMaps, Secret names and counts (never their values), ServiceAccounts, Roles, ClusterRoles, RoleBindings, and ClusterRoleBindings."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Lists and inspects ConfigMaps, Namespaces, ServiceAccounts, Roles, ClusterRoles, RoleBindings, ClusterRoleBindings. Uses resources_list and resources_get for RBAC and configuration resources only."
+  triageSummary: "Answers what namespaces exist and what configuration and access they hold: ConfigMaps and Secrets per namespace (names and counts only), ServiceAccounts, and the RBAC roles and bindings that grant permissions."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-config-system]
   enabledTools: [resources_list, resources_get, events_list]
   discussKeywords:
     - configmap
     - configmaps
+    - secret
+    - secrets
     - namespace
     - namespaces
     - serviceaccount

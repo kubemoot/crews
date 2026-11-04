@@ -16,13 +16,13 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # Discovery + observability-of-observability. Answers "what GPU metrics
   # exist?" and "are the DCGM exporters even being scraped?". NOT for the
   # metric values themselves.
-  description: "GPU monitoring discovery and Prometheus-scrape health — which DCGM metrics exist, are exporters being scraped, what's the meta-state of GPU observability."
+  description: "Fetches GPU monitoring metadata from Prometheus: which DCGM metrics exist and whether the DCGM exporters are being scraped."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:
     - observability
-  triageSummary: "Answers 'what GPU metrics are available?' and 'is the DCGM exporter being scraped?' — Prometheus topology and metric discovery for the GPU domain. NOT for the metric values themselves, NOT for trends."
+  triageSummary: "Answers what GPU metrics are available and whether the DCGM exporter is being scraped: metric discovery and scrape-target health for GPU monitoring. Not metric values, not trends."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-meta-system]
   # Scrape health comes from the up series through the instant query; a full scrape-target
   # listing has no argument that narrows it and outgrows a tool result.

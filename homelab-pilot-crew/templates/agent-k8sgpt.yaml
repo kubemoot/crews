@@ -12,7 +12,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8sgpt") }}
   type: chat
-  description: "AI-powered Kubernetes diagnostics via k8sgpt analysis."
+  description: "Fetches live cluster diagnostics: runs K8sGPT analyzers that find misconfigured or failing Pods, Services, Ingresses, Deployments, StatefulSets, PVCs, and NetworkPolicies, and lists Kubernetes Events and warnings from any object."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]

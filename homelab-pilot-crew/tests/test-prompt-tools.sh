@@ -152,6 +152,47 @@ for tool in $(yq -N 'select(.kind == "MCPServer") | .spec.toolOverrides // [] | 
   check "overrides: $tool is enabled on an agent" yes "$(grep -qxF "$tool" <<<"$enabled" && echo yes || echo no)"
 done
 
+# What the coordinator reads per agent when it picks: the description, and for the resume
+# search also the summary, keywords, and prompt. Each agent that fetches live data says so,
+# compute says it fetches nothing, the texts name no cluster of their own, and no two agents
+# share a description.
+agent_field() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | .spec.$2" <<<"$out_all"; }
+data_agents=(k8s-config k8s-helm k8s-metrics k8s-nodes k8s-scaling k8s-services k8s-storage k8s-workloads k8sgpt
+  nvidia-gpu-history nvidia-gpu-meta nvidia-gpu-now obs-metrics proxmox-pve proxmox-qm)
+for name in "${data_agents[@]}"; do
+  description="$(agent_field "$name" description)"
+  check "descriptions: $name says it fetches live data" yes "$([[ $description == "Fetches "* ]] && echo yes || echo no)"
+done
+for phrase in 'Cannot fetch data' 'no cluster API' 'no kubectl' 'Select it together with the agents that fetch the data'; do
+  check "descriptions: compute says '$phrase'" yes "$(has "$(agent_field compute description)" "$phrase")"
+done
+check "descriptions: compute's summary says a live-data question needs the fetching agents" yes \
+  "$(has "$(agent_field compute triageSummary)" 'also needs the agents that fetch that data')"
+check "descriptions: k8s-nodes names capacity and allocatable" yes \
+  "$(has "$(agent_field k8s-nodes description)" 'capacity and allocatable')"
+check "descriptions: k8s-workloads names requests and limits" yes \
+  "$(has "$(agent_field k8s-workloads description)" 'CPU and memory requests and limits')"
+for setting in false true; do
+  write_on="$(render "${all_on[@]}" --set kubernetesAccess.writeAccess="$setting")"
+  check "descriptions: k8s-helm mentions install only with write access ($setting)" "$setting" \
+    "$(yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-helm") | .spec.description | test("Installs and uninstalls")' <<<"$write_on")"
+  check "descriptions: k8s-scaling mentions scaling only with write access ($setting)" "$setting" \
+    "$(yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-scaling") | .spec.description | test("Scales a")' <<<"$write_on")"
+done
+# The texts the resume embeds: each specialist's description and summary, and each agent
+# module's DESCRIPTION lines.
+specialist_texts() {
+  yq -N 'select(.kind == "Agent" and .spec.discussRole != "coordinator") | (.spec.description, .spec.triageSummary)' <<<"$out_all"
+  yq -N 'select(.kind == "PromptModule" and (.metadata.name | test("-system$"))) | .spec.content' <<<"$out_all" | grep '^DESCRIPTION '
+}
+texts="$(specialist_texts)"
+check "descriptions: every data agent's text was rendered" yes \
+  "$([ "$(grep -c '^Fetches ' <<<"$texts")" -ge "${#data_agents[@]}" ] && echo yes || echo no)"
+check "descriptions: no specialist text names Talos or a homelab" 0 "$(grep -ciE 'talos|homelab' <<<"$texts" || true)"
+check "descriptions: no specialist text holds a non-ASCII character" 0 "$(LC_ALL=C grep -c '[^[:print:][:space:]]' <<<"$texts" || true)"
+check "descriptions: no two agents share a description" 0 \
+  "$(yq -N 'select(.kind == "Agent") | .spec.description' <<<"$out_all" | sort | uniq -d | grep -c . || true)"
+
 # The tool names themselves are checked against what each server lists (CI runs this script).
 bash "$chart/tests/test-server-tools.sh" || failures=$((failures + 1))
 

@@ -16,13 +16,13 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # Time-series, trends, spikes, regressions. May need metric-metadata to
   # explain units/semantics in the answer. NOT for real-time state and not
   # for discovery of available metrics.
-  description: "GPU trend / time-series analysis — how a metric moved over a window, plus the metric semantics needed to discuss it."
+  description: "Fetches NVIDIA GPU metrics over a time window from the DCGM exporter in Prometheus: how utilization, VRAM, temperature, or power moved, with averages, peaks, and spikes, and the metric's meaning and units."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:
     - observability
-  triageSummary: "Answers 'how did GPU X trend over time?' — usage spikes, average over an hour, comparison across windows. Includes metric metadata when explaining units. NOT for current state, NOT for scrape-target health."
+  triageSummary: "Answers how a GPU metric trended over time: usage spikes, averages over an hour or a day, peaks, and comparisons across windows, with metric metadata for units. Not current state, not scrape health."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-history-system]
   enabledTools: [execute_range_query, get_metric_metadata]
   discussKeywords:
