@@ -73,12 +73,22 @@ check "kubernetes: a changed config changes the pod" no \
       "$(k8s '.spec.env[] | select(.name == "CONFIG_SHA256") | .value' "$(render --set kubernetesAccess.writeAccess=true)")" ] && echo yes || echo no)"
 check "kubernetes: the image is pinned by digest" 1 "$(k8s '.spec.image' "$out" | grep -c '@sha256:[0-9a-f]\{64\}$' || true)"
 
-# k8s-helm lists releases with helm_list and nothing else read-only; write adds install and uninstall.
+# k8s-helm lists releases with helm_list where Secret read is granted, and Flux HelmRelease
+# objects with resources_list where it is not; write adds install and uninstall.
 helm_tools() { yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-helm") | .spec.enabledTools | join(" ")' <<<"$1"; }
-check "k8s-helm: helm_list only by default" "helm_list" "$(helm_tools "$out")"
-check "k8s-helm: helm_list only with secretRead" "helm_list" "$(helm_tools "$(render --set kubernetesAccess.secretRead=true)")"
-check "k8s-helm: install and uninstall with writeAccess" "helm_list helm_install helm_uninstall" \
+check "k8s-helm: helm_list and resources_list by default" "helm_list resources_list" "$(helm_tools "$out")"
+check "k8s-helm: the same with secretRead" "helm_list resources_list" "$(helm_tools "$(render --set kubernetesAccess.secretRead=true)")"
+check "k8s-helm: install and uninstall with writeAccess" "helm_list resources_list helm_install helm_uninstall" \
   "$(helm_tools "$(render --set kubernetesAccess.writeAccess=true)")"
+helm_text="$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[] | select(.name == "helm_list") | .description' <<<"$out")"
+check "k8s-helm: on forbidden, helm_list sends it to Flux HelmRelease" yes \
+  "$(has "$helm_text" "WHEN this tool fails with a forbidden error THEN list the Flux HelmRelease objects instead: resources_list with apiVersion helm.toolkit.fluxcd.io/v2 and kind HelmRelease")"
+check "k8s-helm: helm_list names where a HelmRelease carries chart and version" yes \
+  "$(has "$helm_text" "status.history[0] (chartName, chartVersion, status)")"
+check "k8s-helm: helm_list forbids the unserved helm.sh Release kind" yes \
+  "$(has "$helm_text" "NEVER request kind Release or apiVersion helm.sh/v3")"
+check "k8s-helm: the Flux route stays out of the resources_list text other agents see" 0 \
+  "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[] | select(.name == "resources_list") | .. | select(tag == "!!str")' <<<"$out" | grep -c 'HelmRelease' || true)"
 
 # The scrape-target listing is dropped: nothing narrows it and it outgrows a tool result.
 check "no agent enables get_targets" 0 "$(agent_tools "$out_all" | grep -cx get_targets || true)"

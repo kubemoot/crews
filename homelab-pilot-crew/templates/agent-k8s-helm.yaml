@@ -22,8 +22,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
   # The Kubernetes MCP server always loads its helm toolset. helm_list reads release
   # state from Secrets, so it answers only with kubernetesAccess.secretRead and fails as
-  # forbidden without it; install and uninstall register only with writeAccess.
-  enabledTools: [helm_list{{ if .Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}]
+  # forbidden without it; resources_list then lists Flux HelmRelease objects, as the
+  # helm_list description says. Install and uninstall register only with writeAccess.
+  enabledTools: [helm_list, resources_list{{ if .Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}]
   discussKeywords:
     - helm
     - chart
