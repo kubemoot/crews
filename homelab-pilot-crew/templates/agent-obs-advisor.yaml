@@ -19,7 +19,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - observability
     - general
-  triageSummary: "Reviews and reasons over observability and metrics data the toolers gathered (computes rates and aggregates, correlates) and answers conceptual Prometheus, PromQL, Grafana, and alerting questions. Relevant to any observability-domain question."
+  triageSummary: "Reviews the observability and metrics data other agents fetched (cross-checks and correlates it) and answers conceptual Prometheus, PromQL, Grafana, and alerting questions from documentation. Fetches no live data."
   promptRefs: [discussion-protocol, response-style, obs-advisor-system, analyst-review-protocol]
   enabledTools: [artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
   discussKeywords:

@@ -19,7 +19,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - observability
     - general
-  triageSummary: "Reviews and reasons over GPU data the toolers gathered (computes utilization, VRAM, and temperature figures, correlates) and answers conceptual NVIDIA GPU, CUDA, passthrough, and MIG questions. Relevant to any GPU-domain question."
+  triageSummary: "Reviews the GPU data other agents fetched (cross-checks utilization, VRAM, and temperature readings, correlates them) and answers conceptual NVIDIA GPU, CUDA, passthrough, and MIG questions from documentation. Fetches no live data."
   promptRefs: [discussion-protocol, response-style, nvidia-gpu-advisor-system, analyst-review-protocol]
   enabledTools: [artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
   discussKeywords:

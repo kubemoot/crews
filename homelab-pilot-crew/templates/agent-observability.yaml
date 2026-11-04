@@ -12,18 +12,19 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "obs-metrics") }}
   type: chat
-  description: "Queries Prometheus metrics and Grafana dashboards for cluster observability."
+  description: "Fetches live monitoring-stack data: health of the Prometheus, Grafana, Alertmanager, Loki, and OpenTelemetry pods, ServiceMonitors, PodMonitors, alerting rules, firing alerts, and PromQL queries that investigate an alert or the stack itself."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:
     - observability
-  triageSummary: "Inspects monitoring stack health (Prometheus, Grafana, Alertmanager, Loki, OpenTelemetry pods) and executes PromQL queries for alerting and stack diagnostics."
+  triageSummary: "Answers whether monitoring works and what it alerts on: monitoring pods running or restarting and their logs, ServiceMonitors, PodMonitors, PrometheusRules, firing alerts, and PromQL queries that investigate an alert or the stack itself."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, obs-metrics-system]
   enabledTools: [pods_list_in_namespace, pods_get, pods_log, resources_list, execute_query, execute_range_query, list_metrics]
   discussKeywords:
     - prometheus
     - grafana
+    - alertmanager
     - alert
     - alerts
     - metric
@@ -31,20 +32,12 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - monitoring
     - dashboard
     - promql
+    - loki
     - trace
     - tracing
     - opentelemetry
-    - cpu
-    - memory
-    - disk
-    - network
-    - usage
-    - utilization
-    - load
-    - latency
-    - error
-    - rate
-    - throughput
+    - servicemonitor
+    - scrape
   temperature: "0.3"
   maxTokens: 4096
   deployment:

@@ -19,7 +19,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - kubernetes
     - general
-  triageSummary: "Reviews and reasons over Kubernetes data the toolers gathered (computes totals/percentages, enumerates resources, correlates facts) and answers conceptual Kubernetes, Talos, Helm, RBAC, and networking questions. Relevant to any Kubernetes-domain question."
+  triageSummary: "Reviews the Kubernetes data other agents fetched (cross-checks and correlates the facts, flags gaps) and answers conceptual Kubernetes, Helm, RBAC, and networking questions from documentation. Fetches no live data."
   promptRefs: [discussion-protocol, response-style, k8s-advisor-system, analyst-review-protocol]
   enabledTools: [artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq]
   discussKeywords:

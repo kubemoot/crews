@@ -12,13 +12,13 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-workloads") }}
   type: chat
-  description: "Inspects Kubernetes workloads: Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and Pods."
+  description: "Fetches live workload data from the Kubernetes API: Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, and CronJobs in any or all namespaces, with pod status, restarts, logs, events, images, and each container's CPU and memory requests and limits."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Lists and inspects Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and Pods, including database and datastore workloads (which run as StatefulSets). Reads pod logs, container status, restart counts, and events."
+  triageSummary: "Answers what runs in the cluster and what it asks for: pods and their controllers per namespace, pod phase and readiness, restart counts, container logs and images, and the CPU and memory each container requests and is limited to, which is the total requested that a capacity question compares with node allocatable. Includes databases and datastores, which run as StatefulSets."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-workloads-system]
   enabledTools: [pods_list, pods_list_in_namespace, pods_get, pods_log, pods_top{{ if $.Values.kubernetesAccess.writeAccess }}, pods_exec{{ end }}, resources_list, resources_get, events_list]
   discussKeywords:
@@ -63,6 +63,11 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - pending
     - event
     - events
+    - request
+    - requests
+    - requested
+    - limit
+    - limits
     - database
     - datastore
     - postgres

@@ -12,28 +12,25 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-metrics") }}
   type: chat
-  description: "Queries Kubernetes resource metrics via Prometheus: CPU, memory, pod resource usage."
+  description: "Fetches live resource usage: how much CPU and memory each pod, namespace, and node is using now and over a time window, from the metrics API and Prometheus, including usage compared with requests."
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes, observability]
   discussChannels:
     - kubernetes
-  triageSummary: "Measures pod and node CPU, memory, disk, and network consumption via pods_top, execute_query, execute_range_query, and list_metrics tools. Runs PromQL against Prometheus."
+  triageSummary: "Answers how much CPU, memory, disk, or network is being used right now or over a time window: top pods by memory or CPU, namespace totals, node utilization, usage trends, and usage against requests. Measures consumption with the metrics API and Prometheus instant and range queries."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-metrics-system]
   enabledTools: [pods_top, resources_list, resources_get, execute_query, execute_range_query, list_metrics]
   discussKeywords:
     - top
     - cpu
     - memory
-    - resource
     - usage
+    - used
+    - using
     - consumption
-    - request
-    - requests
-    - limit
-    - limits
-    - capacity
     - utilization
+    - trend
   temperature: "0.3"
   maxTokens: 4096
   deployment:

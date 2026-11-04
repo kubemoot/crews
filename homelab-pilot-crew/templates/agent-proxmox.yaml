@@ -13,17 +13,18 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-pve") }}
   type: chat
-  description: "Queries Proxmox VE hypervisor: nodes, storage, network, cluster status."
+  description: "Fetches live Proxmox VE host data through the Proxmox API: each hypervisor node's status, CPU, memory, and uptime, storage pools and their use, network bridges, LXC containers, cluster-wide totals, and task history."
   discussRole: tooler
   capabilities: [tool-calling]
   discussChannels:
     - proxmox
-  triageSummary: "Queries Proxmox VE node health, storage backends (ZFS, NFS, Ceph, LVM), LXC containers, network bridges, and task history."
+  triageSummary: "Answers questions about the Proxmox hypervisor hosts themselves: each node's status, uptime, and CPU and memory use, cluster-wide totals, storage backends (ZFS, NFS, Ceph, LVM) and free space, network bridges, LXC containers, and recent tasks. Virtual machines and their configuration belong to the VM agent."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-pve-system]
   enabledTools: [list_nodes, get_node_status, get_node_rrd_data, list_storage, get_storage_content, get_node_networks, get_node_tasks, get_task_status, get_cluster_resources]
   discussKeywords:
     - proxmox
     - pve
+    - hypervisor
     - node
     - storage
     - zfs
@@ -55,7 +56,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-qm") }}
   type: chat
-  description: "Observes Proxmox QEMU/KVM virtual machines: listing, config, performance, snapshots."
+  description: "Fetches live Proxmox QEMU/KVM virtual machine data: the VM list with status and host node, each VM's configured CPU, memory, disks, and PCIe passthrough, its performance over time, and snapshots."
   discussRole: tooler
   capabilities: [tool-calling]
   # MUST be set or DiscussionSubscriber logs "No discussion channels configured
@@ -64,7 +65,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # because proxmox-qm was silent (sibling proxmox-pve had ["proxmox"]).
   discussChannels:
     - proxmox
-  triageSummary: "Observes Proxmox QEMU/KVM virtual machines: listing, configuration (CPU, memory, disks, PCIe passthrough), performance metrics, and snapshots."
+  triageSummary: "Answers questions about virtual machines on Proxmox: which VMs exist and are running and on which node, their configured cores, memory, disks, and passthrough devices, recent CPU, memory, disk, and network performance, and snapshots."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, proxmox-qm-system]
   enabledTools: [list_vms, get_vm_config, get_vm_rrd_data, list_vm_snapshots]
   discussKeywords:

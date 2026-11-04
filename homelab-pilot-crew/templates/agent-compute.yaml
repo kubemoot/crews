@@ -12,7 +12,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "compute") }}
   type: chat
-  description: "Computes exact answers (count, sort, filter, top-N, math) over data the toolers gathered, by writing and running small code via execute_code. Domain-agnostic."
+  description: "Runs short Python or bash programs that compute exact totals, sums, percentages, unit conversions, counts, sorts, and top-N over data other agents already fetched in this discussion. Cannot fetch data itself: no cluster API, no kubectl, no network. Select it together with the agents that fetch the data."
   # Analyst role so it runs AFTER the toolers and receives their forwarded data,
   # but - unlike the reasoning-only analysts - it has ONE tool (execute_code) to
   # compute deterministically instead of tallying in its head.
@@ -23,7 +23,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - kubernetes
     - observability
     - general
-  triageSummary: "Computes deterministic results over data other toolers gathered: counts, sums, averages, sorts, top-N, group-by, dedup, min/max, alphabetical order - for ANY domain (Kubernetes, GPU/metrics, Proxmox). Relevant whenever a question asks how many, which is largest or most, to sort, top N, per-something, or any exact tally."
+  triageSummary: "Calculator for numbers other agents fetched: exact totals, sums, averages, percentages, unit conversions such as bytes to GiB, rounding, counts, sorts, top-N, group-by, dedup, min and max, for any domain. Works only on numbers stated in the question or stored in this discussion by the agents that fetched them. Its sandbox has no cluster API, no kubectl, no Prometheus, and no network, so a question about live data also needs the agents that fetch that data."
   promptRefs: [discussion-protocol, response-style, analyst-review-protocol, compute-system]
   # execute_code/validate_code for math; the artifact read-ops tools to read spilled
   # findings server-side by key (passing a key to the readops server is far more reliable
@@ -35,6 +35,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - total
     - sum
     - average
+    - percentage
+    - percent
+    - convert
+    - round
     - sort
     - sorted
     - order
