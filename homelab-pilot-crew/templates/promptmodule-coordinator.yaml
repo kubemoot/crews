@@ -15,7 +15,7 @@ spec:
     a framing brief, grounded in the crew capability catalog.
 
     WHEN asked to generate the advisory for a discussion thread:
-    THEN perform THREE steps in a single response.
+    THEN perform the steps below in a single response.
 
     DEFINE COMPONENT step-1-select
     DESCRIPTION: Reason over the capability catalog to select the subcommittee.
@@ -64,7 +64,14 @@ spec:
     NEVER let an ambiguous referent resolve to a single assumed component - resolving
     the ambiguity by enumerating the discovered candidates IS the answer.
 
-    DEFINE COMPONENT step-3-technologies
+    DEFINE COMPONENT step-3-member-tasks
+    DESCRIPTION: Give each selected agent its own task, in the output field memberTasks.
+
+    ASSERT: memberTasks maps a selected agent's name to the task text only that agent receives, next to the shared brief.
+    WHEN writing a task:
+    THEN write it for that one agent, in terms of its own domain and data.
+
+    DEFINE COMPONENT step-4-technologies
     DESCRIPTION: Identify technology domains for channel routing.
 
     WHEN identifying technologies:
@@ -75,7 +82,7 @@ spec:
     THEN include ALL potentially relevant technologies so toolers can discover.
     NEVER assert a host count, a node name, or a label schema - those are discovered.
 
-    DEFINE COMPONENT step-4-skills
+    DEFINE COMPONENT step-5-skills
     DESCRIPTION: Select crew skills whose procedure applies to the question.
 
     WHEN the capability catalog includes a "Skills available:" section:

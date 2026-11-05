@@ -193,6 +193,13 @@ check "descriptions: no specialist text holds a non-ASCII character" 0 "$(LC_ALL
 check "descriptions: no two agents share a description" 0 \
   "$(yq -N 'select(.kind == "Agent") | .spec.description' <<<"$out_all" | sort | uniq -d | grep -c . || true)"
 
+# The advisory describes memberTasks as an output field, as a schema and not as a rule about tools.
+advisory="$(module advisory-prompt)"
+check "advisory: has a member-tasks component that names memberTasks" 1 \
+  "$(sed -n '/DEFINE COMPONENT step-3-member-tasks/,/DEFINE COMPONENT step-4/p' <<<"$advisory" | grep -c memberTasks | sed 's/^[1-9][0-9]*$/1/')"
+check "advisory: the member-tasks component adds no NEVER or ALWAYS rule" 0 \
+  "$(sed -n '/DEFINE COMPONENT step-3-member-tasks/,/DEFINE COMPONENT step-4/p' <<<"$advisory" | grep -cE '^ *(NEVER|ALWAYS)' || true)"
+
 # The tool names themselves are checked against what each server lists (CI runs this script).
 bash "$chart/tests/test-server-tools.sh" || failures=$((failures + 1))
 
