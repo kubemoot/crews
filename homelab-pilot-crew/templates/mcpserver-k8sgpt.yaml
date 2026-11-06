@@ -19,7 +19,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - "3001"
   port: 3000
   replicas: 1
-  serviceAccountName: {{ .Release.Name }}-kubernetes-mcp
+  serviceAccountName: {{ .Release.Name }}-k8sgpt-mcp
   env:
     - name: K8SGPT_BACKEND
       value: "noopai"

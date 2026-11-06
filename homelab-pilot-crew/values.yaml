@@ -234,8 +234,10 @@ mcpQualityPolicy:
     timeoutSeconds: 30
     fallbackAction: deny
 
-# Cluster permissions for the Kubernetes MCP servers (kubernetes, kubernetesLegacy,
-# k8sgpt), which share one ServiceAccount. The default is read-only: cluster-wide
+# Cluster permissions for the Kubernetes MCP servers (kubernetes, kubernetesLegacy),
+# which share one ServiceAccount. k8sgpt has its own read-only ServiceAccount and role
+# (mcpserver-k8sgpt-rbac.yaml); secretRead gives it get on Secrets, writeAccess changes
+# nothing for it. The default is read-only: cluster-wide
 # get/list/watch through the built-in `view` ClusterRole plus the Flux, storage,
 # networking, metrics, and Kubemoot resources the crew inspects. Agents act on
 # text from tools and the web, so grant more only on a cluster you trust them with.
