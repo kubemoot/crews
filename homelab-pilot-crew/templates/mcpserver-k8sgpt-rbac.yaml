@@ -1,9 +1,8 @@
 {{- if .Values.mcpServers.k8sgpt.enabled }}
 {{/* k8sgpt runs as its own ServiceAccount, not the Kubernetes MCP servers' one, so what it
 can read is the list below and a change to the Kubernetes MCP servers' access does not widen
-it. The rules are the objects the analyzers inspect (Pod, Deployment, ReplicaSet, StatefulSet,
-Service, Ingress, PVC, Node, CronJob, HPA, PDB, NetworkPolicy, webhook configurations, Gateway
-API) and the pod logs and Events they quote. Everything is read-only. */}}
+it. Each rule names the analyzer of the pinned k8sgpt image that reads the kind. Everything is
+read-only. The OLM analyzers are not enabled, so no OLM group is listed. */}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -19,32 +18,51 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
+  # Pod, Service (endpoints), Node, PVC analyzers; ConfigMap analyzer (configmaps); Storage
+  # analyzer (persistentvolumes); Security analyzer (serviceaccounts); events and namespaces
+  # for the findings' context.
   - apiGroups: [""]
-    resources: ["pods", "services", "endpoints", "nodes", "namespaces", "events", "persistentvolumeclaims"]
+    resources: ["pods", "services", "endpoints", "nodes", "namespaces", "events", "persistentvolumeclaims", "configmaps", "persistentvolumes", "serviceaccounts"]
     verbs: ["get", "list", "watch"]
+  # Log analyzer.
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get", "list"]
+  # Deployment, ReplicaSet, StatefulSet analyzers.
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets"]
     verbs: ["get", "list", "watch"]
+  # CronJob and Job analyzers.
   - apiGroups: ["batch"]
-    resources: ["cronjobs"]
+    resources: ["cronjobs", "jobs"]
     verbs: ["get", "list", "watch"]
+  # HPA analyzer.
   - apiGroups: ["autoscaling"]
     resources: ["horizontalpodautoscalers"]
     verbs: ["get", "list", "watch"]
+  # PDB analyzer.
   - apiGroups: ["policy"]
     resources: ["poddisruptionbudgets"]
     verbs: ["get", "list", "watch"]
+  # Ingress and NetworkPolicy analyzers.
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "ingressclasses", "networkpolicies"]
     verbs: ["get", "list", "watch"]
+  # MutatingWebhook and ValidatingWebhook analyzers.
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
+  # GatewayClass, Gateway and HTTPRoute analyzers.
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["gatewayclasses", "gateways", "httproutes"]
+    verbs: ["get", "list", "watch"]
+  # Storage analyzer.
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  # Security analyzer.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "watch"]
   {{- if .Values.kubernetesAccess.secretRead }}
   # The Ingress analyzer checks that a TLS Secret exists; this is get on any Secret.

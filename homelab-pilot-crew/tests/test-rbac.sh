@@ -33,11 +33,17 @@ check "k8sgpt is not bound to the view role" "0" \
 check "k8sgpt can only read" "get,list,watch" "$(verbs "$out")"
 for resource in pods nodes services endpoints namespaces ingresses ingressclasses persistentvolumeclaims \
   deployments statefulsets replicasets cronjobs events pods/log horizontalpodautoscalers poddisruptionbudgets \
-  networkpolicies mutatingwebhookconfigurations validatingwebhookconfigurations gatewayclasses gateways httproutes; do
+  networkpolicies mutatingwebhookconfigurations validatingwebhookconfigurations gatewayclasses gateways httproutes \
+  jobs configmaps persistentvolumes storageclasses serviceaccounts roles rolebindings; do
   check "k8sgpt reads $resource" 1 "$(rules_for "$out" "$resource")"
 done
 
 # No Secrets by default, no exec, no write.
+# The exact API groups: any new group (OLM's operators.coreos.com included) fails here until
+# its analyzer is enabled and the role is reviewed.
+check "k8sgpt names exactly the reviewed API groups" \
+  "(core),admissionregistration.k8s.io,apps,autoscaling,batch,gateway.networking.k8s.io,networking.k8s.io,policy,rbac.authorization.k8s.io,storage.k8s.io" \
+  "$(doc "$out" ClusterRole t-k8sgpt-mcp '.rules[].apiGroups[] | select(. == "") = "(core)"' | sort -u | paste -sd, -)"
 check "default values: k8sgpt reads no Secrets" 0 "$(rules_for "$out" secrets)"
 check "default values: k8sgpt has no exec rule" 0 "$(rules_for "$out" pods/exec)"
 out_all="$(render "${all_on[@]}")"
