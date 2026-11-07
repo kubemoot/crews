@@ -41,9 +41,9 @@ check "default values: this chart renders exactly two ClusterRoleBindings" "2" "
 check "default values: no Secret or write role is rendered" "0" \
   "$(yq -N 'select(.kind == "ClusterRole") | .metadata.name' <<<"$out" | grep -c -e -secrets -e -secret-get -e -write || true)"
 check "no binding reaches the view role" "0" "$(yq -N 'select(.kind == "ClusterRoleBinding" and .roleRef.name == "view") | .metadata.name' <<<"$out" | count)"
-notes="$(helm install t "$chart" --dry-run=client --set ragSources.enabled=false --set vectorStore.host=db.test 2>&1 | sed -n '/^NOTES:/,$p')"
-check "default values: the install notes say the servers read no namespace" yes "$(has "$notes" "binds no")"
-notes_wide="$(helm install t "$chart" --dry-run=client --set ragSources.enabled=false --set vectorStore.host=db.test --set kubernetesAccess.clusterWide=true 2>&1 | sed -n '/^NOTES:/,$p')"
+notes_default="$(notes)"
+check "default values: the install notes say the servers read no namespace" yes "$(has "$notes_default" "binds no")"
+notes_wide="$(notes --set kubernetesAccess.clusterWide=true)"
 check "clusterWide: the install notes carry no warning" no "$(has "$notes_wide" "WARNING")"
 
 # The Kubernetes servers' cluster-scoped kinds, each read by an agent (see the template header).
@@ -176,10 +176,12 @@ only_k8sgpt="$(comm -13 <(doc "$out" ClusterRole t-kubernetes-mcp-read '.rules[]
 check "k8sgpt's read role names nothing the Kubernetes read role does not" "" "$only_k8sgpt"
 
 # The install notes flag a Secret or write namespace that is not also readable.
-notes_gap="$(helm install t "$chart" --dry-run=client --set ragSources.enabled=false --set vectorStore.host=db.test \
-  --set 'kubernetesAccess.namespaces={apps}' --set 'kubernetesAccess.write.namespaces={other}' 2>&1 | sed -n '/^NOTES:/,$p')"
+notes_gap="$(notes --set 'kubernetesAccess.namespaces={apps}' --set 'kubernetesAccess.write.namespaces={other}')"
 check "a write namespace outside namespaces is flagged in the notes" yes "$(has "$notes_gap" "lists other")"
-check "a covered write namespace is not flagged" no "$(has "$(helm install t "$chart" --dry-run=client --set ragSources.enabled=false --set vectorStore.host=db.test --set 'kubernetesAccess.namespaces={apps}' --set 'kubernetesAccess.write.namespaces={apps}' 2>&1 | sed -n '/^NOTES:/,$p')" "NOTE:")"
+check "a covered write namespace is not flagged" no \
+  "$(has "$(notes --set 'kubernetesAccess.namespaces={apps}' --set 'kubernetesAccess.write.namespaces={apps}')" "NOTE:")"
+check "NOTES.txt is exactly the include of the helper the tests render" '{{ include "homelab-pilot-crew.accessNotes" . }}' \
+  "$(tr -d '\n' <"$chart/templates/NOTES.txt")"
 
 # Switching k8sgpt off removes its objects at every tier and leaves the Kubernetes servers alone.
 off="$(render --set mcpServers.k8sgpt.enabled=false "${all_on[@]}" --set 'kubernetesAccess.namespaces={apps}')"
