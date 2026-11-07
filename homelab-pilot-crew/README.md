@@ -94,7 +94,7 @@ What this chart still binds cluster-wide is a small read-only ClusterRole per ac
 
 Nothing else is cluster-wide. Node metrics and ingress classes are not granted to the Kubernetes servers because no agent reads them.
 
-Upgrading from a release that relied on the Kubemoot operator's namespace labels (`kubemoot.ai/crew-read`, `crew-read-secrets`, `crew-write`): list the same namespaces under the values above and upgrade the chart first. The operator removes the RoleBindings it made from those labels when it starts, so upgrade this chart before the operator, or the crew reads nothing until the next chart upgrade. The labels do nothing after that and can be removed from the namespaces. A boolean `kubernetesAccess.secretRead` or `kubernetesAccess.write` fails the render and names the new shape.
+Upgrading from a release that relied on the Kubemoot operator's namespace labels (`kubemoot.ai/crew-read`, `crew-read-secrets`, `crew-write`): list the same namespaces under the values above and upgrade the chart first. The operator removes the RoleBindings it made from those labels when it starts, so upgrade this chart before the operator, or the crew reads nothing until the next chart upgrade. The labels do nothing after that and can be removed from the namespaces. Values written for the old shape render with both tiers off when they say `false`; a `true` fails the render and names the new shape.
 
 Agents act on text they read from tools and the web, so treat each namespace you list as giving that access to anyone who can put text in front of the crew.
 

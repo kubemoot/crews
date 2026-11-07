@@ -177,12 +177,14 @@ entry would otherwise bind in the wrong places or, for an empty entry, cluster-w
 {{/* The namespaces and tiers of Kubernetes access this release grants (values.yaml,
 kubernetesAccess). Each helper renders "true" when its tier is on and nothing when it is off,
 so it works as a condition. A boolean where a tier now has a list of namespaces fails the
-render with the new shape instead of a template error. A tier set to null is off. */}}
+render with the new shape instead of a template error; a boolean false, the old default, is
+off, so values written for the old shape still render. A tier set to null is off. */}}
 {{- define "homelab-pilot-crew.accessTier" -}}
 {{- $tier := index .root.Values.kubernetesAccess .name | default dict -}}
-{{- if kindIs "bool" $tier -}}
+{{- if and (kindIs "bool" $tier) $tier -}}
 {{- fail (printf "kubernetesAccess.%s is now a list of namespaces: kubernetesAccess.%s.namespaces. Set the namespaces that get the access; see the chart README, Cluster permissions." .name .name) -}}
 {{- end -}}
+{{- if kindIs "bool" $tier }}{{ $tier = dict }}{{ end -}}
 {{- include "homelab-pilot-crew.namespaceList" (dict "path" (printf "kubernetesAccess.%s.namespaces" .name) "value" ($tier.namespaces | default list)) -}}
 {{- if $tier.namespaces }}true{{ end -}}
 {{- end }}
