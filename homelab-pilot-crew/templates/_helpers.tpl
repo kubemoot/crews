@@ -245,3 +245,27 @@ nothing for an empty list that is not clusterWide. */}}
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/* The install notes about Kubernetes access. NOTES.txt prints it. */}}
+{{- define "homelab-pilot-crew.accessNotes" -}}
+{{- if and (not .Values.kubernetesAccess.clusterWide) (not .Values.kubernetesAccess.namespaces) }}
+WARNING: kubernetesAccess lists no namespaces and clusterWide is false, so this release binds no
+namespaced read role. The Kubernetes tool servers and k8sgpt can list the cluster-scoped kinds
+(namespaces, nodes, persistent volumes, storage classes, CRDs, cluster RBAC) and read nothing
+inside a namespace; every question about pods, workloads, events or logs fails as forbidden.
+Grant the read role where the crew should look:
+
+  helm upgrade {{ .Release.Name }} ... --set 'kubernetesAccess.namespaces={kube-system,monitoring}'
+  helm upgrade {{ .Release.Name }} ... --set kubernetesAccess.clusterWide=true
+{{ end -}}
+{{- if not .Values.kubernetesAccess.clusterWide }}
+{{- range (list (dict "tier" "secretRead" "namespaces" ((.Values.kubernetesAccess.secretRead | default dict).namespaces | default list)) (dict "tier" "write" "namespaces" ((.Values.kubernetesAccess.write | default dict).namespaces | default list))) }}
+{{- $tier := .tier }}
+{{- range .namespaces }}
+{{- if not (has . ($.Values.kubernetesAccess.namespaces | default list)) }}
+NOTE: kubernetesAccess.{{ $tier }}.namespaces lists {{ . }}, which is not in kubernetesAccess.namespaces. The servers get that tier there but read nothing else in it.
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
