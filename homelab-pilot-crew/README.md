@@ -62,12 +62,31 @@ Network bridges come from `get_node_networks`, whose entries with `type` `bridge
 
 ## Cluster permissions
 
-The Kubernetes MCP servers (`kubernetes-mcp` and `kubernetes-legacy-mcp`) share one ServiceAccount, `<release>-kubernetes-mcp`. By default it is read-only: the built-in `view` ClusterRole plus get/list/watch on Flux, storage, networking, metrics, and Kubemoot resources, and the servers run in their read-only modes.
+The Kubernetes MCP servers (`kubernetes-mcp`, `kubernetes-legacy-mcp`) share one ServiceAccount, `<release>-kubernetes-mcp`, and k8sgpt has its own, `<release>-k8sgpt-mcp`. This chart binds neither account to any namespaced read. The Kubemoot operator does, **only in namespaces whose owner opts in**: a namespace labeled `kubemoot.ai/crew-read=true` gets a RoleBinding to the operator's read role for every MCPServer with the `kubernetes` capability. The role reads pods and their logs, services, endpoints, ConfigMaps, events, volume claims, workloads, jobs, ingresses, network policies, autoscalers, Flux releases and sources, Kubemoot resources, and ServiceAccounts, Roles and RoleBindings. It reads no Secrets. The operator also lets both accounts list namespaces. A namespace without the label is invisible to the crew, so label every namespace you want it to answer about:
 
-k8sgpt runs as its own ServiceAccount, `<release>-k8sgpt-mcp`, bound to a ClusterRole that only reads the objects its analyzers inspect (Pods, Deployments, ReplicaSets, StatefulSets, CronJobs, Services and Endpoints, Ingresses and IngressClasses, PersistentVolumeClaims, PersistentVolumes, StorageClasses, ConfigMaps, Jobs, ServiceAccounts, Roles and RoleBindings (the Storage, ConfigMap, Job and Security analyzers), Nodes, Namespaces, HorizontalPodAutoscalers, PodDisruptionBudgets, NetworkPolicies, webhook configurations, Gateway API objects) plus pod logs and Events. It does not use the `view` role and has no write rule, so a change to `kubernetesAccess` never widens it. With `kubernetesAccess.secretRead: true` it gains `get` on any Secret, which the Ingress analyzer uses to check that a TLS Secret exists; with the default it cannot read Secrets, and that one check reports nothing. When the cluster enforces the `use` grants on ServiceAccounts (`security.secretUseGrants` in the Kubemoot chart), an author who is not a cluster admin needs `use` on `<release>-k8sgpt-mcp` to create the k8sgpt MCPServer.
+```bash
+kubectl label namespace kube-system monitoring kubemoot.ai/crew-read=true
+```
 
-- `kubernetesAccess.secretRead: true` adds cluster-wide Secret reads to the Kubernetes MCP servers' ServiceAccount. `helm_list` needs it, because Helm stores release state in Secrets. The `k8s-helm` agent always has `helm_list` and `resources_list`. Without Secret reads `helm_list` fails as forbidden, and its description sends the agent to the Flux `HelmRelease` objects (`helm.toolkit.fluxcd.io/v2`) through `resources_list`, which cover only the releases Flux manages, and tells it never to request the `helm.sh` `Release` kind, which the API does not serve.
-- `kubernetesAccess.writeAccess: true` adds `pods/exec`, patch and scale on workloads, and the `pods_exec`, `resources_scale`, `helm_install`, and `helm_uninstall` agent tools.
+This needs a Kubemoot operator that has the read-consent controller; see the operator's installation notes for the upgrade.
+
+What this chart still binds cluster-wide is a small read-only ClusterRole per account, for kinds a RoleBinding cannot grant:
+
+| Account | Kind | Needed by |
+|---|---|---|
+| `<release>-kubernetes-mcp` | `nodes` | `k8s-nodes`: node capacity, conditions, kubelet version |
+| | `persistentvolumes` | `k8s-storage`: list and get PVs |
+| | `storageclasses` | `k8s-storage`: list and get StorageClasses |
+| | `customresourcedefinitions` | `k8s-nodes`: list and get CRDs |
+| | `clusterroles`, `clusterrolebindings` | `k8s-config`: list and get cluster RBAC objects |
+| `<release>-k8sgpt-mcp` | `nodes`, `persistentvolumes`, `storageclasses`, `ingressclasses`, `gatewayclasses`, `mutatingwebhookconfigurations`, `validatingwebhookconfigurations` | The k8sgpt Node, Storage, Ingress, GatewayClass and webhook analyzers |
+
+Nothing else is cluster-wide. Node metrics and ingress classes are not granted to the Kubernetes servers because no agent reads them.
+
+- `kubernetesAccess.secretRead: true` makes the Kubernetes servers ask the operator for Secret reads (annotation `kubemoot.ai/kubernetes-access: secrets`), and k8sgpt for `get` on one Secret (`secret-get`, which its Ingress analyzer uses to check a TLS Secret). The operator binds them only in namespaces that also carry `kubemoot.ai/crew-read-secrets=true`. `helm_list` needs it, because Helm stores release state in Secrets. The `k8s-helm` agent always has `helm_list` and `resources_list`. Without Secret reads `helm_list` fails as forbidden, and its description sends the agent to the Flux `HelmRelease` objects (`helm.toolkit.fluxcd.io/v2`) through `resources_list`, which cover only the releases Flux manages, and tells it never to request the `helm.sh` `Release` kind, which the API does not serve.
+- `kubernetesAccess.writeAccess: true` adds the annotation word `write` and the `pods_exec`, `resources_scale`, `helm_install`, and `helm_uninstall` agent tools. The operator binds `pods/exec`, patch and scale on workloads only in namespaces that also carry `kubemoot.ai/crew-write=true`. That label also exposes the namespace's Secrets and ServiceAccount tokens, because exec and patch reach them.
+
+With the setting on and the label absent, a tool is registered and fails as forbidden in that namespace.
 
 Agents act on text they read from tools and the web, so treat either setting as giving that access to anyone who can put text in front of the crew.
 
