@@ -138,11 +138,15 @@ check "no MCPServer carries a kubemoot.ai/kubernetes-access annotation" "0" \
 check "nothing names a namespace consent label" "0" \
   "$(grep -c -e 'kubemoot.ai/crew-read' -e 'kubemoot.ai/crew-write' <<<"$all" || true)"
 
-# The old boolean shape fails with the new one named.
+# The old boolean shape: false, the old default, is off and renders; true fails with the new
+# shape named, because it cannot say which namespaces get the access.
+old_false="$(render --set kubernetesAccess.secretRead=false --set kubernetesAccess.writeAccess=false)"
+check "a boolean false secretRead and a stale writeAccess render with the tiers off" "0" \
+  "$(yq -N 'select(.kind == "ClusterRole") | .metadata.name' <<<"$old_false" | grep -c -e -secrets -e -secret-get -e -write || true)"
 err="$(render --set kubernetesAccess.secretRead=true 2>&1 >/dev/null || true)"
-check "a boolean secretRead fails the render and names the new shape" yes "$(has "$err" "kubernetesAccess.secretRead.namespaces")"
+check "a boolean true secretRead fails the render and names the new shape" yes "$(has "$err" "kubernetesAccess.secretRead.namespaces")"
 err="$(render --set kubernetesAccess.write=true 2>&1 >/dev/null || true)"
-check "a boolean write fails the render and names the new shape" yes "$(has "$err" "kubernetesAccess.write.namespaces")"
+check "a boolean true write fails the render and names the new shape" yes "$(has "$err" "kubernetesAccess.write.namespaces")"
 
 # Malformed namespaces fail the render, and never become a cluster-wide binding. An empty entry
 # or a string would otherwise widen a Secret or write grant.
