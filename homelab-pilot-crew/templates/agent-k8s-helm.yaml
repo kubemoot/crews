@@ -12,19 +12,19 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-helm") }}
   type: chat
-  description: "Fetches live Helm release data: each release's name, namespace, chart, chart version, app version, and status, in one namespace or all of them.{{ if .Values.kubernetesAccess.writeAccess }} Installs and uninstalls releases.{{ end }}"
+  description: "Fetches live Helm release data: each release's name, namespace, chart, chart version, app version, and status, in one namespace or all of them.{{ if (include "homelab-pilot-crew.writeOn" $) }} Installs and uninstalls releases.{{ end }}"
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Answers which Helm releases are installed and at what versions: release name, namespace, chart name and chart version, app version, revision, and deployed or failed status.{{ if .Values.kubernetesAccess.writeAccess }} Also installs a chart or uninstalls a release when asked.{{ end }}"
+  triageSummary: "Answers which Helm releases are installed and at what versions: release name, namespace, chart name and chart version, app version, revision, and deployed or failed status.{{ if (include "homelab-pilot-crew.writeOn" $) }} Also installs a chart or uninstalls a release when asked.{{ end }}"
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-helm-system]
   # The Kubernetes MCP server always loads its helm toolset. helm_list reads release
-  # state from Secrets, so it answers only with kubernetesAccess.secretRead and fails as
+  # state from Secrets, so it answers only with kubernetesAccess.secretRead.namespaces and fails as
   # forbidden without it; resources_list then lists Flux HelmRelease objects, as the
-  # helm_list description says. Install and uninstall register only with writeAccess.
-  enabledTools: [helm_list, resources_list{{ if .Values.kubernetesAccess.writeAccess }}, helm_install, helm_uninstall{{ end }}]
+  # helm_list description says. Install and uninstall register only with kubernetesAccess.write.namespaces.
+  enabledTools: [helm_list, resources_list{{ if (include "homelab-pilot-crew.writeOn" $) }}, helm_install, helm_uninstall{{ end }}]
   discussKeywords:
     - helm
     - chart

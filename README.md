@@ -65,7 +65,7 @@ helm upgrade --install kubemoot-fitness \
 
 ### Cluster permissions
 
-The Kubernetes tools in the reference crews are read-only by default. `kubernetesAccess.secretRead` adds Secret reads (needed by `helm_list`), and `kubernetesAccess.writeAccess` adds pod exec, workload patch and scale, and the matching agent tools. None of it is cluster-wide: the Kubemoot operator grants each namespace's reads only where the namespace is labeled `kubemoot.ai/crew-read=true` (and `crew-read-secrets` or `crew-write` for the other two), see the [crew's cluster permissions](homelab-pilot-crew/README.md#cluster-permissions). Agents act on text from tools and the web, so enable these only on a cluster where you accept that risk.
+The Kubernetes tools in the reference crews read nothing until you list namespaces. The chart ships the tool servers' ServiceAccounts, roles and bindings: `kubernetesAccess.namespaces` binds the read role in each listed namespace (or `kubernetesAccess.clusterWide: true` binds it once, cluster-wide), `kubernetesAccess.secretRead.namespaces` adds Secret reads (needed by `helm_list`) and `kubernetesAccess.write.namespaces` adds pod exec, workload patch and scale, and the matching agent tools, each only in the namespaces it lists. Whoever can create a RoleBinding in a namespace consents for it; see the [crew's cluster permissions](homelab-pilot-crew/README.md#cluster-permissions). Agents act on text from tools and the web, so enable these only on a cluster where you accept that risk.
 
 ## Layout
 

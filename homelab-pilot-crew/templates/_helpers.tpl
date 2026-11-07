@@ -160,24 +160,86 @@ it starts with a newline.
 {{- end }}
 {{- end }}
 
-{{/* The metadata annotations that ask the Kubemoot operator for extra access in namespaces that
-consent to it. Secret reads and write access are bound per namespace, and only where the
-namespace carries kubemoot.ai/crew-read-secrets or kubemoot.ai/crew-write. Renders nothing when
-no access is asked for. */}}
-{{- define "homelab-pilot-crew.kubernetesAccess" -}}
-{{- $words := list -}}
-{{- if .Values.kubernetesAccess.secretRead }}{{ $words = append $words "secrets" }}{{ end -}}
-{{- if .Values.kubernetesAccess.writeAccess }}{{ $words = append $words "write" }}{{ end -}}
-{{- if $words }}
-annotations:
-  kubemoot.ai/kubernetes-access: {{ join "," $words | quote }}
-{{- end }}
+{{/* Fails the render unless the value is a list of non-empty strings (the namespaces of a
+tier). Arguments: path (for the message) and value. A string such as "a,b", a map, or an empty
+entry would otherwise bind in the wrong places or, for an empty entry, cluster-wide. */}}
+{{- define "homelab-pilot-crew.namespaceList" -}}
+{{- if not (kindIs "slice" .value) -}}
+{{- fail (printf "%s must be a list of namespaces, for example [kube-system, monitoring]" .path) -}}
+{{- end -}}
+{{- range .value -}}
+{{- if or (not (kindIs "string" .)) (eq . "") -}}
+{{- fail (printf "%s must hold only non-empty namespace names" $.path) -}}
+{{- end -}}
+{{- end -}}
 {{- end }}
 
-{{/* The same for k8sgpt, which reads one named Secret and never lists them or writes. */}}
-{{- define "homelab-pilot-crew.k8sgptAccess" -}}
-{{- if .Values.kubernetesAccess.secretRead }}
-annotations:
-  kubemoot.ai/kubernetes-access: "secret-get"
+{{/* The namespaces and tiers of Kubernetes access this release grants (values.yaml,
+kubernetesAccess). Each helper renders "true" when its tier is on and nothing when it is off,
+so it works as a condition. A boolean where a tier now has a list of namespaces fails the
+render with the new shape instead of a template error. A tier set to null is off. */}}
+{{- define "homelab-pilot-crew.accessTier" -}}
+{{- $tier := index .root.Values.kubernetesAccess .name | default dict -}}
+{{- if kindIs "bool" $tier -}}
+{{- fail (printf "kubernetesAccess.%s is now a list of namespaces: kubernetesAccess.%s.namespaces. Set the namespaces that get the access; see the chart README, Cluster permissions." .name .name) -}}
+{{- end -}}
+{{- include "homelab-pilot-crew.namespaceList" (dict "path" (printf "kubernetesAccess.%s.namespaces" .name) "value" ($tier.namespaces | default list)) -}}
+{{- if $tier.namespaces }}true{{ end -}}
+{{- end }}
+
+{{/* "true" when the Secret read tier names at least one namespace. */}}
+{{- define "homelab-pilot-crew.secretReadOn" -}}
+{{- include "homelab-pilot-crew.accessTier" (dict "root" . "name" "secretRead") -}}
+{{- end }}
+
+{{/* "true" when the write tier names at least one namespace. It registers the write tools
+and takes the Kubernetes MCP servers out of read-only mode. */}}
+{{- define "homelab-pilot-crew.writeOn" -}}
+{{- include "homelab-pilot-crew.accessTier" (dict "root" . "name" "write") -}}
+{{- end }}
+
+{{/* One binding of a ClusterRole to a ServiceAccount of this release. A RoleBinding grants the
+role in its namespace only; a ClusterRoleBinding, asked for only with cluster set to true,
+grants it everywhere. A missing namespace never turns into a ClusterRoleBinding: it fails the
+render. Creating the binding is the consent: whoever installs the chart needs the right to
+create it in that namespace. Arguments: root, role, account (the ServiceAccount name), and
+either namespace or cluster. */}}
+{{- define "homelab-pilot-crew.binding" -}}
+{{- if and (not .cluster) (not .namespace) -}}
+{{- fail (printf "the binding of %s needs a namespace" .role) -}}
+{{- end -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if .cluster }}ClusterRoleBinding{{ else }}RoleBinding{{ end }}
+metadata:
+  name: {{ .role }}
+  {{- if not .cluster }}
+  namespace: {{ .namespace }}
+  {{- end }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" .root | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .account }}
+    namespace: {{ .root.Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .role }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{/* The bindings of one role to one account for a tier: one RoleBinding in each listed
+namespace, or when clusterWide is true one ClusterRoleBinding instead. Arguments: root, role,
+account, namespaces, path (the values path, for messages), and optionally clusterWide. Renders
+nothing for an empty list that is not clusterWide. */}}
+{{- define "homelab-pilot-crew.tierBindings" -}}
+{{- include "homelab-pilot-crew.namespaceList" (dict "path" .path "value" (.namespaces | default list)) -}}
+{{- if .clusterWide }}
+---
+{{ include "homelab-pilot-crew.binding" (dict "root" .root "role" .role "account" .account "cluster" true) }}
+{{- else }}
+{{- range uniq (.namespaces | default list) }}
+---
+{{ include "homelab-pilot-crew.binding" (dict "root" $.root "role" $.role "account" $.account "namespace" .) }}
+{{- end }}
 {{- end }}
 {{- end }}

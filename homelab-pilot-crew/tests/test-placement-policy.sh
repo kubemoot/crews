@@ -67,10 +67,10 @@ emb="$(yq -N -o=json -I=0 'select(.kind == "EmbeddingModel") | .spec' <<<"$out")
 err="$(render --set embeddingModel.providerRef=ollama-local 2>&1 >/dev/null || true)"
 grep -q 'embeddingModel.providerRef is gone' <<<"$err" || fail "a stale embeddingModel.providerRef must fail the render: $err"
 ! grep -qiE 'modelprovider|providerRef' <<<"$out" || fail "the rendered chart still names a ModelProvider or providerRef"
-# The Kubernetes MCP servers read ModelServers (namespaced) through the Kubemoot operator's read
-# role in each namespace that carries kubemoot.ai/crew-read, so this chart grants it nowhere.
-[ "$(yq -N 'select(.kind == "ClusterRole" or .kind == "Role") | .rules[].resources[]' <<<"$out" | grep -c -x modelservers || true)" = 0 ] \
-  || fail "the chart grants ModelServer reads itself; the operator's read role does"
+# The Kubernetes MCP servers read ModelServers (namespaced) through the read role this chart binds
+# per namespace, so no role bound cluster-wide by default names them.
+[ "$(yq -N 'select(.kind == "ClusterRole" and (.metadata.name | test("-read$") | not)) | .rules[].resources[]' <<<"$out" | grep -c -x modelservers || true)" = 0 ] \
+  || fail "a cluster-wide role grants ModelServer reads; only the read role, bound per namespace, does"
 echo "PASS: embedding model names no server"
 
 # The gateway tool index names the model and no endpoint; it reads the server from the

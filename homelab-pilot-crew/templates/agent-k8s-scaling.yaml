@@ -12,15 +12,15 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-scaling") }}
   type: chat
-  description: "Fetches live autoscaling and quota objects from the Kubernetes API: HorizontalPodAutoscalers with current and desired replicas and targets, VerticalPodAutoscalers, ResourceQuotas with namespace limits and use, and LimitRanges.{{ if $.Values.kubernetesAccess.writeAccess }} Scales a Deployment's or StatefulSet's replicas.{{ end }}"
+  description: "Fetches live autoscaling and quota objects from the Kubernetes API: HorizontalPodAutoscalers with current and desired replicas and targets, VerticalPodAutoscalers, ResourceQuotas with namespace limits and use, and LimitRanges.{{ if (include "homelab-pilot-crew.writeOn" $) }} Scales a Deployment's or StatefulSet's replicas.{{ end }}"
   discussRole: tooler
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Answers how workloads scale and what each namespace is allowed: HPA current, desired, minimum, and maximum replicas and their metric targets, VPA recommendations, ResourceQuota hard limits and used amounts per namespace, and LimitRange container defaults.{{ if $.Values.kubernetesAccess.writeAccess }} Also scales a workload's replicas when asked.{{ end }}"
+  triageSummary: "Answers how workloads scale and what each namespace is allowed: HPA current, desired, minimum, and maximum replicas and their metric targets, VPA recommendations, ResourceQuota hard limits and used amounts per namespace, and LimitRange container defaults.{{ if (include "homelab-pilot-crew.writeOn" $) }} Also scales a workload's replicas when asked.{{ end }}"
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-scaling-system]
-  enabledTools: [resources_list, resources_get{{ if $.Values.kubernetesAccess.writeAccess }}, resources_scale{{ end }}, pods_top, events_list]
+  enabledTools: [resources_list, resources_get{{ if (include "homelab-pilot-crew.writeOn" $) }}, resources_scale{{ end }}, pods_top, events_list]
   discussKeywords:
     - hpa
     - vpa

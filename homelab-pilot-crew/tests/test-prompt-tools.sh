@@ -2,7 +2,7 @@
 # Render tests for the tools the pilot crew's prompts name: the shared modules list an
 # agent's tools with the ${agent.tools} placeholder instead of naming tools, and no agent's
 # PromptModules name a tool the agent does not have, with the optional tools switched on and
-# off (kubernetesAccess.secretRead and writeAccess, compute.workspaceQuery, mcpServers.proxmox).
+# off (kubernetesAccess.secretRead.namespaces and kubernetesAccess.write.namespaces, compute.workspaceQuery, mcpServers.proxmox).
 # It also pins the MCPServers' toolOverrides (ADL descriptions that steer calls to the narrow
 # forms each server supports). Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-prompt-tools.sh   (exit 0 = all passed)
@@ -37,8 +37,8 @@ check "no module puts the placeholder inside a call" 0 \
 export VOCAB_ARGS="${all_on[*]}"
 check "default values: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" >/dev/null 2>&1; echo $?)"
 check "optional tools on: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" "${all_on[@]}" >/dev/null 2>&1; echo $?)"
-check "secretRead only: modules name only the agent's own tools" 0 \
-  "$(bash "$checker" "$chart" --set kubernetesAccess.secretRead=true >/dev/null 2>&1; echo $?)"
+check "secret namespaces only: modules name only the agent's own tools" 0 \
+  "$(bash "$checker" "$chart" --set 'kubernetesAccess.secretRead.namespaces={kube-system}' >/dev/null 2>&1; echo $?)"
 check "proxmox only: modules name only the agent's own tools" 0 \
   "$(bash "$checker" "$chart" --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x >/dev/null 2>&1; echo $?)"
 check "workspaceQuery only: modules name only the agent's own tools" 0 \
@@ -55,9 +55,9 @@ check "compute-system does not differ between the workspace_query arms" "$a" "$b
 k8s_mcp() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"t-kubernetes-mcp\") | $1" <<<"$2"; }
 override() { k8s_mcp ".spec.toolOverrides[] | select(.name == \"$1\") | $2" "$out"; }
 names() { k8s_mcp '.spec.toolOverrides[].name' "$1" | sort | tr '\n' ' ' | sed 's/ $//'; }
-with_secrets="$(render --set kubernetesAccess.secretRead=true)"
+with_secrets="$(render --set 'kubernetesAccess.secretRead.namespaces={kube-system}')"
 check "overrides: the list, top, and helm tools" "events_list helm_list pods_list pods_list_in_namespace pods_top resources_list" "$(names "$out")"
-check "overrides: the same tools with secretRead" "events_list helm_list pods_list pods_list_in_namespace pods_top resources_list" "$(names "$with_secrets")"
+check "overrides: the same tools with secret namespaces" "events_list helm_list pods_list pods_list_in_namespace pods_top resources_list" "$(names "$with_secrets")"
 check "overrides: helm_list says it lists the server's own namespace by default" yes \
   "$(has "$(override helm_list .description)" "only the server's own namespace")"
 check "overrides: helm_list says a forbidden error means no Secret read" yes \
@@ -173,7 +173,8 @@ check "descriptions: k8s-nodes names capacity and allocatable" yes \
 check "descriptions: k8s-workloads names requests and limits" yes \
   "$(has "$(agent_field k8s-workloads description)" 'CPU and memory requests and limits')"
 for setting in false true; do
-  write_on="$(render "${all_on[@]}" --set kubernetesAccess.writeAccess="$setting")"
+  write_ns=null; [ "$setting" = true ] && write_ns="{apps}"
+  write_on="$(render "${all_on[@]}" --set kubernetesAccess.write.namespaces="$write_ns")"
   check "descriptions: k8s-helm mentions install only with write access ($setting)" "$setting" \
     "$(yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-helm") | .spec.description | test("Installs and uninstalls")' <<<"$write_on")"
   check "descriptions: k8s-scaling mentions scaling only with write access ($setting)" "$setting" \

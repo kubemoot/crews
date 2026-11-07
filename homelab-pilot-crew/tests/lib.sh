@@ -15,5 +15,5 @@ render() { helm template t "$chart" --set ragSources.enabled=false --set vectorS
 agent_tools() { yq -N 'select(.kind == "Agent") | .spec.enabledTools // [] | .[]' <<<"$1" | sort -u; }
 has() { if grep -q -F -- "$2" <<<"$1"; then echo yes; else echo no; fi; }
 # Every optional tool and server switched on.
-all_on=(--set kubernetesAccess.secretRead=true --set kubernetesAccess.writeAccess=true --set compute.workspaceQuery=true
+all_on=(--set 'kubernetesAccess.secretRead.namespaces={kube-system}' --set 'kubernetesAccess.write.namespaces={apps}' --set compute.workspaceQuery=true
   --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x --set mcpServers.scheduling.enabled=true)

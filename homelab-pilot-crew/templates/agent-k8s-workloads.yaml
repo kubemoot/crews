@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - kubernetes
   triageSummary: "Answers what runs in the cluster and what it asks for: pods and their controllers per namespace, pod phase and readiness, restart counts, container logs and images, and the CPU and memory each container requests and is limited to, which is the total requested that a capacity question compares with node allocatable. Includes databases and datastores, which run as StatefulSets."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-workloads-system]
-  enabledTools: [pods_list, pods_list_in_namespace, pods_get, pods_log, pods_top{{ if $.Values.kubernetesAccess.writeAccess }}, pods_exec{{ end }}, resources_list, resources_get, events_list]
+  enabledTools: [pods_list, pods_list_in_namespace, pods_get, pods_log, pods_top{{ if (include "homelab-pilot-crew.writeOn" $) }}, pods_exec{{ end }}, resources_list, resources_get, events_list]
   discussKeywords:
     - kubernetes
     - k8s

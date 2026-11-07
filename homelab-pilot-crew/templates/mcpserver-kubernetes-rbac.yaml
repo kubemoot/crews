@@ -1,14 +1,23 @@
-{{/* RBAC for the Kubernetes MCP servers.
+{{/* RBAC for the Kubernetes MCP servers (kubernetes, kubernetesLegacy), which share one
+ServiceAccount.
 
-Namespaced reads are not granted here. The Kubemoot operator binds its own read role in each
-namespace that carries the label kubemoot.ai/crew-read=true, to the ServiceAccount of every
-MCPServer with the kubernetes capability. Secret reads and write access are bound the same way
-only in namespaces that also carry kubemoot.ai/crew-read-secrets or kubemoot.ai/crew-write, for
-a server whose annotation kubemoot.ai/kubernetes-access asks for them (see
-mcpserver-kubernetes.yaml). The operator also lets the account list namespaces.
+This chart grants the access itself, so the grant is visible in the chart's own manifests and
+whoever can create a RoleBinding in a namespace is the one who consents for it:
 
-What stays here is the cluster-scoped kinds a RoleBinding cannot grant, read-only, each one
-because an agent reads it:
+  <release>-kubernetes-mcp          ClusterRole of the cluster-scoped kinds, bound cluster-wide
+  <release>-kubernetes-mcp-read     namespaced reads (no Secrets), bound by kubernetesAccess:
+                                    a RoleBinding in each of kubernetesAccess.namespaces, or one
+                                    ClusterRoleBinding when kubernetesAccess.clusterWide is true
+  <release>-kubernetes-mcp-secrets  Secret reads, bound in each kubernetesAccess.secretRead.namespaces
+  <release>-kubernetes-mcp-write    pod exec, workload patch and scale, bound in each
+                                    kubernetesAccess.write.namespaces
+
+With no namespace listed and clusterWide false there is no read binding and the servers read
+nothing (see NOTES.txt).
+
+The cluster-scoped kinds stay in one small read-only ClusterRole because a RoleBinding cannot
+grant them, each one because an agent reads it:
+  namespaces               namespaces_list, and finding which namespace holds a workload
   nodes                    k8s-nodes (node capacity, conditions, kubelet version)
   persistentvolumes        k8s-storage (list and get PVs)
   storageclasses           k8s-storage (list and get StorageClasses)
@@ -31,7 +40,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "persistentvolumes"]
+    resources: ["namespaces", "nodes", "persistentvolumes"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
@@ -43,17 +52,93 @@ rules:
     resources: ["clusterroles", "clusterrolebindings"]
     verbs: ["get", "list", "watch"]
 ---
+{{ include "homelab-pilot-crew.binding" (dict "root" . "role" (printf "%s-kubernetes-mcp" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "cluster" true) }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: ClusterRole
 metadata:
-  name: {{ .Release.Name }}-kubernetes-mcp
+  name: {{ .Release.Name }}-kubernetes-mcp-read
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Release.Name }}-kubernetes-mcp
-    namespace: {{ .Release.Namespace }}
-roleRef:
-  kind: ClusterRole
-  name: {{ .Release.Name }}-kubernetes-mcp
-  apiGroup: rbac.authorization.k8s.io
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "configmaps", "events", "persistentvolumeclaims", "serviceaccounts", "resourcequotas", "limitranges", "replicationcontrollers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gateways", "httproutes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["helmrepositories", "helmcharts", "ocirepositories"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kubemoot.ai"]
+    resources: ["agents", "mcpservers", "mcpgateways", "ragsources", "models", "modelservers"]
+    verbs: ["get", "list", "watch"]
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-read" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "path" "kubernetesAccess.namespaces" "namespaces" .Values.kubernetesAccess.namespaces "clusterWide" .Values.kubernetesAccess.clusterWide) }}
+{{- if (include "homelab-pilot-crew.secretReadOn" .) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-kubernetes-mcp-secrets
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+rules:
+  # helm_list reads release state from Secrets; counting Secrets lists them.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-secrets" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "path" "kubernetesAccess.secretRead.namespaces" "namespaces" .Values.kubernetesAccess.secretRead.namespaces) }}
+{{- end }}
+{{- if (include "homelab-pilot-crew.writeOn" .) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-kubernetes-mcp-write
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets/scale", "replicasets/scale"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/rollout"]
+    verbs: ["get", "patch"]
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-write" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "path" "kubernetesAccess.write.namespaces" "namespaces" .Values.kubernetesAccess.write.namespaces) }}
+{{- end }}
