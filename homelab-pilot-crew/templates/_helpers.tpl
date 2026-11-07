@@ -159,3 +159,25 @@ it starts with a newline.
     {{- toYaml $refs | nindent 4 }}
 {{- end }}
 {{- end }}
+
+{{/* The metadata annotations that ask the Kubemoot operator for extra access in namespaces that
+consent to it. Secret reads and write access are bound per namespace, and only where the
+namespace carries kubemoot.ai/crew-read-secrets or kubemoot.ai/crew-write. Renders nothing when
+no access is asked for. */}}
+{{- define "homelab-pilot-crew.kubernetesAccess" -}}
+{{- $words := list -}}
+{{- if .Values.kubernetesAccess.secretRead }}{{ $words = append $words "secrets" }}{{ end -}}
+{{- if .Values.kubernetesAccess.writeAccess }}{{ $words = append $words "write" }}{{ end -}}
+{{- if $words }}
+annotations:
+  kubemoot.ai/kubernetes-access: {{ join "," $words | quote }}
+{{- end }}
+{{- end }}
+
+{{/* The same for k8sgpt, which reads one named Secret and never lists them or writes. */}}
+{{- define "homelab-pilot-crew.k8sgptAccess" -}}
+{{- if .Values.kubernetesAccess.secretRead }}
+annotations:
+  kubemoot.ai/kubernetes-access: "secret-get"
+{{- end }}
+{{- end }}

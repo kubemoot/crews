@@ -234,21 +234,24 @@ mcpQualityPolicy:
     timeoutSeconds: 30
     fallbackAction: deny
 
-# Cluster permissions for the Kubernetes MCP servers (kubernetes, kubernetesLegacy),
-# which share one ServiceAccount. k8sgpt has its own read-only ServiceAccount and role
-# (mcpserver-k8sgpt-rbac.yaml); secretRead gives it get on Secrets, writeAccess changes
-# nothing for it. The default is read-only: cluster-wide
-# get/list/watch through the built-in `view` ClusterRole plus the Flux, storage,
-# networking, metrics, and Kubemoot resources the crew inspects. Agents act on
-# text from tools and the web, so grant more only on a cluster you trust them with.
+# Access for the Kubernetes MCP servers (kubernetes, kubernetesLegacy, which share one
+# ServiceAccount) and k8sgpt (its own). This chart binds only a small read-only ClusterRole of
+# cluster-scoped kinds per account. Namespaced reads, Secret reads and write access come from
+# the Kubemoot operator, bound per namespace that carries kubemoot.ai/crew-read=true,
+# kubemoot.ai/crew-read-secrets=true or kubemoot.ai/crew-write=true. The settings below only
+# make the servers ask for the access (annotation kubemoot.ai/kubernetes-access) and register
+# the matching tools. Agents act on text from tools and the web, so grant more only on a
+# cluster you trust them with.
 kubernetesAccess:
-  # Adds get/list/watch on Secrets cluster-wide. helm_list needs it (Helm stores
-  # release state in Secrets; without it the k8s-helm agent's calls fail as
-  # forbidden), and so does any question that counts Secrets.
+  # Asks for Secret reads: get/list/watch for the Kubernetes servers, get for k8sgpt, in
+  # namespaces labeled kubemoot.ai/crew-read-secrets=true. helm_list needs it (Helm stores
+  # release state in Secrets; without it the k8s-helm agent's calls fail as forbidden), and
+  # so does any question that counts Secrets.
   secretRead: false
-  # Adds pods/exec, workload patch and scale, and the matching agent tools
-  # (pods_exec, resources_scale, helm_install, helm_uninstall). When false the
-  # MCP servers also run in their read-only modes.
+  # Asks for pods/exec, workload patch and scale in namespaces labeled
+  # kubemoot.ai/crew-write=true, and registers the matching agent tools (pods_exec,
+  # resources_scale, helm_install, helm_uninstall). When false the MCP servers also run in
+  # their read-only modes.
   writeAccess: false
 
 # NATS JetStream that carries the discussion and the artifact store. The Kubemoot

@@ -32,6 +32,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+  {{- with (include "homelab-pilot-crew.kubernetesAccess" .) }}
+  {{- . | nindent 2 }}
+  {{- end }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-mcp" .Release.Name)) }}
   image: {{ .Values.mcpServers.kubernetes.image }}
   transport: stdio
@@ -178,6 +181,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+  {{- with (include "homelab-pilot-crew.kubernetesAccess" .) }}
+  {{- . | nindent 2 }}
+  {{- end }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-legacy-mcp" .Release.Name)) }}
   image: {{ .Values.mcpServers.kubernetesLegacy.image }}
   transport: stdio
