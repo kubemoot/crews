@@ -9,7 +9,7 @@
 {{- $limitParam := printf "ASSERT the most rows to return; omit it or pass 0 for every row.\nWHEN counting THEN %s and read %s.\nASSERT a list with a labelSelector or fieldSelector reports no remainingItemCount, so count a selected list from its rows." $countHow $countHeader }}
 {{- /* The server takes its settings from a TOML file only (no runtime flags). Without
      port it speaks MCP over stdio, which the operator's bridge sidecar carries. */}}
-{{- $config := printf "toolsets = [\"core\", \"helm\"]\nread_only = %t\n" (not .Values.kubernetesAccess.writeAccess) }}
+{{- $config := printf "toolsets = [\"core\", \"helm\"]\nread_only = %t\n" (not (include "homelab-pilot-crew.writeOn" .)) }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -20,7 +20,7 @@ metadata:
 type: Opaque
 stringData:
   # core: pods, resources, events, nodes and namespaces. helm: helm_list, plus
-  # helm_install and helm_uninstall when read_only is false (kubernetesAccess.writeAccess).
+  # helm_install and helm_uninstall when read_only is false (kubernetesAccess.write.namespaces).
   # read_only registers only the tools that do not change the cluster.
   config.toml: |
     {{- $config | nindent 4 }}
@@ -32,9 +32,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-  {{- with (include "homelab-pilot-crew.kubernetesAccess" .) }}
-  {{- . | nindent 2 }}
-  {{- end }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-mcp" .Release.Name)) }}
   image: {{ .Values.mcpServers.kubernetes.image }}
   transport: stdio
@@ -181,9 +178,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-  {{- with (include "homelab-pilot-crew.kubernetesAccess" .) }}
-  {{- . | nindent 2 }}
-  {{- end }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-legacy-mcp" .Release.Name)) }}
   image: {{ .Values.mcpServers.kubernetesLegacy.image }}
   transport: stdio
@@ -201,7 +195,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   env:
     - name: SPAWN_MAX_BUFFER
       value: "10485760"
-    {{- if not .Values.kubernetesAccess.writeAccess }}
+    {{- if not (include "homelab-pilot-crew.writeOn" .) }}
     # Registers only tools that do not change the cluster.
     - name: ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS
       value: "true"

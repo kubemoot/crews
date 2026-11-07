@@ -1,12 +1,21 @@
 {{- if .Values.mcpServers.k8sgpt.enabled }}
 {{/* k8sgpt runs as its own ServiceAccount, not the Kubernetes MCP servers' one, so a change to
-their access does not widen it. Its namespaced reads come from the Kubemoot operator's read role,
-bound in each namespace that carries kubemoot.ai/crew-read=true (the MCPServer has the
-kubernetes capability), and the operator lets it list namespaces. What stays here are the
-cluster-scoped kinds its analyzers read, which a RoleBinding cannot grant, all read-only: Nodes
-(Node analyzer), PersistentVolumes and StorageClasses (Storage analyzer), IngressClasses
-(Ingress analyzer), the two webhook configuration kinds (MutatingWebhook and ValidatingWebhook
-analyzers), and GatewayClasses (GatewayClass analyzer). The OLM analyzers are not enabled. */}}
+their access does not widen it. Like the Kubernetes servers, this chart grants it the access:
+
+  <release>-k8sgpt-mcp              ClusterRole of the cluster-scoped kinds its analyzers read,
+                                    bound cluster-wide, all read-only: Nodes (Node analyzer),
+                                    PersistentVolumes and StorageClasses (Storage analyzer),
+                                    IngressClasses (Ingress analyzer), the two webhook
+                                    configuration kinds (MutatingWebhook and ValidatingWebhook
+                                    analyzers), GatewayClasses (GatewayClass analyzer), and
+                                    Namespaces for the findings' context
+  <release>-k8sgpt-mcp-read         the namespaced kinds its analyzers read, bound by
+                                    kubernetesAccess.namespaces or kubernetesAccess.clusterWide
+  <release>-k8sgpt-mcp-secret-get   get on Secrets, bound in each
+                                    kubernetesAccess.secretRead.namespaces (the Ingress analyzer
+                                    checks that a TLS Secret exists; k8sgpt never lists them)
+
+k8sgpt never writes, so the write tier does not reach it. The OLM analyzers are not enabled. */}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -23,7 +32,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "persistentvolumes"]
+    resources: ["namespaces", "nodes", "persistentvolumes"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
@@ -38,18 +47,66 @@ rules:
     resources: ["gatewayclasses"]
     verbs: ["get", "list", "watch"]
 ---
+{{ include "homelab-pilot-crew.binding" (dict "root" . "role" (printf "%s-k8sgpt-mcp" .Release.Name) "account" (printf "%s-k8sgpt-mcp" .Release.Name) "cluster" true) }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: ClusterRole
 metadata:
-  name: {{ .Release.Name }}-k8sgpt-mcp
+  name: {{ .Release.Name }}-k8sgpt-mcp-read
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Release.Name }}-k8sgpt-mcp
-    namespace: {{ .Release.Namespace }}
-roleRef:
-  kind: ClusterRole
-  name: {{ .Release.Name }}-k8sgpt-mcp
-  apiGroup: rbac.authorization.k8s.io
+rules:
+  # Pod, Service (endpoints), PVC analyzers; ConfigMap analyzer (configmaps); Security
+  # analyzer (serviceaccounts); events for the findings' context.
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "events", "persistentvolumeclaims", "configmaps", "serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  # Log analyzer.
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  # Deployment, ReplicaSet, StatefulSet analyzers.
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  # CronJob and Job analyzers.
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch"]
+  # HPA analyzer.
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  # PDB analyzer.
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  # Ingress and NetworkPolicy analyzers.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  # Gateway and HTTPRoute analyzers.
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gateways", "httproutes"]
+    verbs: ["get", "list", "watch"]
+  # Security analyzer.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch"]
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-k8sgpt-mcp-read" .Release.Name) "account" (printf "%s-k8sgpt-mcp" .Release.Name) "path" "kubernetesAccess.namespaces" "namespaces" .Values.kubernetesAccess.namespaces "clusterWide" .Values.kubernetesAccess.clusterWide) }}
+{{- if (include "homelab-pilot-crew.secretReadOn" .) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-k8sgpt-mcp-secret-get
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+rules:
+  # The Ingress analyzer checks that a TLS Secret exists; this is get on one named Secret.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-k8sgpt-mcp-secret-get" .Release.Name) "account" (printf "%s-k8sgpt-mcp" .Release.Name) "path" "kubernetesAccess.secretRead.namespaces" "namespaces" .Values.kubernetesAccess.secretRead.namespaces) }}
+{{- end }}
 {{- end }}

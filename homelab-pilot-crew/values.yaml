@@ -235,24 +235,40 @@ mcpQualityPolicy:
     fallbackAction: deny
 
 # Access for the Kubernetes MCP servers (kubernetes, kubernetesLegacy, which share one
-# ServiceAccount) and k8sgpt (its own). This chart binds only a small read-only ClusterRole of
-# cluster-scoped kinds per account. Namespaced reads, Secret reads and write access come from
-# the Kubemoot operator, bound per namespace that carries kubemoot.ai/crew-read=true,
-# kubemoot.ai/crew-read-secrets=true or kubemoot.ai/crew-write=true. The settings below only
-# make the servers ask for the access (annotation kubemoot.ai/kubernetes-access) and register
-# the matching tools. Agents act on text from tools and the web, so grant more only on a
-# cluster you trust them with.
+# ServiceAccount) and k8sgpt (its own). This chart ships both accounts' roles and binds them, so
+# the grant is in the chart's manifests: creating a binding in a namespace is the consent for
+# it, and whoever installs the chart needs the right to create RoleBindings in the namespaces
+# listed below. A listed namespace must exist when the chart is installed.
+#
+# Always cluster-wide, read-only: a small ClusterRole of the cluster-scoped kinds the agents
+# read (namespaces, nodes, persistentvolumes, storageclasses, customresourcedefinitions,
+# clusterroles, clusterrolebindings; k8sgpt adds ingressclasses, gatewayclasses and the webhook
+# configurations), because a RoleBinding cannot grant them.
+#
+# Everything else is off until a namespace is listed. With namespaces empty and clusterWide
+# false the servers read no namespace and every namespaced question fails as forbidden.
+# Agents act on text from tools and the web, so grant more only on a cluster you trust them with.
 kubernetesAccess:
-  # Asks for Secret reads: get/list/watch for the Kubernetes servers, get for k8sgpt, in
-  # namespaces labeled kubemoot.ai/crew-read-secrets=true. helm_list needs it (Helm stores
-  # release state in Secrets; without it the k8s-helm agent's calls fail as forbidden), and
-  # so does any question that counts Secrets.
-  secretRead: false
-  # Asks for pods/exec, workload patch and scale in namespaces labeled
-  # kubemoot.ai/crew-write=true, and registers the matching agent tools (pods_exec,
-  # resources_scale, helm_install, helm_uninstall). When false the MCP servers also run in
-  # their read-only modes.
-  writeAccess: false
+  # Namespaces the servers may read: a RoleBinding to the read role in each (pods and logs,
+  # workloads, services, ConfigMaps, events, volume claims, jobs, ingresses, network policies,
+  # autoscalers, Flux releases and sources, Kubemoot resources, and ServiceAccounts, Roles and
+  # RoleBindings; never Secrets).
+  namespaces: []
+  # true binds the read role cluster-wide with one ClusterRoleBinding instead, and ignores
+  # namespaces for reads. Secret reads and write access are never cluster-wide.
+  clusterWide: false
+  # Secret reads: get/list/watch for the Kubernetes servers, get for k8sgpt, in the listed
+  # namespaces only. helm_list needs it (Helm stores release state in Secrets; without it the
+  # k8s-helm agent's calls fail as forbidden), and so does any question that counts Secrets.
+  # Also list the namespace under namespaces, or the servers cannot read anything else there.
+  secretRead:
+    namespaces: []
+  # pods/exec, workload patch and scale in the listed namespaces only, and the matching agent
+  # tools (pods_exec, resources_scale, helm_install, helm_uninstall). While the list is empty
+  # the MCP servers run in their read-only modes. exec and patch reach the namespace's Secrets
+  # and ServiceAccount tokens. Also list the namespace under namespaces.
+  write:
+    namespaces: []
 
 # NATS JetStream that carries the discussion and the artifact store. The Kubemoot
 # quickstart and operator chart use release "nats" in namespace "nats".

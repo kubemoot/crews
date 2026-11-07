@@ -2,7 +2,7 @@
 # Render tests for the tool names the pilot crew uses against the tools its MCP servers list
 # (tests/server-tools.yaml, read from each server at the image the chart pins): every tool an
 # agent enables is listed by some server, a Kubernetes tool is one the server's read-only
-# mode registers unless writeAccess is on, and every toolOverride names a tool of its own
+# mode registers unless kubernetesAccess.write.namespaces is set, and every toolOverride names a tool of its own
 # server (the gateway ignores an override for a name the server does not list).
 # Each server's rendered image must be the one the fixture was read from. It also pins the
 # Kubernetes server's config file and the k8s-helm and nvidia-gpu-meta tools. Needs helm and yq.
@@ -56,7 +56,7 @@ check "the proxmox allow list names the server's tools" "" "$(missing "$(yq -N '
   | .spec.env[] | select(.name == "PROXMOX_TOOLS_ALLOW") | .value | split(",") | .[]' <<<"$out_all")" "$(listed proxmox tools)")"
 
 # The Kubernetes server reads only a config file: no runtime flags, the core and helm
-# toolsets, read-only unless writeAccess, and no port (stdio through the bridge).
+# toolsets, read-only unless kubernetesAccess.write.namespaces is set, and no port (stdio through the bridge).
 k8s() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"t-kubernetes-mcp\") | $1" <<<"$2"; }
 config() { yq -N 'select(.kind == "Secret" and .metadata.name == "t-kubernetes-mcp-config") | .stringData."config.toml"' <<<"$1"; }
 check "kubernetes: the command passes only --config" "/app/kubernetes-mcp-server --config /etc/kubernetes-mcp/config.toml" \
@@ -65,21 +65,21 @@ check "kubernetes: the config Secret is mounted where --config points" "t-kubern
   "$(k8s '.spec.secretVolumes[0] | .name + " " + .mountPath' "$out")"
 check "kubernetes: the config loads the core and helm toolsets" 1 "$(grep -cxF 'toolsets = ["core", "helm"]' <<<"$(config "$out")" || true)"
 check "kubernetes: read_only by default" 1 "$(grep -cxF 'read_only = true' <<<"$(config "$out")" || true)"
-check "kubernetes: read_only off with writeAccess" 1 \
-  "$(grep -cxF 'read_only = false' <<<"$(config "$(render --set kubernetesAccess.writeAccess=true)")" || true)"
+check "kubernetes: read_only off with write namespaces" 1 \
+  "$(grep -cxF 'read_only = false' <<<"$(config "$(render --set 'kubernetesAccess.write.namespaces={apps}')")" || true)"
 check "kubernetes: the config sets no port, so the server speaks stdio" 0 "$(grep -c '^port' <<<"$(config "$out")" || true)"
 check "kubernetes: a changed config changes the pod" no \
   "$([ "$(k8s '.spec.env[] | select(.name == "CONFIG_SHA256") | .value' "$out")" = \
-      "$(k8s '.spec.env[] | select(.name == "CONFIG_SHA256") | .value' "$(render --set kubernetesAccess.writeAccess=true)")" ] && echo yes || echo no)"
+      "$(k8s '.spec.env[] | select(.name == "CONFIG_SHA256") | .value' "$(render --set 'kubernetesAccess.write.namespaces={apps}')")" ] && echo yes || echo no)"
 check "kubernetes: the image is pinned by digest" 1 "$(k8s '.spec.image' "$out" | grep -c '@sha256:[0-9a-f]\{64\}$' || true)"
 
 # k8s-helm lists releases with helm_list where Secret read is granted, and Flux HelmRelease
 # objects with resources_list where it is not; write adds install and uninstall.
 helm_tools() { yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-helm") | .spec.enabledTools | join(" ")' <<<"$1"; }
 check "k8s-helm: helm_list and resources_list by default" "helm_list resources_list" "$(helm_tools "$out")"
-check "k8s-helm: the same with secretRead" "helm_list resources_list" "$(helm_tools "$(render --set kubernetesAccess.secretRead=true)")"
-check "k8s-helm: install and uninstall with writeAccess" "helm_list resources_list helm_install helm_uninstall" \
-  "$(helm_tools "$(render --set kubernetesAccess.writeAccess=true)")"
+check "k8s-helm: the same with secret namespaces" "helm_list resources_list" "$(helm_tools "$(render --set 'kubernetesAccess.secretRead.namespaces={kube-system}')")"
+check "k8s-helm: install and uninstall with write namespaces" "helm_list resources_list helm_install helm_uninstall" \
+  "$(helm_tools "$(render --set 'kubernetesAccess.write.namespaces={apps}')")"
 helm_text="$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[] | select(.name == "helm_list") | .description' <<<"$out")"
 check "k8s-helm: on forbidden, helm_list sends it to Flux HelmRelease" yes \
   "$(has "$helm_text" "WHEN this tool fails with a forbidden error THEN list the Flux HelmRelease objects instead: resources_list with apiVersion helm.toolkit.fluxcd.io/v2 and kind HelmRelease")"

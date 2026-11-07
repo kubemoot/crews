@@ -7,7 +7,7 @@
 # image: the image the chart renders for it (Kubemoot's own images render with tag 0.0.0,
 #   stamped at build; artifact-readops takes its image from the operator).
 # tools: the tools the server lists with the chart defaults (read-only modes).
-# write: the tools it adds when kubernetesAccess.writeAccess is true.
+# write: the tools it adds when kubernetesAccess.write.namespaces is not empty.
 servers:
   kubernetes:
     # containers/kubernetes-mcp-server v0.1.1, toolsets core and helm. From the source at the
