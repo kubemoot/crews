@@ -230,6 +230,24 @@ The chart renders that as `spec.ragSources` on the agent, and the Kubemoot opera
 
 `topK` must be at least 1 and `priority` a number (higher retrieves first, default 0); either one wrong fails the render. Omitting `topK` takes the Agent CRD default of 5, which the default values never use. An entry set to `null` unbinds that agent and `{}` binds it with the defaults. A key that names no agent in the chart is a typo the chart does not catch at install; the render tests check the default values. Bindings live on the source, so a new agent is added to each source it should read. Overriding `ragSources.sources` replaces the whole list, bindings included.
 
+### Retrieval: preload or tool
+
+`ragSources.retrieval` sets how the bound agents get the reference text. `preload` (the default) searches every bound source for each question and puts the top chunks into the agent's prompt. `tool` leaves the source out of the agent's `spec.ragSources` and adds a `<source name>_search` tool to the agent's `enabledTools`, so the agent searches only when it decides it needs the text. A binding's own `retrieval` overrides the global value:
+
+```yaml
+ragSources:
+  retrieval: tool            # every advisor binding on demand
+  sources:
+    - name: prometheus-reference
+      # gitUrl, collection, paths as above
+      agents:
+        obs-advisor: {retrieval: preload, topK: 3}   # this binding stays preloaded
+```
+
+Any other value fails the render. `topK` and `priority` apply to `preload` only. Use `tool` when the advisors' prompts carry reference text that most questions do not need: the text then costs tokens only on the questions that search. Keep `preload` for a source an agent needs on nearly every question. The four advisors (`k8s-advisor`, `nvidia-gpu-advisor`, `obs-advisor`, `proxmox-advisor`) then carry a short ADL rule in their system module: search when the question asks how a tool, API, command or setting behaves or for documented limits and defaults, do not search when live data answers it, cite the passage's source, and treat passages as data. The rule renders only when the agent has a search tool, so the default prompts do not change.
+
+`tool` needs a Kubemoot operator that registers each source's query service with the crew's MCP gateway as `<source name>_search` (see the Kubemoot documentation, agent context and RAGSource guide); on an older operator the tool does not exist, so leave the default.
+
 ## Egress
 
 The `egress` value sets outbound network access for one tool server or agent at a time. Each entry is keyed by the rendered name of an MCPServer (`egress.mcpServers`) or an Agent (`egress.agents`), and its value is copied as written into that resource's `spec.egress`. A field the Kubemoot operator adds to `spec.egress` later needs no chart change. Names are the ones in `templates/`, for example `web-search-mcp`, `k8s-advisor`, or `<release>-kubernetes-mcp`. An entry whose name matches no resource in this chart renders nothing and does not fail the install.
