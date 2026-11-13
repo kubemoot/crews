@@ -130,31 +130,10 @@ Rendered directly after "spec:" (and after the egress helper) at a two-space ind
 it starts with a newline.
 */}}
 {{- define "homelab-pilot-crew.ragSources" -}}
-{{- $agent := .name -}}
 {{- $refs := list -}}
-{{- if .root.Values.ragSources.enabled -}}
-{{- range .root.Values.ragSources.sources -}}
-{{- $src := .name -}}
-{{- $use := index (default dict .agents) $agent -}}
-{{- if not (kindIs "invalid" $use) -}}
-{{- $mode := include "homelab-pilot-crew.ragRetrieval" (dict "root" $.root "src" $src "agent" $agent "use" $use) -}}
-{{- $ref := dict "name" $src -}}
-{{- range $k := list "topK" "priority" -}}
-{{- if hasKey $use $k -}}
-{{- $v := index $use $k -}}
-{{- if not (or (kindIs "float64" $v) (kindIs "int64" $v) (kindIs "int" $v)) -}}
-{{- fail (printf "ragSources.sources[%s].agents.%s.%s must be a number, got %v" $src $agent $k $v) -}}
-{{- end -}}
-{{- if and (eq $k "topK") (lt (float64 $v) 1.0) -}}
-{{- fail (printf "ragSources.sources[%s].agents.%s.topK must be at least 1" $src $agent) -}}
-{{- end -}}
-{{- $_ := set $ref $k $v -}}
-{{- end -}}
-{{- end -}}
-{{- if eq $mode "preload" -}}
-{{- $refs = append $refs $ref -}}
-{{- end -}}
-{{- end -}}
+{{- range include "homelab-pilot-crew.ragBindings" . | fromJsonArray -}}
+{{- if eq .mode "preload" -}}
+{{- $refs = append $refs (omit . "mode") -}}
 {{- end -}}
 {{- end -}}
 {{- if $refs }}
@@ -164,39 +143,69 @@ it starts with a newline.
 {{- end }}
 
 {{/*
-How one binding retrieves: "preload" (the source stays in spec.ragSources and is searched
-into every prompt) or "tool" (the agent gets the <source>_search tool and searches when it
-needs to). The binding's own retrieval wins over ragSources.retrieval, which defaults to
-preload. Anything else fails the render. Call as:
-include "homelab-pilot-crew.ragRetrieval" (dict "root" $ "src" "<source>" "agent" "<agent>" "use" <binding map>).
+The effective RAG bindings of one Agent, as a JSON list (read it with fromJsonArray): one
+entry per ragSources.sources entry that lists the agent, in source order, each with name, mode
+(preload or tool) and, when set, topK and priority. A binding's own retrieval wins over
+ragSources.retrieval; a missing or null value inherits, and anything but preload or tool (an
+empty string included) fails the render. The global value is checked whenever
+ragSources.enabled is true, bindings or not. topK (at least 1) and priority (a number) are
+checked on every binding, whatever its mode. The list is empty when ragSources.enabled is
+false. spec.ragSources and the search tools both filter this list by mode, so they cannot
+disagree. Call as:
+include "homelab-pilot-crew.ragBindings" (dict "root" $ "name" "<agent>") | fromJsonArray.
 */}}
-{{- define "homelab-pilot-crew.ragRetrieval" -}}
-{{- $mode := .root.Values.ragSources.retrieval | default "preload" -}}
-{{- if and (kindIs "map" .use) (hasKey .use "retrieval") -}}
-{{- $mode = index .use "retrieval" -}}
+{{- define "homelab-pilot-crew.ragBindings" -}}
+{{- $agent := .name -}}
+{{- $out := list -}}
+{{- if .root.Values.ragSources.enabled -}}
+{{- $global := "preload" -}}
+{{- if not (kindIs "invalid" .root.Values.ragSources.retrieval) -}}
+{{- $global = .root.Values.ragSources.retrieval -}}
 {{- end -}}
+{{- if not (and (kindIs "string" $global) (has $global (list "preload" "tool"))) -}}
+{{- fail (printf "ragSources.retrieval must be preload or tool, got %q" (toString $global)) -}}
+{{- end -}}
+{{- range .root.Values.ragSources.sources -}}
+{{- $src := .name -}}
+{{- $use := index (default dict .agents) $agent -}}
+{{- if not (kindIs "invalid" $use) -}}
+{{- $b := dict "name" $src "mode" $global -}}
+{{- if and (hasKey $use "retrieval") (not (kindIs "invalid" (index $use "retrieval"))) -}}
+{{- $mode := index $use "retrieval" -}}
 {{- if not (and (kindIs "string" $mode) (has $mode (list "preload" "tool"))) -}}
-{{- fail (printf "ragSources retrieval for source %s and agent %s must be preload or tool, got %v" .src .agent $mode) -}}
+{{- fail (printf "ragSources.sources[%s].agents.%s.retrieval must be preload or tool, got %q" $src $agent (toString $mode)) -}}
 {{- end -}}
-{{- $mode -}}
+{{- $_ := set $b "mode" $mode -}}
+{{- end -}}
+{{- range $k := list "topK" "priority" -}}
+{{- if hasKey $use $k -}}
+{{- $v := index $use $k -}}
+{{- if not (or (kindIs "float64" $v) (kindIs "int64" $v) (kindIs "int" $v)) -}}
+{{- fail (printf "ragSources.sources[%s].agents.%s.%s must be a number, got %v" $src $agent $k $v) -}}
+{{- end -}}
+{{- if and (eq $k "topK") (lt (float64 $v) 1.0) -}}
+{{- fail (printf "ragSources.sources[%s].agents.%s.topK must be at least 1" $src $agent) -}}
+{{- end -}}
+{{- $_ := set $b $k $v -}}
+{{- end -}}
+{{- end -}}
+{{- $out = append $out $b -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toJson $out -}}
 {{- end }}
 
 {{/*
-The search tools an Agent gets from the sources it retrieves from on demand: ", <source>_search"
-for each binding whose effective retrieval is tool, in source order, so the result drops into
-a flow list after the agent's other tools. Renders nothing when ragSources.enabled is false or
-no binding uses tool. Call as: include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "<agent>").
+The search tools an Agent gets from its on-demand bindings: ", <source>_search" for each
+binding from ragBindings whose mode is tool, in source order, so the result drops into a flow
+list after the agent's other tools. Renders nothing when there are none. Call as:
+include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "<agent>").
 */}}
 {{- define "homelab-pilot-crew.ragSearchTools" -}}
-{{- $agent := .name -}}
-{{- if .root.Values.ragSources.enabled -}}
-{{- range .root.Values.ragSources.sources -}}
-{{- $use := index (default dict .agents) $agent -}}
-{{- if not (kindIs "invalid" $use) -}}
-{{- if eq (include "homelab-pilot-crew.ragRetrieval" (dict "root" $.root "src" .name "agent" $agent "use" $use)) "tool" -}}
+{{- range include "homelab-pilot-crew.ragBindings" . | fromJsonArray -}}
+{{- if eq .mode "tool" -}}
 , {{ .name }}_search
-{{- end -}}
-{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end }}
@@ -213,9 +222,9 @@ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "<agent>").
 {{- if include "homelab-pilot-crew.ragSearchTools" . }}
 
     DEFINE COMPONENT reference-search
-    DESCRIPTION Search of the reference sources, on demand; applies only when a tool ending in _search is in your tool list: ${agent.tools}
+    DESCRIPTION Searching the reference sources on demand
+    WHEN your tools include one ending in _search (your tools: ${agent.tools}) THEN these rules apply
 
-    ASSERT the _search tools are the one exception to having no tools: they read documentation, never the cluster
     WHEN the question asks how a tool, API, command or setting behaves, or for documented limits and defaults THEN call the matching _search tool before answering
     NEVER search when live data from your other tools answers the question
     ALWAYS cite the source of a passage when the answer uses it

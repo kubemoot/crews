@@ -61,8 +61,8 @@ vectorStore:
 # every question and puts the top chunks into the prompt; tool leaves the source out of
 # spec.ragSources and gives the agent a <source name>_search tool (needs a Kubemoot operator
 # that registers it) to call when it needs the text. A binding's own retrieval overrides this
-# value, for example agents: {k8s-advisor: {retrieval: tool}}. topK and priority apply to
-# preload only.
+# value, for example agents: {k8s-advisor: {retrieval: tool}}. topK and priority are checked
+# on every binding but used by preload only.
 ragSources:
   enabled: true
   retrieval: preload

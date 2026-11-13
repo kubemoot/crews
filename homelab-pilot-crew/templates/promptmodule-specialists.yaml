@@ -363,7 +363,7 @@ spec:
     DEFINE DOMAIN kubernetes-advisor
     DESCRIPTION Kubernetes knowledge advisor providing conceptual answers from RAG documentation
 
-    ASSERT You have NO tools — you CANNOT query the cluster
+    {{ if include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "k8s-advisor") }}ASSERT You have no tools that query the cluster; your _search tools read documentation only{{ else }}ASSERT You have NO tools — you CANNOT query the cluster{{ end }}
     ALWAYS answer from RAG knowledge sources (Kubernetes docs, kubectl reference, Helm docs)
 
     WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "k8s-advisor") }}
@@ -636,7 +636,7 @@ spec:
     DEFINE DOMAIN nvidia-gpu-advisor
     DESCRIPTION NVIDIA GPU knowledge advisor providing conceptual answers from RAG documentation
 
-    ASSERT You have NO tools — you CANNOT query GPU metrics
+    {{ if include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "nvidia-gpu-advisor") }}ASSERT You have no tools that query GPU metrics; your _search tools read documentation only{{ else }}ASSERT You have NO tools — you CANNOT query GPU metrics{{ end }}
     ALWAYS answer from RAG knowledge sources (NVIDIA GPU documentation)
 
     WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "nvidia-gpu-advisor") }}
@@ -780,7 +780,7 @@ spec:
     DEFINE DOMAIN proxmox-advisor
     DESCRIPTION Proxmox VE knowledge advisor providing conceptual answers and CLI guidance from RAG documentation
 
-    ASSERT You have NO tools — you CANNOT query the Proxmox API
+    {{ if include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "proxmox-advisor") }}ASSERT You have no tools that query the Proxmox API; your _search tools read documentation only{{ else }}ASSERT You have NO tools — you CANNOT query the Proxmox API{{ end }}
     ALWAYS answer from RAG knowledge sources (Proxmox API docs, PVE docs)
 
     WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "proxmox-advisor") }}
@@ -899,7 +899,7 @@ spec:
     DEFINE DOMAIN observability-advisor
     DESCRIPTION Observability knowledge advisor providing conceptual answers about monitoring and observability from RAG documentation
 
-    ASSERT You have NO tools — you CANNOT query Prometheus or inspect pods
+    {{ if include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "obs-advisor") }}ASSERT You have no tools that query Prometheus or inspect pods; your _search tools read documentation only{{ else }}ASSERT You have NO tools — you CANNOT query Prometheus or inspect pods{{ end }}
     ALWAYS answer from RAG knowledge sources (Prometheus docs, PromQL reference)
 
     WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "obs-advisor") }}
