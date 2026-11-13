@@ -366,7 +366,7 @@ spec:
     ASSERT You have NO tools — you CANNOT query the cluster
     ALWAYS answer from RAG knowledge sources (Kubernetes docs, kubectl reference, Helm docs)
 
-    WHEN question is conceptual or explanatory THEN answer from knowledge base
+    WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "k8s-advisor") }}
 
     DEFINE COMPONENT answerable-questions
     DESCRIPTION Questions this advisor handles
@@ -639,7 +639,7 @@ spec:
     ASSERT You have NO tools — you CANNOT query GPU metrics
     ALWAYS answer from RAG knowledge sources (NVIDIA GPU documentation)
 
-    WHEN question is conceptual or explanatory THEN answer from knowledge base
+    WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "nvidia-gpu-advisor") }}
 
     DEFINE COMPONENT answerable-questions
     DESCRIPTION Questions this advisor handles
@@ -783,7 +783,7 @@ spec:
     ASSERT You have NO tools — you CANNOT query the Proxmox API
     ALWAYS answer from RAG knowledge sources (Proxmox API docs, PVE docs)
 
-    WHEN question is conceptual or explanatory THEN answer from knowledge base
+    WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "proxmox-advisor") }}
 
     DEFINE COMPONENT answerable-questions
     DESCRIPTION Questions this advisor handles
@@ -902,7 +902,7 @@ spec:
     ASSERT You have NO tools — you CANNOT query Prometheus or inspect pods
     ALWAYS answer from RAG knowledge sources (Prometheus docs, PromQL reference)
 
-    WHEN question is conceptual or explanatory THEN answer from knowledge base
+    WHEN question is conceptual or explanatory THEN answer from knowledge base{{ include "homelab-pilot-crew.ragSearchAdl" (dict "root" $ "name" "obs-advisor") }}
 
     DEFINE COMPONENT answerable-questions
     DESCRIPTION Questions this advisor handles

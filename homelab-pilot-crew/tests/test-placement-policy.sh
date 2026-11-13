@@ -323,3 +323,48 @@ bind --set 'ragSources.sources[0].agents.obs-advisor.priority=high' >/dev/null 2
 [ "$(bind --set-json 'ragSources.sources[0].agents={"obs-advisor":{}}' | yq -N -o=json -I0 'select(.metadata.name == "obs-advisor") | .spec.ragSources[-1]')" = '{"name":"solo"}' ] || fail "an empty agents entry must bind with defaults"
 [ "$(bind --set 'ragSources.sources[0].agents.obs-advisor=null' | yq -N -o=json -I0 'select(.metadata.name == "obs-advisor") | .spec.ragSources')" = 'null' ] || fail "a null agents entry must unbind"
 echo "PASS: RAG binding values are validated"
+
+# Retrieval: preload (the default) is today's behavior; tool moves a binding from spec.ragSources
+# to a <source>_search entry in the agent's enabledTools.
+advisors="k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor"
+field() { yq -N -o=json -I0 "select(.kind == \"Agent\" and .metadata.name == \"$2\") | $3" <<<"$1"; }
+rag() { render --set ragSources.enabled=true --set vectorStore.host=db.test --set vectorStore.existingSecret=s "$@"; }
+tool_out="$(rag --set ragSources.retrieval=tool)"
+preload_out="$(rag --set ragSources.retrieval=preload)"
+base='["artifact_head","artifact_tail","artifact_grep","artifact_count","artifact_rows","artifact_select","artifact_jq"]'
+for a in $advisors; do
+  [ "$(field "$rag_out" "$a" '.spec.enabledTools')" = "$base" ] || fail "$a: the default retrieval must leave enabledTools as the artifact tools"
+  [ "$(field "$rag_out" "$a" '.spec.ragSources | length')" -ge 1 ] || fail "$a: the default retrieval must keep its sources in spec.ragSources"
+  [ "$(field "$preload_out" "$a" '.spec')" = "$(field "$rag_out" "$a" '.spec')" ] || fail "$a: retrieval=preload must equal the default"
+  [ "$(field "$tool_out" "$a" '.spec.ragSources')" = "null" ] || fail "$a: retrieval=tool must leave spec.ragSources out"
+done
+[ "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$rag_out" | grep -c '_search' || true)" = "0" ] || fail "the default retrieval must add no search rule to any prompt"
+[ "$(field "$tool_out" k8s-advisor '.spec.enabledTools | .[7:]')" = '["kubectl-reference_search","helm-reference_search","talos-reference_search","kubernetes-concepts_search"]' ] || fail "k8s-advisor: retrieval=tool must add one search tool per bound source, in source order"
+[ "$(field "$tool_out" nvidia-gpu-advisor '.spec.enabledTools | .[7:]')" = '["nvidia-gpu-reference_search"]' ] || fail "nvidia-gpu-advisor: search tool missing"
+[ "$(field "$tool_out" obs-advisor '.spec.enabledTools | .[7:]')" = '["prometheus-reference_search"]' ] || fail "obs-advisor: search tool missing"
+[ "$(field "$tool_out" proxmox-advisor '.spec.enabledTools | .[7:]')" = '["proxmox-api-reference_search","proxmox-pve-docs_search"]' ] || fail "proxmox-advisor: search tools missing"
+# Each advisor's own module carries the search rule only when it has a search tool, with the runtime's tool-list placeholder.
+for a in $advisors; do
+  mod="$(yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$a-system\") | .spec.content" <<<"$tool_out")"
+  grep -q 'DEFINE COMPONENT reference-search' <<<"$mod" || fail "$a-system: retrieval=tool must add the search rule"
+  # shellcheck disable=SC2016
+  grep -qF '${agent.tools}' <<<"$mod" || fail "$a-system: the search rule must use the tool-list placeholder"
+done
+# A per-binding override: one source on demand, the rest preloaded; and a global tool with one binding back to preload.
+two='[{"name":"one","gitUrl":"https://x.test/r","paths":["."],"agents":{"k8s-advisor":{"topK":2,"retrieval":"tool"},"obs-advisor":{"topK":1}}},{"name":"two","gitUrl":"https://x.test/r","paths":["."],"agents":{"k8s-advisor":{"topK":3}}}]'
+one_tool="$(rag --set-json "ragSources.sources=$two")"
+[ "$(field "$one_tool" k8s-advisor '.spec.enabledTools | .[7:]')" = '["one_search"]' ] || fail "a binding set to tool must add only its own search tool"
+[ "$(field "$one_tool" k8s-advisor '.spec.ragSources | map(.name)')" = '["two"]' ] || fail "a binding set to tool must leave only that source out of spec.ragSources"
+[ "$(field "$one_tool" obs-advisor '.spec.ragSources | map(.name)')" = '["one"]' ] || fail "an override on one agent must not move another agent's bindings"
+[ "$(field "$one_tool" obs-advisor '.spec.enabledTools | length')" = "7" ] || fail "an override on one agent must not add a tool to another agent"
+back="$(rag --set ragSources.retrieval=tool --set-json "ragSources.sources=${two/\"tool\"/\"preload\"}")"
+[ "$(field "$back" k8s-advisor '.spec.ragSources | map(.name)')" = '["one"]' ] || fail "a binding set to preload must stay preloaded under a global tool"
+[ "$(field "$back" k8s-advisor '.spec.ragSources[0].topK')" = "2" ] || fail "a preloaded binding must keep its topK"
+[ "$(field "$back" k8s-advisor '.spec.enabledTools | .[7:]')" = '["two_search"]' ] || fail "an unset binding must follow the global tool value"
+# Bad values fail the render, globally and per binding; RAG off adds nothing whatever the value.
+rag --set ragSources.retrieval=sometimes >/dev/null 2>&1 && fail "an unknown global retrieval must fail the render"
+bind --set 'ragSources.sources[0].agents.obs-advisor.retrieval=sometimes' >/dev/null 2>&1 && fail "an unknown binding retrieval must fail the render"
+bind --set 'ragSources.sources[0].agents.obs-advisor.retrieval=Tool' >/dev/null 2>&1 && fail "retrieval is case sensitive"
+bind --set-json 'ragSources.sources[0].agents.obs-advisor.retrieval=true' >/dev/null 2>&1 && fail "a non-string binding retrieval must fail the render"
+[ "$(field "$(render --set ragSources.retrieval=tool)" obs-advisor '.spec.enabledTools | length')" = "7" ] || fail "ragSources.enabled=false must add no search tool"
+echo "PASS: RAG retrieval switch (preload and tool) renders and validates"

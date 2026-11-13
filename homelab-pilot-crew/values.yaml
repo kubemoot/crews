@@ -57,8 +57,15 @@ vectorStore:
 # no spec.ragSources and retrieves nothing. kubernetes-mcp-tools lists no agent: it
 # documents a tool server, not a question domain. ragSources.enabled=false renders no
 # source and no binding.
+# retrieval sets how bound agents get the text: preload (default) searches the source for
+# every question and puts the top chunks into the prompt; tool leaves the source out of
+# spec.ragSources and gives the agent a <source name>_search tool (needs a Kubemoot operator
+# that registers it) to call when it needs the text. A binding's own retrieval overrides this
+# value, for example agents: {k8s-advisor: {retrieval: tool}}. topK and priority apply to
+# preload only.
 ragSources:
   enabled: true
+  retrieval: preload
   sources:
     - name: kubectl-reference
       gitUrl: https://github.com/kubernetes/website
