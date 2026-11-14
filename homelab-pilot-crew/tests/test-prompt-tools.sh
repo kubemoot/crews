@@ -201,6 +201,14 @@ check "advisory: has a member-tasks component that names memberTasks" 1 \
 check "advisory: the member-tasks component adds no NEVER or ALWAYS rule" 0 \
   "$(sed -n '/DEFINE COMPONENT step-3-member-tasks/,/DEFINE COMPONENT step-4/p' <<<"$advisory" | grep -cE '^ *(NEVER|ALWAYS)' || true)"
 
+# The discussion protocol is ADL and keeps the signal words agents emit.
+discussion="$(module discussion-protocol)"
+check "discussion-protocol is ADL" 1 "$(grep -c -x -F 'DEFINE DOMAIN discussion-protocol' <<<"$discussion" || true)"
+for word in NOTHING_TO_ADD TOOL_GAP CONCERN; do
+  check "discussion-protocol carries $word" yes "$(has "$discussion" "$word")"
+done
+check "discussion-protocol has no Markdown headings" 0 "$(grep -c '^#' <<<"$discussion" || true)"
+
 # The tool names themselves are checked against what each server lists (CI runs this script).
 bash "$chart/tests/test-server-tools.sh" || failures=$((failures + 1))
 
