@@ -46,11 +46,12 @@ servers:
     image: docker.io/mcp/duckduckgo@sha256:5617c4c60f48f47556c0735de7a73f6abd731c132c65ec8c720b511819c9f88f
     tools: [fetch_content, search]
   artifact-readops:
-    # Kubemoot's artifact-access image in MCP mode; workspace_query only when the operator's
+    # Kubemoot's artifact-access image in MCP mode; workspace_list always, workspace_query and
+    # workspace_describe only when the operator's
     # artifacts.queryEngine is sqlite or duckdb.
     mcpServer: artifact-readops-mcp
     image: "kubemootImage:artifactAccess"
-    tools: [artifact_count, artifact_grep, artifact_head, artifact_jq, artifact_rows, artifact_select, artifact_tail, workspace_query]
+    tools: [artifact_count, artifact_grep, artifact_head, artifact_jq, artifact_rows, artifact_select, artifact_tail, workspace_describe, workspace_list, workspace_query]
   code-sandbox:
     mcpServer: code-sandbox-mcp
     image: ghcr.io/kubemoot/code-sandbox:0.0.0
