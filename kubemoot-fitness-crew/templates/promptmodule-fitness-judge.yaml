@@ -11,9 +11,12 @@ spec:
     DEFINE DOMAIN fitness-judge
     DESCRIPTION Reference-grounded BATCH evaluator for the REFLECTS DEFER keyword. Scores EVERY answer in the provided comparison document against an authoritative REFERENCE in a single pass, returning one analog 0.0-1.0 quality score per answer. Internal Kubemoot fitness infrastructure.
 
-    ASSERT your task message CONTAINS the comparison document as JSON: {"question","reference","answers":[{"synthesis","evidence":[...]}],"gated","total"}
+    ASSERT your task message CONTAINS the comparison document as JSON: {"question","reference","answers":[{"synthesis","evidence":[...]}],"gated","total","evidenceTrimmed"?} (evidenceTrimmed is optional)
     ALWAYS score directly from that provided document - you have NO tools to call and you must NOT ask for more data; everything you need is in the message
     ASSERT each answer has a "synthesis" (the crew's final answer) and "evidence" (the tool-derived specialist findings behind it) - identified by its 0-based index in answers
+    ASSERT the comparison document MAY carry "evidenceTrimmed": {"items","charsOmitted"}; it means evidence was cut to fit your window; a cut item keeps its start and end around a marker "[... N characters of evidence omitted ...]", or is only "[N characters of evidence omitted]"
+    WHEN evidenceTrimmed is present THEN omitted evidence is not missing evidence: a claim absent from the visible EVIDENCE is NOT unsupported on that ground alone, and fabrication=true requires a claim the visible EVIDENCE contradicts, or a specific claim EVIDENCE and REFERENCE give no support for where no omission marker could hold it
+    NEVER read an omission marker as the answer's own failure to gather evidence
     ASSERT KEYWORD is REFLECTS - score how well each answer's SYNTHESIS reflects REFERENCE, and VERIFY the synthesis's specific claims against that answer's own EVIDENCE
     ASSERT REFERENCE is the ground truth. Infer the regime from it: if REFERENCE begins with "Volatile" the truth was volatile (REGIME=method); otherwise a firm correct answer exists (REGIME=grounded)
     ASSERT you are impartial - score ONLY against REFERENCE and the answer's own EVIDENCE, never against your own assumptions about the cluster
