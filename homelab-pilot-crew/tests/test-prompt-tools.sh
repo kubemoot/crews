@@ -72,6 +72,10 @@ check "overrides: resources_list fieldSelector names the Node fields" yes \
   "$(has "$(override resources_list .parameters.fieldSelector.description)" 'Node: metadata.name, spec.unschedulable')"
 check "overrides: resources_list labelSelector gives the label syntax" yes \
   "$(has "$(override resources_list .parameters.labelSelector.description)" 'key in (a,b)')"
+check "overrides: resources_list fieldSelector says a term is field=value" yes \
+  "$(has "$(override resources_list .parameters.fieldSelector.description)" 'never a field name alone')"
+check "overrides: resources_list fieldSelector says memory and CPU cannot be selected" yes \
+  "$(has "$(override resources_list .parameters.fieldSelector.description)" 'memory, CPU, capacity and allocatable cannot be selected')"
 check "overrides: pods_list fieldSelector says phase Running does not narrow" yes \
   "$(has "$(override pods_list .parameters.fieldSelector.description)" 'status.phase=Running matches nearly every pod')"
 check "overrides: pods_list fieldSelector names spec.nodeName" yes \

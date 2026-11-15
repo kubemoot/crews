@@ -117,7 +117,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         labelSelector:
           description: "ASSERT a server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes."
         fieldSelector:
-          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table."
+          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table.\nASSERT each term is field=value or field!=value, never a field name alone.\nASSERT memory, CPU, capacity and allocatable cannot be selected; to compare them, list the objects without a selector and read the table, or use a metrics tool."
         limit:
           description: {{ $limitParam | toJson }}
     - name: pods_top
