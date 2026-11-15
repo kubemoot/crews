@@ -76,33 +76,38 @@ check "overrides: resources_list fieldSelector says a term is field=value" yes \
   "$(has "$(override resources_list .parameters.fieldSelector.description)" 'never a field name alone')"
 check "overrides: resources_list fieldSelector says memory and CPU cannot be selected" yes \
   "$(has "$(override resources_list .parameters.fieldSelector.description)" 'memory, CPU, capacity and allocatable cannot be selected')"
-# The fieldSelector rules the gateway applies before the call (RE2 patterns, searched anywhere in
-# the text, first match answers). grep -P stands in for the gateway's matcher: every pattern here
-# is in the syntax RE2 and PCRE share.
+# The fieldSelector rules the gateway applies before the call: RE2 patterns, searched anywhere in
+# the text, first match answers. tests/fixtures/field-selector-rules.json holds the patterns and the
+# selectors each must reject or let through; the Kubemoot gateway runs a copy of it with the real
+# RE2 engine. Here the rendered patterns must equal the fixture's, and grep -P (every pattern is in
+# the syntax RE2 and PCRE share) must agree with the fixture on each selector.
+fixture="$chart/tests/fixtures/field-selector-rules.json"
 rule_patterns() { override resources_list '.parameters.fieldSelector.rules[].reject'; }
-first_rule() { # the message of the first rule that rejects the selector, or "allowed"
-  local pattern
+rule_messages() { override resources_list '.parameters.fieldSelector.rules[] | .message | @json'; }
+rendered_patterns="$(rule_patterns)"
+first_rule() { # the index of the first rendered rule that rejects the selector, or "allowed"
+  local pattern index=0
   while IFS= read -r pattern; do
-    if grep -qP -- "$pattern" <<<"$1"; then override resources_list ".parameters.fieldSelector.rules[] | select(.reject == \"${pattern//\\/\\\\}\") | .message"; return; fi
-  done <<<"$(rule_patterns)"
+    if grep -qP -- "$pattern" <<<"$1"; then echo "$index"; return; fi
+    index=$((index + 1))
+  done <<<"$rendered_patterns"
   echo allowed
 }
+check "rules: the rendered patterns equal the fixture's, in order" "$(yq -p=json -o=y -N '.rules[].reject' "$fixture")" "$(rule_patterns)"
 check "rules: resources_list fieldSelector has four rules" 4 "$(rule_patterns | wc -l | tr -d ' ')"
 check "rules: only resources_list fieldSelector carries rules" resources_list.fieldSelector \
   "$(k8s_mcp '.spec.toolOverrides[] | select(.parameters) | .name as $t | .parameters | to_entries[] | select(.value.rules) | $t + "." + .key' "$out")"
 check "rules: every rule has a pattern and an ADL message" 4 \
   "$(override resources_list '.parameters.fieldSelector.rules[] | select(.reject != "" and (.message | test("^ASSERT "))) | .reject' | wc -l | tr -d ' ')"
-for bad in 'status.allocatable.memory,status.capacity.memory' 'status.capacity.memory>4' 'status.allocatable.cpu=2' \
-  'metadata.namespace!~^kube' 'metadata.namespace=~kube' 'metadata.name=a,spec.unschedulable' 'status.allocatable' 'a=b,status.phase'; do
-  check "rules: rejects '$bad'" no "$([ "$(first_rule "$bad")" = allowed ] && echo yes || echo no)"
-done
-for good in 'metadata.name=n1' 'spec.unschedulable=true' 'metadata.namespace!=kube-system,metadata.namespace!=default' \
-  'metadata.name=cpu-node-1' 'status.phase!=Running,status.phase!=Succeeded' 'involvedObject.name=capacity-planner'; do
-  check "rules: allows '$good'" allowed "$(first_rule "$good")"
-done
-check "rules: memory selectors get the metrics alternative" yes "$(has "$(first_rule status.allocatable.memory)" 'use a metrics tool')"
-check "rules: regex operators get the table alternative" yes "$(has "$(first_rule 'metadata.namespace!~^ku')" 'read the matching rows in the table')"
-check "rules: a bare field name is told to use field=value" yes "$(has "$(first_rule spec.nodeName)" 'a field name alone is an error')"
+while IFS=$'\t' read -r input want; do
+  check "rules: rejects '$input' with rule $want" "$want" "$(first_rule "$input")"
+done < <(yq -p=json -o=y -N '.reject[] | .input + "\t" + (.rule | tostring)' "$fixture")
+while IFS= read -r input; do
+  check "rules: allows '$input'" allowed "$(first_rule "$input")"
+done < <(yq -p=json -o=y -N '.pass[]' "$fixture")
+check "rules: memory selectors get the metrics alternative" yes "$(has "$(rule_messages | sed -n 1p)" 'use a metrics tool')"
+check "rules: regex operators get the table alternative" yes "$(has "$(rule_messages | sed -n 2p)" 'read the matching rows in the table')"
+check "rules: a bare field name is told to use field=value" yes "$(has "$(rule_messages | sed -n 4p)" 'a field name alone is an error')"
 check "overrides: pods_list fieldSelector says phase Running does not narrow" yes \
   "$(has "$(override pods_list .parameters.fieldSelector.description)" 'status.phase=Running matches nearly every pod')"
 check "overrides: pods_list fieldSelector names spec.nodeName" yes \
