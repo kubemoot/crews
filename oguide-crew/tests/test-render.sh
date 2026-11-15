@@ -405,5 +405,9 @@ check "no agent's modules name a tool the agent lacks" 0 "$(bash "$chart/../scri
 check "the curator lists its tools with the placeholder" 1 \
   "$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "analyst-review-protocol") | .spec.content' <<<"$out" | grep -c -F '${agent.tools}')"
 
+coord="$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "coordinator-decision-logic") | .spec.content' <<<"$out")"
+check "a failed search makes only its own part unknown" 1 "$(grep -c 'makes UNKNOWN only the part' <<<"$coord")"
+check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the answer is UNKNOWN' <<<"$coord" || true)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"
