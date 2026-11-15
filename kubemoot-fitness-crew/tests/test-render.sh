@@ -163,5 +163,12 @@ for name in ${agent_names//,/ }; do
 done
 echo "PASS: egress values (${egress_count} resources)"
 
+# The judge prompt tells the judge about trimmed evidence, with the marker text the operator writes.
+judge_prompt="$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "fitness-judge-system") | .spec.content' <<<"$out")"
+grep -q 'evidenceTrimmed' <<<"$judge_prompt" || fail "the judge prompt does not name evidenceTrimmed"
+grep -qF '[... N characters of evidence omitted ...]' <<<"$judge_prompt" || fail "the judge prompt does not show the omission marker"
+grep -qF '[N characters of evidence omitted]' <<<"$judge_prompt" || fail "the judge prompt does not show the short omission marker"
+echo "PASS: judge prompt names evidenceTrimmed and its markers"
+
 helm lint "$chart" >/dev/null || fail "helm lint"
 echo "PASS: helm lint"
