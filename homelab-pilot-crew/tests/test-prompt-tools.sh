@@ -209,6 +209,12 @@ for word in NOTHING_TO_ADD TOOL_GAP CONCERN; do
 done
 check "discussion-protocol has no Markdown headings" 0 "$(grep -c '^#' <<<"$discussion" || true)"
 
+# A failed gather leaves only its own part unknown; the answer still covers the rest.
+coord="$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "coordinator-decision-logic") | .spec.content' <<<"$out")"
+check "a retrieval failure makes only its own part unknown" 1 "$(grep -c 'makes UNKNOWN only the part' <<<"$coord")"
+check "the coordinator answers the parts the gathered data answers" 1 "$(grep -c 'answer first every part' <<<"$coord")"
+check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the answer is UNKNOWN' <<<"$coord" || true)"
+
 # The tool names themselves are checked against what each server lists (CI runs this script).
 bash "$chart/tests/test-server-tools.sh" || failures=$((failures + 1))
 

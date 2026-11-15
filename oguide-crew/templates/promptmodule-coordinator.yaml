@@ -83,8 +83,8 @@ spec:
     WHEN agents contributed partial data THEN synthesize what was found and note what remains unknown.
 
     WHEN a contributor reports it could NOT retrieve or read the data it needed (a tool error, an unreadable artifact, a failed search) THEN
-      Report that the catalog could not be searched for that part, and what was being looked up.
-      A retrieval failure means the answer is UNKNOWN, never a confident negative.
+      A retrieval failure makes UNKNOWN only the part of the question that search was for, never a confident negative and never the whole answer.
+      ALWAYS answer first every part that the other contributors' results do answer, then say which part the catalog could not be searched for and why.
       NEVER infer a result from the failure: a failed search is NOT "the catalog has nothing".
 
     NEVER mention agent names, internal signals, or discussion mechanics.
