@@ -76,6 +76,33 @@ check "overrides: resources_list fieldSelector says a term is field=value" yes \
   "$(has "$(override resources_list .parameters.fieldSelector.description)" 'never a field name alone')"
 check "overrides: resources_list fieldSelector says memory and CPU cannot be selected" yes \
   "$(has "$(override resources_list .parameters.fieldSelector.description)" 'memory, CPU, capacity and allocatable cannot be selected')"
+# The fieldSelector rules the gateway applies before the call (RE2 patterns, searched anywhere in
+# the text, first match answers). grep -P stands in for the gateway's matcher: every pattern here
+# is in the syntax RE2 and PCRE share.
+rule_patterns() { override resources_list '.parameters.fieldSelector.rules[].reject'; }
+first_rule() { # the message of the first rule that rejects the selector, or "allowed"
+  local pattern
+  while IFS= read -r pattern; do
+    if grep -qP -- "$pattern" <<<"$1"; then override resources_list ".parameters.fieldSelector.rules[] | select(.reject == \"${pattern//\\/\\\\}\") | .message"; return; fi
+  done <<<"$(rule_patterns)"
+  echo allowed
+}
+check "rules: resources_list fieldSelector has four rules" 4 "$(rule_patterns | wc -l | tr -d ' ')"
+check "rules: only resources_list fieldSelector carries rules" resources_list.fieldSelector \
+  "$(k8s_mcp '.spec.toolOverrides[] | select(.parameters) | .name as $t | .parameters | to_entries[] | select(.value.rules) | $t + "." + .key' "$out")"
+check "rules: every rule has a pattern and an ADL message" 4 \
+  "$(override resources_list '.parameters.fieldSelector.rules[] | select(.reject != "" and (.message | test("^ASSERT "))) | .reject' | wc -l | tr -d ' ')"
+for bad in 'status.allocatable.memory,status.capacity.memory' 'status.capacity.memory>4' 'status.allocatable.cpu=2' \
+  'metadata.namespace!~^kube' 'metadata.namespace=~kube' 'metadata.name=a,spec.unschedulable' 'status.allocatable' 'a=b,status.phase'; do
+  check "rules: rejects '$bad'" no "$([ "$(first_rule "$bad")" = allowed ] && echo yes || echo no)"
+done
+for good in 'metadata.name=n1' 'spec.unschedulable=true' 'metadata.namespace!=kube-system,metadata.namespace!=default' \
+  'metadata.name=cpu-node-1' 'status.phase!=Running,status.phase!=Succeeded' 'involvedObject.name=capacity-planner'; do
+  check "rules: allows '$good'" allowed "$(first_rule "$good")"
+done
+check "rules: memory selectors get the metrics alternative" yes "$(has "$(first_rule status.allocatable.memory)" 'use a metrics tool')"
+check "rules: regex operators get the table alternative" yes "$(has "$(first_rule 'metadata.namespace!~^ku')" 'read the matching rows in the table')"
+check "rules: a bare field name is told to use field=value" yes "$(has "$(first_rule spec.nodeName)" 'a field name alone is an error')"
 check "overrides: pods_list fieldSelector says phase Running does not narrow" yes \
   "$(has "$(override pods_list .parameters.fieldSelector.description)" 'status.phase=Running matches nearly every pod')"
 check "overrides: pods_list fieldSelector names spec.nodeName" yes \
