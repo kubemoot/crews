@@ -7,14 +7,17 @@
 {{- $countHeader := "# remainingItemCount: N in the header lines of the reply, so the total is N+1" }}
 {{- $countRule := printf "WHEN the question asks only how many THEN %s (namespace is fine) and read %s; a reply with no such line holds every match." $countHow $countHeader }}
 {{- $limitParam := printf "ASSERT the most rows to return; omit it or pass 0 for every row.\nWHEN counting THEN %s and read %s.\nASSERT a list with a labelSelector or fieldSelector reports no remainingItemCount, so count a selected list from its rows." $countHow $countHeader }}
-{{- /* The API server refuses these selector shapes. The gateway checks the argument against each
+{{- /* The API server refuses these selector shapes. A term is field=value; a comma inside a
+     value is escaped as \, so the patterns walk whole terms and do not treat \, as a separator.
+     tests/fixtures/field-selector-rules.json holds these patterns and the selectors each
+     must reject or pass. The gateway checks the argument against each
      pattern (RE2, searched anywhere in the text) and answers with the message, so the call never
      reaches the server and the agent is told what to do instead. */}}
 {{- $selectorRules := list
-     (dict "reject" "(?i)(^|,)[^=!,]*(memory|cpu|capacity|allocatable)" "message" "ASSERT memory, CPU, capacity and allocatable cannot be selected; no fieldSelector reaches them.\nWHEN the question asks for a node's capacity or allocatable resources THEN list the nodes with no fieldSelector and read the table.\nWHEN the question asks how much memory or CPU is in use THEN use a metrics tool, not resources_list.")
-     (dict "reject" "=~|!~" "message" "ASSERT a fieldSelector term is field=value or field!=value; =~ and !~ are not selector operators, so a pattern cannot be selected.\nWHEN the question needs a pattern match THEN call again with no fieldSelector (or with a labelSelector) and read the matching rows in the table.")
-     (dict "reject" "[<>]" "message" "ASSERT a fieldSelector term is field=value or field!=value; < and > are not selector operators, so a number cannot be compared in a selector.\nWHEN the question compares a value THEN call again with no fieldSelector and read the table.")
-     (dict "reject" "(^|,)[^=,]+(,|$)" "message" "ASSERT every fieldSelector term is field=value or field!=value; a field name alone is an error.\nWHEN the question needs a field's value THEN call again with no fieldSelector and read the table.")
+     (dict "reject" `(?i)^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=!]|\\.)*(memory|cpu|capacity|allocatable)` "message" "ASSERT memory, CPU, capacity and allocatable cannot be selected; no fieldSelector reaches them.\nWHEN the question asks for a node's capacity or allocatable resources THEN list the nodes with no fieldSelector and read the table.\nWHEN the question asks how much memory or CPU is in use THEN use a metrics tool, not resources_list.")
+     (dict "reject" `=~|!~` "message" "ASSERT a fieldSelector term is field=value or field!=value; =~ and !~ are not selector operators, so a pattern cannot be selected.\nWHEN the question needs a pattern match THEN call again with no fieldSelector (or with a labelSelector) and read the matching rows in the table.")
+     (dict "reject" `[<>]` "message" "ASSERT a fieldSelector term is field=value or field!=value; < and > are not selector operators, so a number cannot be compared in a selector.\nWHEN the question compares a value THEN call again with no fieldSelector and read the table.")
+     (dict "reject" `^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=]|\\.)+(,|$)` "message" "ASSERT every fieldSelector term is field=value or field!=value; a field name alone is an error.\nWHEN the question needs a field's value THEN call again with no fieldSelector and read the table.")
 }}
 {{- /* The server takes its settings from a TOML file only (no runtime flags). Without
      port it speaks MCP over stdio, which the operator's bridge sidecar carries. */}}
