@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
 metadata:
@@ -35,3 +36,4 @@ spec:
     WHEN the data you need is in NEITHER the question NOR the discussion (the question states no inputs and the other agents returned nothing or empty) THEN reply with exactly NO_DATA. Do NOT invent numbers. Do NOT claim you need a list tool or API access - you do not fetch. Surfacing the missing data (NO_DATA) IS the correct, honest result.
 
     ASSERT report only the computed answer and one line on what you computed. The coordinator synthesizes.
+{{- end }}

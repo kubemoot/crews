@@ -191,5 +191,30 @@ check "k8sgpt off: no k8sgpt binding of any kind" "0" "$(yq -N 'select(.kind == 
 check "k8sgpt off: the Kubernetes ServiceAccount stays" "t-kubernetes-mcp" "$(doc "$off" ServiceAccount t-kubernetes-mcp .metadata.name)"
 check "k8sgpt off: the Kubernetes read binding stays" "RoleBinding apps" "$(bound "$off" t-kubernetes-mcp-read)"
 
+# Two releases from the same values: rbac.render=cluster renders only the objects a namespaced
+# applier cannot create, rbac.render=namespaced renders everything else, and together they are
+# the default rendering (rbac.render=all). rbac.namePrefix keeps the names the bindings use.
+split_set=(--set 'kubernetesAccess.namespaces={apps}' "${all_on[@]}")
+whole="$(render "${split_set[@]}")"
+admin="$(render "${split_set[@]}" --set rbac.render=cluster --set rbac.namePrefix=t)"
+tenant="$(render "${split_set[@]}" --set rbac.render=namespaced)"
+kinds_of() { yq -N '.kind' <<<"$1" | sort -u | paste -sd, -; }
+check "rbac.render=cluster renders only ClusterRoles, ClusterRoleBindings and RoleBindings" \
+  "ClusterRole,ClusterRoleBinding,RoleBinding" "$(kinds_of "$admin")"
+check "rbac.render=namespaced renders no object of the RBAC API group" "0" \
+  "$(yq -N 'select(.apiVersion == "rbac.authorization.k8s.io/v1") | .kind' <<<"$tenant" | count)"
+check "rbac.render=namespaced still renders both ServiceAccounts" "t-k8sgpt-mcp,t-kubernetes-mcp" \
+  "$(yq -N 'select(.kind == "ServiceAccount") | .metadata.name' <<<"$tenant" | sort | paste -sd, -)"
+check "rbac.render=cluster renders no ServiceAccount" "0" "$(yq -N 'select(.kind == "ServiceAccount") | .metadata.name' <<<"$admin" | count)"
+ident() { yq -N -o json -I0 '[.kind, .metadata.name] | join("/")' <<<"$1" | sort; }
+check "cluster plus namespaced is the default rendering" "$(ident "$whole")" "$( { ident "$admin"; ident "$tenant"; } | sort)"
+check "the default is rbac.render=all" "$(ident "$whole")" "$(ident "$(render "${split_set[@]}" --set rbac.render=all)")"
+check "rbac.namePrefix names the accounts in the cluster release's bindings" "t-k8sgpt-mcp,t-kubernetes-mcp" \
+  "$(render "${split_set[@]}" --set rbac.render=cluster --set rbac.namePrefix=t | yq -N 'select(.kind == "RoleBinding" or .kind == "ClusterRoleBinding") | .subjects[].name' | sort -u | paste -sd, -)"
+prefixed="$(render "${split_set[@]}" --set rbac.render=cluster --set rbac.namePrefix=other)"
+check "rbac.namePrefix renames the roles and bindings" "other-k8sgpt-mcp,other-k8sgpt-mcp-read,other-k8sgpt-mcp-secret-get,other-kubernetes-mcp,other-kubernetes-mcp-read,other-kubernetes-mcp-secrets,other-kubernetes-mcp-write" \
+  "$(yq -N 'select(.kind == "ClusterRole") | .metadata.name' <<<"$prefixed" | sort | paste -sd, -)"
+check "rbac.render rejects any other value" "yes" "$(has "$(helm template t "$chart" --set rbac.render=bogus 2>&1 || true)" 'rbac.render must be')"
+
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

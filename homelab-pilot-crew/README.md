@@ -24,11 +24,23 @@ This crew was built for the maintainer's homelab: a Talos Kubernetes cluster on 
 | `mcpServers.scheduling.enabled` | `false` | Reminders and follow-ups. The scheduling-mcp image is published to GHCR as `ghcr.io/kubemoot/scheduling-mcp`, and each chart release pins the latest Kubemoot release of it at build. The `scheduler-advisor` agent renders only when this is enabled. |
 | `kubernetesAccess.namespaces`, `.clusterWide` | `[]`, `false` | Where the Kubernetes servers and k8sgpt read. With neither set they read no namespace. See [Cluster permissions](#cluster-permissions). |
 | `kubernetesAccess.secretRead.namespaces`, `.write.namespaces` | `[]` | Where they also read Secrets, and where they may exec and patch. See [Cluster permissions](#cluster-permissions). |
+| `rbac.render`, `rbac.namePrefix` | `all`, empty | Install the chart as two releases when the applier holds only its own namespace: an admin renders the RBAC objects (`cluster`), the tenant renders the rest (`namespaced`). See [Applying with a tenant account](#applying-with-a-tenant-account). |
 | `nats.url`, `nats.namespace` | release `nats` in namespace `nats` | Your NATS JetStream. |
 
 The prompts and fitness scenarios also carry the reference cluster's vocabulary (host aliases such as `rig0`, two GPUs, its namespaces). The crew discovers the real topology at run time, so they work elsewhere, but the fitness reference answers describe the maintainer's cluster and will not match yours.
 
 See the [repository README](../README.md#install) for prerequisites and the install command.
+
+## Applying with a tenant account
+
+A Flux or Argo CD identity that holds only its crew namespace cannot create ClusterRoles, ClusterRoleBindings or RoleBindings, which this chart renders for the Kubernetes tool servers. Install the chart twice from the same values and let each release render its part:
+
+| Release | Applied by | Sets | Renders |
+|---|---|---|---|
+| tenant | the crew's own account (for Flux, `serviceAccountName` on the HelmRelease) | `rbac.render: namespaced` | everything except the RBAC objects, including both ServiceAccounts |
+| rbac | an admin | `rbac.render: cluster`, `rbac.namePrefix: <tenant release name>` | the ClusterRoles, ClusterRoleBindings and RoleBindings |
+
+Use the same `kubernetesAccess` values in both. The admin release creates every binding, so the access the tool servers get stays a decision of whoever may create bindings, and the tenant account needs no RBAC rights at all. `tests/test-rbac.sh` pins that the two renderings together equal the default one. A tenant account also needs the `use` verb on the Secrets and ServiceAccounts the MCPServers name when the Kubemoot use-grant check is on: `<release>-kubernetes-mcp`, `<release>-k8sgpt-mcp`, `<release>-kubernetes-mcp-config`, and the Proxmox Secret if `mcpServers.proxmox.secretRef` is set.
 
 ## Proxmox
 

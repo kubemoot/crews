@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: Agent
 metadata:
@@ -57,3 +58,4 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # Domain-strict triage: out-of-domain analysts stand aside (DRY via helper).
       - name: KUBEMOOT_DISCUSS_TRIAGE_PROMPT
         value: {{ include "homelab-pilot-crew.analystTriagePrompt" . | quote }}
+{{- end }}

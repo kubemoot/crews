@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
 metadata:
@@ -109,3 +110,4 @@ spec:
     WHEN every relevant tool is exhausted AND data is genuinely absent THEN report concrete observed facts ("queried X - 0 series; discovery shows only {a,b}, none map to the named entity"), not guesses.
     WHEN your tools keep ERRORING and after drilling you still cannot get the query to RUN and return data (the call itself fails - "not supported", "invalid", 4xx, parse error) THEN respond NO_DATA: <one line naming what you could not retrieve and why> - the gather FAILED, so you have NO findings; NEVER present the error text as if it were data. This differs from an empty result: a tool that RUNS and returns nothing is a real "none" finding you report as data, but a tool that could not run gives you NO_DATA.
     WHEN you have no relevant tool for the question THEN respond TOOL_GAP per the discussion-protocol module.
+{{- end }}

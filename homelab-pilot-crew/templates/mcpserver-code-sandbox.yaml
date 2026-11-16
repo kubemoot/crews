@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- if .Values.mcpServers.codeSandbox.enabled }}
 {{- $transport := .Values.mcpServers.codeSandbox.transport | default "stdio" }}
 {{- if not (has $transport (list "stdio" "http")) }}
@@ -119,4 +120,5 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         limits:
           cpu: "200m"
           memory: "128Mi"
+{{- end }}
 {{- end }}

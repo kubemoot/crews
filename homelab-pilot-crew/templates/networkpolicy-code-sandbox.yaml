@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- if .Values.mcpServers.codeSandbox.enabled }}
 # A1 posture: lock the code-sandbox pod's EGRESS to NATS (+ DNS) only. The
 # materializer sidecar needs NATS; the untrusted sandbox container shares this
@@ -39,4 +40,5 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+{{- end }}
 {{- end }}

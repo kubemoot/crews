@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: Agent
 metadata:
@@ -46,3 +47,4 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     env:
       - name: KUBEMOOT_MODEL_MAX_TOOL_ITERATIONS
         value: "15"
+{{- end }}

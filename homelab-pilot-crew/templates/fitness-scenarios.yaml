@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{/*
 The crew's fitness scenarios, deployed with it so the live crew carries its tests.
 One ConfigMap, <crew>-fitness, labeled kubemoot.ai/crew=<crew> and
@@ -19,5 +20,6 @@ data:
 {{- range $path, $bytes := .Files.Glob "fitness/*.{adl,md}" }}
 {{- if ne (base $path) "README.md" }}
   {{ base $path | quote }}: {{ toString $bytes | quote }}
+{{- end }}
 {{- end }}
 {{- end }}

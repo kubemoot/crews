@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- if hasKey .Values.embeddingModel "providerRef" }}
 {{- fail "embeddingModel.providerRef is gone: leave embeddingModel.serverRef out and the cluster supplies a server, or set serverRef to pin a ModelServer" }}
 {{- end }}
@@ -15,3 +16,4 @@ spec:
   {{- with .Values.embeddingModel.serverRef }}
   serverRef: {{ . }}
   {{- end }}
+{{- end }}

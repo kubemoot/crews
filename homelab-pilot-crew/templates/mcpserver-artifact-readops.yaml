@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- if .Values.mcpServers.artifactReadOps.enabled }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
@@ -53,4 +54,5 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     limits:
       cpu: "200m"
       memory: "128Mi"
+{{- end }}
 {{- end }}
