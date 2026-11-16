@@ -1,0 +1,95 @@
+# The Homelab Pilot crew's own values, from its Flux HelmRelease, with the hosts, registry and
+# addresses replaced by placeholders. tests/test-rbac.sh renders the split release pair from it
+# (release crew-homelab-pilot-homelab-pilot-crew, namespace crew-homelab-pilot).
+# Outbound allow-lists (Kubemoot egress mode Declared): a listed tool server may reach
+# only what it declares here, plus DNS. From the egress inventory of 2026-10-28.
+egress:
+  # Every agent reaches only Kubemoot's automatic allows: DNS, the bus, the crew's MCP
+  # gateway, its model servers and the query services it is configured to call.
+  agentsDefault: {}
+  mcpServers:
+    proxmox-mcp:
+      allowedCIDRs:
+        - cidr: 192.0.2.10/32
+      ports: [8006]
+    crew-homelab-pilot-homelab-pilot-crew-kubernetes-mcp:
+      apiServer: true
+    crew-homelab-pilot-homelab-pilot-crew-kubernetes-legacy-mcp:
+      apiServer: true
+    k8sgpt-mcp:
+      apiServer: true
+    # fetch_content reads any page a search finds, so the internet stays open, but never
+    # the cluster or the LAN.
+    web-search-mcp:
+      allowedCIDRs:
+        - cidr: 0.0.0.0/0
+          except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+      ports: [80, 443]
+    prometheus-mcp:
+      allowedServices:
+        - namespace: observability
+          name: kube-prometheus-stack-prometheus
+          ports: [9090]
+    # The artifact store and scheduling state live on the message bus.
+    artifact-readops-mcp:
+      bus: true
+    scheduling-mcp:
+      bus: true
+# With Kubemoot's generated network policies on, the Homelab Pilot web server
+# (namespace homelab-pilot) may reach this crew's discussion gateway.
+network:
+  allowedIngress:
+    - matchLabels:
+        kubernetes.io/metadata.name: homelab-pilot
+# Kubemoot's learned placement policy runs in shadow: the algorithm places every
+# call, and the learned policy's choice is logged and counted beside it.
+crew:
+  placementPolicy: learned
+# The homelab pulls the crew's Kubemoot-built MCP images from the in-cluster
+# Harbor, not the release registry the chart defaults to.
+global:
+  imageRegistry: registry.example.com/kubemoot
+# The two Ollama rigs (ModelServers ollama-gpu on rig0 and ollama-rig1, created
+# by the kubemoot-operator HelmRelease) and the qwen3 tiers each rig serves, plus
+# qwen3:8b on the CPU-only Ollama (ModelServer ollama-cpu). The CPU server gives
+# each of its 2 slots 8192 tokens; vramMib there is host RAM: weights plus the KV
+# cache for both slots. The scheduler, not this list, decides which calls run there.
+# The embedding model names no server: the cluster binds it to whichever
+# ModelServer lists nomic-embed-text as an embedding model.
+vectorStore:
+  host: db.example.svc.cluster.local
+  database: homelab_pilot
+  existingSecret: homelab-pilot-db-credentials
+mcpGateway:
+  toolIndex:
+    vectorStore:
+      host: db.example.svc.cluster.local
+      database: homelab_pilot
+      secretRef: homelab-pilot-db-credentials
+    embeddingModel:
+      endpoint: http://embeddings.example.svc:11434
+# The crew's Kubernetes tools read every namespace, read-only: the chart binds its read role
+# cluster-wide. No Secret reads (the Helm toolset is off, so the k8s-helm agent answers from
+# Flux HelmRelease resources) and no write access: no exec, patch or scale.
+kubernetesAccess:
+  clusterWide: true
+mcpServers:
+  # The code sandbox runs model-written code, so it runs under gVisor: a user-space
+  # kernel between the program and the node. Under gVisor it serves MCP over HTTP
+  # itself, because the stdio bridge's pipes are not shared between containers there.
+  codeSandbox:
+    transport: http
+    runtimeClassName: gvisor
+  prometheus:
+    endpoint: "http://kube-prometheus-stack-prometheus.observability:9090"
+  # akmalovaa/proxmox-mcp 2.3.0 (MIT, public image), pinned by digest. It reads the
+  # PROXMOX_HOST, PROXMOX_USER, PROXMOX_TOKEN_NAME and PROXMOX_TOKEN_VALUE keys of
+  # proxmox-secret, which the homelab's OpenTofu defines next to the keys the
+  # dashboard reads. The homelab's Proxmox hosts serve self-signed certificates.
+  proxmox:
+    enabled: true
+    image: ghcr.io/akmalovaa/proxmox-mcp@sha256:c14fe296fc49d40ae1ac72578f06939a9ea89baec77e21c9e3ead03b96b9323f
+    secretRef: proxmox-secret
+    verifySsl: false
+  scheduling:
+    enabled: true
