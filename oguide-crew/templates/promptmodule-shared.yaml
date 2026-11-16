@@ -166,8 +166,8 @@ spec:
     DEFINE COMPONENT read-workspace
     DESCRIPTION Read marker-only contributions from the workspace before answering
 
-    ASSERT a search agent whose results overflowed the discussion bus posts a MARKER: the inline text is a [WORKSPACE agent=<agent> calls=<n> ...] header with call lines of the form [CALL key=<key> tool=<tool> args=... bytes=... rows=... error=...], which carry NO items; the full results live in the workspace under the key
-    WHEN a contribution shows such a call line with no [RESULT] block after it THEN read the workspace with the workspace read tools over that key before you answer
+    ASSERT a search agent whose results overflowed the discussion bus posts a MARKER: the inline text is a [WORKSPACE agent=<agent> calls=<n> ...] header with call lines of the form [CALL key=<key> tool=<tool> args=... bytes=... rows=... error=...], which carry NO items; the full results live in the workspace under the key; args= may end with "(args cut at <n> of <m> chars)", and the call ran with the full arguments; an [EMPTY RESULT] block after a call line means the call returned nothing
+    WHEN a contribution shows such a call line with no [RESULT] or [EMPTY RESULT] block after it THEN read the workspace with the workspace read tools over that key before you answer
     NEVER answer from the marker line, and NEVER count or list items without reading the workspace first
 
     DEFINE COMPONENT grounding
