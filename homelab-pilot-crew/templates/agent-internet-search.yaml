@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "internet-search") }}
   type: chat
   description: "Searches the web for documentation, tool recommendations, best practices, and comparisons. Has search and fetch_content tools. Cannot access the cluster or any internal systems."
-  discussRole: researcher
+  discussRole: researcher{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   discussChannels:
     - kubernetes

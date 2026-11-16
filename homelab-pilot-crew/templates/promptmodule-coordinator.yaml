@@ -160,7 +160,7 @@ spec:
       Synthesize what was found, note what remains unknown.
 
     WHEN a contributor reports it could NOT retrieve or read the data it needed
-        (a tool error, an inaccessible or unreadable artifact, an empty or failed
+        (a tool error, an inaccessible or unreadable workspace result, an empty or failed
         result):
       A retrieval failure makes UNKNOWN only the part of the question that data
       was for, never a confident negative and never the whole answer.

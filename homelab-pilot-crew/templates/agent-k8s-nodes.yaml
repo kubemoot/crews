@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-nodes") }}
   type: chat
   description: "Fetches live Node data from the Kubernetes API: each node's CPU, memory, pod, and ephemeral-storage capacity and allocatable, roles, Ready and pressure conditions, labels, taints, and kubelet version. Answers how much CPU or memory the cluster has. Also lists CRDs and API resource types."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

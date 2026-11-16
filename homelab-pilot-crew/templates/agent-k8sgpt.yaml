@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8sgpt") }}
   type: chat
   description: "Fetches live cluster diagnostics: runs K8sGPT analyzers that find misconfigured or failing Pods, Services, Ingresses, Deployments, StatefulSets, PVCs, and NetworkPolicies, and lists Kubernetes Events and warnings from any object."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

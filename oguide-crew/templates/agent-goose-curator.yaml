@@ -17,7 +17,7 @@ metadata:
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" (.Values.gooseSeat.name)) }}
   type: chat
   description: "A goose-run seat that answers library questions: searches the O'Reilly catalog for books, videos, and courses, then ranks and links what it finds."
-  discussRole: tooler
+  discussRole: tooler{{ include "oguide-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   discussChannels:
     - library

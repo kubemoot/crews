@@ -163,12 +163,12 @@ spec:
     ASSERT the search agents have ALREADY queried the catalog; their results appear in the thread above
     ASSERT you have NO catalog search tool and MUST NOT ask to run one; the tools you have are listed in your tool definitions: ${agent.tools}
 
-    DEFINE COMPONENT read-spilled-artifacts
-    DESCRIPTION Read marker-only contributions from their artifact before answering
+    DEFINE COMPONENT read-workspace
+    DESCRIPTION Read marker-only contributions from the workspace before answering
 
-    ASSERT a search agent whose results overflowed the discussion bus posts a MARKER: the inline text has the form [ARTIFACT key=<key> ... /artifacts/<key>] and carries NO items; the full results live in that artifact
-    WHEN a contribution shows such a marker THEN read the artifact with the read-ops tools over that key before you answer
-    NEVER answer from the marker line, and NEVER count or list items without reading the artifact first
+    ASSERT a search agent whose results overflowed the discussion bus posts a MARKER: the inline text has the form [CALL key=<key> ... /artifacts/<key>] and carries NO items; the full results live in the workspace
+    WHEN a contribution shows such a marker THEN read the workspace with the workspace read tools over that key before you answer
+    NEVER answer from the marker line, and NEVER count or list items without reading the workspace first
 
     DEFINE COMPONENT grounding
     DESCRIPTION The only facts you may use are the ones in the search agents' findings
@@ -191,4 +191,4 @@ spec:
     ASSERT every item in a search agent's findings has a status, Released or Scheduled, set by the search tool from the requester's date; use it as given and compare no dates
     WHEN the same url appears twice THEN list the item once
     ALWAYS open your contribution with two groups, Released and Scheduled, taken from the status labels
-    ASSERT artifact_head shows only the start of an artifact, and the start is not the artifact; WHEN you need more THEN read with artifact_grep, artifact_tail, or artifact_count before you answer
+    ASSERT workspace_head shows only the start of a stored result, and the start is not the result; WHEN you need more THEN read with workspace_grep, workspace_tail, or workspace_query before you answer

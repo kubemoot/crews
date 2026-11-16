@@ -18,7 +18,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # explain units/semantics in the answer. NOT for real-time state and not
   # for discovery of available metrics.
   description: "Fetches NVIDIA GPU metrics over a time window from the DCGM exporter in Prometheus: how utilization, VRAM, temperature, or power moved, with averages, peaks, and spikes, and the metric's meaning and units."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:

@@ -6,7 +6,7 @@ O'guide is a Kubemoot crew for O'Reilly subscribers who want to find their way a
 - **What it answers:** the best recent books, videos, and courses on a topic; a reading or learning path over days or weeks; upcoming live events with their session dates; what an author or publisher has published. Every item comes with its authors, content type, date, page count or duration, and a `learning.oreilly.com` reader link.
 - **What it needs from the cluster:**
   - a chat model with `tool-calling` in the cluster's model catalog (a larger model with `reasoning` improves the rankings and learning paths; the chart ships no Model);
-  - the O'Reilly MCP server, which the chart registers as an external MCPServer on the crew's gateway (O'Reilly hosts it; nothing is deployed for it), the crew's search server (see [The search tools](#the-search-tools)), and the artifact read-ops MCP server, which the chart deploys;
+  - the O'Reilly MCP server, which the chart registers as an external MCPServer on the crew's gateway (O'Reilly hosts it; nothing is deployed for it), the crew's search server (see [The search tools](#the-search-tools)), and the workspace read-ops MCP server, which the chart deploys;
   - a Secret with your own O'Reilly key (see [Add your O'Reilly key](#add-your-oreilly-key));
   - NATS JetStream, and outbound HTTPS from the MCP gateway to `api.oreilly.com`. No database.
 - **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'guide does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
@@ -85,10 +85,10 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 | oguide-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
 | library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author` |
 | events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled` |
-| curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | artifact read-ops and `workspace_query` |
+| curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | workspace read tools and `workspace_query` |
 | goose-curator (optional) | A seat run by goose that searches the catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
 
-Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the artifact read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the workspace read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
 
 ## The search tools
 
@@ -143,8 +143,9 @@ helm upgrade --install oguide \
 | `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
-| `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the artifact store |
-| `curator.workspaceQuery` | `true` | Gives the curator `workspace_query` (read-only SQL over spilled search results); offered only when the Kubemoot operator's `artifacts.queryEngine` is `sqlite` or `duckdb` |
+| `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the discussion workspace |
+| `curator.workspaceQuery` | `true` | Gives the curator `workspace_query` beside `workspace_head`, `workspace_tail` and `workspace_grep` (read-only SQL over stored search results); offered only when the Kubemoot operator's `artifacts.queryEngine` is `sqlite` or `duckdb` |
+| `workspace.declareAccess` | `true` | Sets `spec.workspace.access` on each agent: `write` on the search agents (they store large results and read none), `read` on the curator; the coordinator declares nothing. `false` renders no `workspace` field, for an operator that does not know it |
 | `gooseSeat.enabled` | `false` | Adds one extra specialist Agent run by [goose](https://kubemoot.org/docs/architecture/the-harness-seam/) (`harness: {name: goose, mode: sidecar, nativeTools: none}`). The cluster's KubemootConfig must set `images.harnessGoose`. Set it back to `false` to remove the seat |
 | `gooseSeat.name` | `goose-curator` | The goose seat's Agent name |
 | `crew.name` | `oguide` | The Crew's name |

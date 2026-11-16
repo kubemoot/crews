@@ -10,7 +10,7 @@ metadata:
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "library-search") }}
   type: chat
   description: "Searches the O'Reilly catalog for books, videos, courses, interactive content, certifications, and audiobooks with several focused keyword queries and filters."
-  discussRole: tooler
+  discussRole: tooler{{ include "oguide-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   discussChannels:
     - library

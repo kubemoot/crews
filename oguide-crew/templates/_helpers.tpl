@@ -107,3 +107,16 @@ two-space indent, so it starts with a newline.
     {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+The agent's declared workspace access (Agent.spec.workspace.access): the discussion's
+shared scratch data. Renders nothing when workspace.declareAccess is false, so an agent
+then behaves as it did before access was declared.
+Usage: discussRole: tooler{{ include "oguide-crew.workspaceAccess" (dict "root" $ "access" "write") }}
+*/}}
+{{- define "oguide-crew.workspaceAccess" -}}
+{{- if .root.Values.workspace.declareAccess }}
+  workspace:
+    access: {{ .access }}
+{{- end }}
+{{- end }}

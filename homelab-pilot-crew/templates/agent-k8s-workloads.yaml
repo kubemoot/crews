@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-workloads") }}
   type: chat
   description: "Fetches live workload data from the Kubernetes API: Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, and CronJobs in any or all namespaces, with pod status, restarts, logs, events, images, and each container's CPU and memory requests and limits."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

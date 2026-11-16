@@ -10,7 +10,7 @@ metadata:
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "curator") }}
   type: chat
   description: "Ranks catalog results by recency, depth, and audience, removes duplicate editions, and builds reading and learning paths. Has no search tool."
-  discussRole: analyst
+  discussRole: analyst{{ include "oguide-crew.workspaceAccess" (dict "root" $ "access" "read") }}
   capabilities: [reasoning]
   think: true
   discussChannels:
@@ -18,7 +18,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "cura
     - general
   triageSummary: "Ranks and compares O'Reilly search results by recency, depth, and audience, drops older editions, and builds reading and learning paths."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, curator-system, analyst-review-protocol]
-  enabledTools: [artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq{{ if .Values.curator.workspaceQuery }}, workspace_query{{ end }}]
+  enabledTools: [workspace_head, workspace_tail, workspace_grep{{ if .Values.curator.workspaceQuery }}, workspace_query{{ end }}]
   discussKeywords:
     - rank
     - compare
@@ -38,8 +38,8 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "cura
     replicas: 1
     port: 8080
     env:
-      # The gateway is on, but enabledTools limits the curator to the artifact read-ops
-      # tools (and workspace_query, when the operator offers it) that read spilled search
+      # The gateway is on, but enabledTools limits the curator to the workspace read
+      # tools (and workspace_query, when the operator offers it) that read stored search
       # results; it has no catalog search tool.
       - name: KUBEMOOT_GATEWAY_ENABLED
         value: "true"

@@ -2,7 +2,7 @@
 # Render tests for the tools the pilot crew's prompts name: the shared modules list an
 # agent's tools with the ${agent.tools} placeholder instead of naming tools, and no agent's
 # PromptModules name a tool the agent does not have, with the optional tools switched on and
-# off (kubernetesAccess.secretRead.namespaces and kubernetesAccess.write.namespaces, compute.workspaceQuery, mcpServers.proxmox).
+# off (kubernetesAccess.secretRead.namespaces and kubernetesAccess.write.namespaces, compute.workspaceQuery, advisors.workspaceQuery, mcpServers.proxmox).
 # It also pins the MCPServers' toolOverrides (ADL descriptions that steer calls to the narrow
 # forms each server supports). Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-prompt-tools.sh   (exit 0 = all passed)
@@ -23,7 +23,7 @@ for name in tooler-discipline analyst-review-protocol compute-system scheduler-a
 done
 
 # The shared modules name no tool: each agent's own tool list comes from the placeholder.
-vocab='resources_list|resources_get|pods_list|pods_list_in_namespace|list_api_resources|list_metrics|get_targets|get_metric_metadata|execute_code|artifact_head|artifact_jq|workspace_query'
+vocab='resources_list|resources_get|pods_list|pods_list_in_namespace|list_api_resources|list_metrics|get_targets|get_metric_metadata|execute_code|workspace_head|workspace_grep|workspace_query'
 for name in tooler-discipline analyst-review-protocol compute-system discussion-protocol response-style advisory-prompt coordinator-decision-logic synthesis-prompt; do
   check "$name names no agent's tool" 0 "$(module "$name" | grep -cEw "$vocab" || true)"
 done

@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-config") }}
   type: chat
   description: "Fetches live configuration objects from the Kubernetes API: Namespaces, ConfigMaps, Secret names and counts (never their values), ServiceAccounts, Roles, ClusterRoles, RoleBindings, and ClusterRoleBindings."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
