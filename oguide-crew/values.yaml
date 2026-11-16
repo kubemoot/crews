@@ -46,10 +46,19 @@ oreilly:
     # Only with secretKey api-key: the header that carries the key.
     header: ""
 
+# The discussion workspace: the scratch data the agents of one discussion share (large tool
+# results stored by key). declareAccess puts Agent.spec.workspace.access on each agent:
+# write on the search agents (they store results and read none), read on the curator. The
+# coordinator declares nothing. false renders no workspace field, for a Kubemoot operator
+# that does not know it; the agents then behave as they did before access was declared.
+workspace:
+  declareAccess: true
+
 # The curator. workspaceQuery adds the workspace_query tool (read-only SQL over the
-# discussion's staged artifacts, such as spilled search results) to its tools. The artifact
-# read-ops server offers it only when the operator setting artifacts.queryEngine is sqlite
-# or duckdb; otherwise the curator does not register it.
+# discussion's stored results, such as large search results) to its tools, beside
+# workspace_head, workspace_tail and workspace_grep. The workspace server offers it only when
+# the operator setting artifacts.queryEngine is sqlite or duckdb; otherwise the curator does
+# not register it.
 curator:
   workspaceQuery: true
 

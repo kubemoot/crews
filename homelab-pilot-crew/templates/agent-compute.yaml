@@ -17,7 +17,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # Analyst role so it runs AFTER the toolers and receives their forwarded data,
   # but - unlike the reasoning-only analysts - it has ONE tool (execute_code) to
   # compute deterministically instead of tallying in its head.
-  discussRole: analyst
+  discussRole: analyst{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "readWrite") }}
   think: true
   capabilities: [reasoning, tool-calling]
   discussChannels:
@@ -26,10 +26,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - general
   triageSummary: "Calculator for numbers other agents fetched: exact totals, sums, averages, percentages, unit conversions such as bytes to GiB, rounding, counts, sorts, top-N, group-by, dedup, min and max, for any domain. Works only on numbers stated in the question or stored in this discussion by the agents that fetched them. Its sandbox has no cluster API, no kubectl, no Prometheus, and no network, so a question about live data also needs the agents that fetch that data."
   promptRefs: [discussion-protocol, response-style, analyst-review-protocol, compute-system]
-  # execute_code/validate_code for math; the artifact read-ops tools to read spilled
+  # execute_code/validate_code for math; the workspace tools to read stored
   # findings server-side by key (passing a key to the readops server is far more reliable
   # for a 32B than authoring open('/artifacts/<key>') in sandbox code, which it flakily skips).
-  enabledTools: [execute_code, validate_code, artifact_head, artifact_tail, artifact_grep, artifact_count, artifact_rows, artifact_select, artifact_jq{{ if .Values.compute.workspaceQuery }}, workspace_query, workspace_list, workspace_describe{{ end }}]
+  enabledTools: [execute_code, validate_code, workspace_head, workspace_tail, workspace_grep{{ if .Values.compute.workspaceQuery }}, workspace_query, workspace_list, workspace_describe{{ end }}]
   discussKeywords:
     - count
     - number

@@ -18,7 +18,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # exist?" and "are the DCGM exporters even being scraped?". NOT for the
   # metric values themselves.
   description: "Fetches GPU monitoring metadata from Prometheus: which DCGM metrics exist and whether the DCGM exporters are being scraped."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:

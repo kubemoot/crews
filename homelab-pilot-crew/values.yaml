@@ -384,8 +384,8 @@ mcpServers:
     image: "artifact-access:0.0.0"
   artifactReadOps:
     # Shared read-ops MCP service (the operator's artifact-access image, ARTIFACT_MODE=mcp):
-    # network-capable agents call head/tail/grep/select/count/rows/jq over a
-    # referenced artifact key to read a slice of the data where it is stored.
+    # network-capable agents call head/tail/grep/query over a
+    # referenced key of the discussion workspace to read a slice of the data where it is stored.
     enabled: true
 
 # Outbound network access per workload. Each map is keyed by the rendered name of an
@@ -403,10 +403,27 @@ egress:
   mcpServers: {}
   agents: {}
 
+# The discussion workspace: the scratch data the agents of one discussion share (large tool
+# results stored by key). declareAccess puts Agent.spec.workspace.access on each agent:
+# write on the tools-only agents (they store results and read none), read on the analysts
+# (advisors), readWrite on compute. The coordinator declares nothing. false renders no
+# workspace field, for a Kubemoot operator that does not know it; the agents then behave as
+# they did before access was declared.
+workspace:
+  declareAccess: true
+
 # The compute agent. workspaceQuery adds the workspace tools to its tools: workspace_query
-# (read-only SQL over the discussion's staged artifacts), workspace_list (what the discussion
-# has stored) and workspace_describe (each stored table's columns, types and examples). The artifact read-ops server offers the tool
-# only when the operator setting artifacts.queryEngine is sqlite or duckdb; with it off, the
-# agent registers only the tools its gateway offers, so the tool is simply absent.
+# (read-only SQL over the discussion's stored results), workspace_list (what the discussion
+# has stored) and workspace_describe (each stored table's columns, types and examples). The
+# workspace server offers the query tools only when the operator setting
+# artifacts.queryEngine is sqlite or duckdb; with it off, the agent registers only the tools
+# its gateway offers, so the tool is simply absent. The compute agent always has
+# workspace_head, workspace_tail and workspace_grep.
 compute:
+  workspaceQuery: true
+
+# The advisors (k8s, nvidia-gpu, obs, proxmox). workspaceQuery adds workspace_query to their
+# tools, beside workspace_head, workspace_tail and workspace_grep, with the same operator
+# requirement as compute.workspaceQuery.
+advisors:
   workspaceQuery: true

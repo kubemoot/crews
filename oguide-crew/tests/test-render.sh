@@ -146,8 +146,19 @@ has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
 check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
 check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released,find_title" \
   "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "library-search" or .metadata.name == "events-scout")) | .metadata.name + "=" + (.spec.enabledTools | sort | join(","))' <<<"$out" | sort | paste -sd' ')"
-check "the curator reads artifacts only" 0 \
-  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vcE '^(artifact_|workspace_query$)' || true)"
+check "the curator reads the workspace only" 0 \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vcE '^workspace_(head|tail|grep|query)$' || true)"
+check "the curator has the three text tools with the query tool off" "workspace_head,workspace_tail,workspace_grep" \
+  "$(render --set curator.workspaceQuery=false 2>/dev/null | yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools | join(",")')"
+# No agent or prompt names a retired or renamed tool: artifact_head, artifact_tail and artifact_grep
+# became workspace_head, workspace_tail and workspace_grep; artifact_count, artifact_rows,
+# artifact_select and artifact_jq are retired in favor of workspace_query.
+check "no rendering names a retired or renamed artifact_* tool" 0 \
+  "$( { render; render --set curator.workspaceQuery=false; } | grep -cE '(^|[^A-Za-z0-9_])artifact_(head|tail|grep|count|rows|select|jq)($|[^A-Za-z0-9_])' || true)"
+# Workspace access: write on the search agents, read on the curator, nothing on the coordinator.
+access() { yq -N 'select(.kind == "Agent") | .metadata.name + "=" + (.spec.workspace.access // "-")' <<<"$1" | sed 's/^oguide-//' | sort | paste -sd' '; }
+check "agents declare their workspace access" "coordinator=- curator=read events-scout=write library-search=write" "$(access "$out")"
+check "workspace.declareAccess=false renders no workspace field" 0 "$(render --set workspace.declareAccess=false | grep -c 'workspace:' || true)"
 check "the curator has workspace_query by default" 1 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -c '^workspace_query$' || true)"
 check "curator.workspaceQuery=false leaves it out" 0 \
@@ -167,7 +178,7 @@ check "the coordinator compares no dates" 1 "$(has synthesis-prompt 'you have no
 check "an explicit order sets the sequence in the curator" 1 "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
 check "an explicit order sets the sequence in the coordinator" 1 "$(has synthesis-prompt 'the released items follow that order by publication_date')"
 check "a search is never sent twice" 1 "$(has tooler-discipline 'NEVER send a search call identical to one you already sent in this turn')"
-check "the curator never concludes from the head of an artifact" 1 "$(has analyst-review-protocol 'artifact_head shows only the start of an artifact')"
+check "the curator never concludes from the head of a stored result" 1 "$(has analyst-review-protocol 'workspace_head shows only the start of a stored result')"
 all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
 check "no prompt text says advisory (the word the coordinator repeated to users)" 0 \
   "$(grep -ci 'advisory' <<<"$all_modules" || true)"

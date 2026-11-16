@@ -6,13 +6,13 @@ metadata:
   labels:
     {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
-  # Read-ops over spilled discussion artifacts (head, tail, grep, count, rows, select,
-  # jq). A search result too large for the discussion bus is stored as an artifact, and
+  # Read tools over the discussion workspace (head, tail, grep, query). A search result
+  # too large for the discussion bus is stored in the workspace, and
   # the curator reads it through this server, so the whole result never enters a model
   # context. The kubemoot/artifact-access image in mcp mode; pure stdio, so the operator
   # adds the bridge sidecar (port is the bridge's TCP port).
   # kubemootImage selects the artifact-access image the operator's KubemootConfig names
-  # (spec.images.artifactAccess), so the operator also wires the artifact query engine
+  # (spec.images.artifactAccess), so the operator also wires the workspace query engine
   # (ARTIFACT_QUERY_ENGINE, the /artifacts emptyDir and TMPDIR). It is exclusive with image.
   kubemootImage: artifactAccess
   transport: stdio
@@ -22,7 +22,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     - "/cnb/process/web"
   port: 3000
   replicas: 1
-  # It reads the artifacts bucket directly from NATS, so it needs NATS egress and no
+  # It reads the workspace bucket directly from NATS, so it needs NATS egress and no
   # other credentials.
   env:
     - name: ARTIFACT_MODE

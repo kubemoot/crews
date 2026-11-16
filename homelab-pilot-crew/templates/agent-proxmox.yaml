@@ -15,7 +15,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-pve") }}
   type: chat
   description: "Fetches live Proxmox VE host data through the Proxmox API: each hypervisor node's status, CPU, memory, and uptime, storage pools and their use, network bridges, LXC containers, cluster-wide totals, and task history."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   discussChannels:
     - proxmox
@@ -58,7 +58,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "proxmox-qm") }}
   type: chat
   description: "Fetches live Proxmox QEMU/KVM virtual machine data: the VM list with status and host node, each VM's configured CPU, memory, disks, and PCIe passthrough, its performance over time, and snapshots."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   # MUST be set or DiscussionSubscriber logs "No discussion channels configured
   # → subscriber inactive" and proxmox-qm never receives any thread message.

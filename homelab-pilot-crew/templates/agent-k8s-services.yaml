@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-services") }}
   type: chat
   description: "Fetches live networking objects from the Kubernetes API: Services with type, ports, and cluster and external IPs, Endpoints, Ingresses with hosts and paths, and NetworkPolicies in any or all namespaces."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

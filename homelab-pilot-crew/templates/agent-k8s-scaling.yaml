@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-scaling") }}
   type: chat
   description: "Fetches live autoscaling and quota objects from the Kubernetes API: HorizontalPodAutoscalers with current and desired replicas and targets, VerticalPodAutoscalers, ResourceQuotas with namespace limits and use, and LimitRanges.{{ if (include "homelab-pilot-crew.writeOn" $) }} Scales a Deployment's or StatefulSet's replicas.{{ end }}"
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

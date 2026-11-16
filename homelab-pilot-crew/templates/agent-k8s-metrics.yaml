@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-metrics") }}
   type: chat
   description: "Fetches live resource usage: how much CPU and memory each pod, namespace, and node is using now and over a time window, from the metrics API and Prometheus, including usage compared with requests."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes, observability]
   discussChannels:

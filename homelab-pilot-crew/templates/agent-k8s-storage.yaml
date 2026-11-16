@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-storage") }}
   type: chat
   description: "Fetches live storage objects from the Kubernetes API: PersistentVolumes, PersistentVolumeClaims, and StorageClasses, with size, access modes, bound status, reclaim policy, and provisioner."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

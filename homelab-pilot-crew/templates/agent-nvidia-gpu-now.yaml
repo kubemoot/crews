@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # original monolithic nvidia-gpu (which carried 5 tools across 4 question
   # shapes and took ~3 min per call).
   description: "Fetches live NVIDIA GPU readings from the DCGM exporter in Prometheus: current utilization, VRAM used and free, temperature, power draw, and clocks per GPU."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:

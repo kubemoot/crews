@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-helm") }}
   type: chat
   description: "Fetches live Helm release data: each release's name, namespace, chart, chart version, app version, and status, in one namespace or all of them.{{ if (include "homelab-pilot-crew.writeOn" $) }} Installs and uninstalls releases.{{ end }}"
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:

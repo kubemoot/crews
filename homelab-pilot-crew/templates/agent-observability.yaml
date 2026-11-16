@@ -14,7 +14,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "obs-metrics") }}
   type: chat
   description: "Fetches live monitoring-stack data: health of the Prometheus, Grafana, Alertmanager, Loki, and OpenTelemetry pods, ServiceMonitors, PodMonitors, alerting rules, firing alerts, and PromQL queries that investigate an alert or the stack itself."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:

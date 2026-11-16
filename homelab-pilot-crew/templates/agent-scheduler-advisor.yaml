@@ -15,7 +15,7 @@ metadata:
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "scheduler-advisor") }}
   type: chat
   description: "Manages scheduled reminders and follow-up discussions via the scheduling-mcp tools."
-  discussRole: tooler
+  discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling]
   discussChannels:

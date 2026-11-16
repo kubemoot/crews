@@ -7,7 +7,7 @@ The Kubemoot reference crew: a coordinator and up to 22 specialists that answer 
 - **What it needs from the cluster:**
   - a chat model with `tool-calling` in the cluster's model catalog (a larger model with `reasoning` for the coordinator helps; the chart ships no Model), and a ModelServer that has the embedding model (`nomic-embed-text`) in its catalog, or a Model that asks for it on one;
   - a pgvector database and a Secret with its credentials in the crew namespace, for the RAG sources and the gateway tool index (or turn RAG off);
-  - Prometheus (and DCGM for GPU questions) reachable from the crew; the chart deploys its own MCP servers for Kubernetes, Prometheus, k8sgpt, web search, the code sandbox, and artifact read-ops;
+  - Prometheus (and DCGM for GPU questions) reachable from the crew; the chart deploys its own MCP servers for Kubernetes, Prometheus, k8sgpt, web search, the code sandbox, and workspace read-ops;
   - NATS JetStream for the discussions;
   - optionally a Proxmox MCP image ([akmalovaa/proxmox-mcp](https://github.com/akmalovaa/proxmox-mcp) is the recommended one) and a `proxmox-secret` with a read-only Proxmox API token.
 - **What it does not do:** it does not change the cluster by default (its Kubernetes access is read-only until you list namespaces under `kubernetesAccess.write.namespaces`), it does not read Secrets unless you list namespaces under `kubernetesAccess.secretRead.namespaces`, it ships no Proxmox image (it asks for yours), and its fitness reference answers describe the maintainer's homelab, not your cluster.
@@ -169,7 +169,7 @@ A module that lists an agent's tools writes `${agent.tools}`, and the Kubemoot a
 
 A runtime that predates the placeholder leaves the text `${agent.tools}` in the prompt: it sits at the end of a sentence that points to the agent's tool definitions, so the prompt still reads.
 
-`tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead.namespaces`, `kubernetesAccess.write.namespaces`, `compute.workspaceQuery`) on and off.
+`tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead.namespaces`, `kubernetesAccess.write.namespaces`, `compute.workspaceQuery`, `advisors.workspaceQuery`) on and off.
 
 ## Tool overrides
 
@@ -218,7 +218,13 @@ scheduler documentation, section "Placement policy".
 
 ## Workspace query
 
-`compute.workspaceQuery` (default `true`) adds the workspace tools to the compute agent's `enabledTools`: `workspace_query` (read-only SQL over the discussion's staged artifacts, the way to count, filter, sort and total a listing), `workspace_list` (what the discussion has stored, from which tool, with its type, rows and errors) and `workspace_describe` (each stored table's columns, types and example values, read before writing a query). The tool's own description carries its usage and SQL dialect. The artifact read-ops server offers the tool only when the Kubemoot operator's `artifacts.queryEngine` is set to `sqlite` or `duckdb`. With the operator's default `none` the agent does not register the tool (an agent registers only the tools its gateway offers), so the crew works either way and gains the tool when the operator turns an engine on. Set `false` to leave it out.
+`compute.workspaceQuery` (default `true`) adds the workspace tools to the compute agent's `enabledTools`: `workspace_query` (read-only SQL over the discussion's stored results, the way to count, filter, sort and total a listing), `workspace_list` (what the discussion has stored, from which tool, with its type, rows and errors) and `workspace_describe` (each stored table's columns, types and example values, read before writing a query). The tool's own description carries its usage and SQL dialect. The workspace read-ops server offers the tool only when the Kubemoot operator's `artifacts.queryEngine` is set to `sqlite` or `duckdb`. With the operator's default `none` the agent does not register the tool (an agent registers only the tools its gateway offers), so the crew works either way and gains the tool when the operator turns an engine on. Set `false` to leave it out.
+
+`advisors.workspaceQuery` (default `true`) does the same for the four advisors (k8s, nvidia-gpu, obs, proxmox): they list `workspace_head`, `workspace_tail` and `workspace_grep`, and with the value on, `workspace_query`. The compute agent lists the same three read tools. The chart names no `artifact_*` tool: `artifact_head`, `artifact_tail` and `artifact_grep` are the old names of the first three, and `artifact_count`, `artifact_rows`, `artifact_select` and `artifact_jq` are retired in favor of `workspace_query`.
+
+## Workspace access
+
+The workspace is the scratch data the agents of one discussion share. `workspace.declareAccess` (default `true`) sets `spec.workspace.access` on each agent: `write` on the tools-only agents and the researcher (they store large results and read none), `read` on the analysts (the four advisors), `readWrite` on compute. The coordinators declare nothing. A declared access is authoritative, so an agent whose access does not allow a workspace tool never gets it. Set `false` to render no `workspace` field, for a Kubemoot operator that does not know it; the agents then behave as they did before access was declared.
 
 ## Network policies
 

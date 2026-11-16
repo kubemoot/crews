@@ -170,5 +170,11 @@ grep -qF '[... N characters of evidence omitted ...]' <<<"$judge_prompt" || fail
 grep -qF '[N characters of evidence omitted]' <<<"$judge_prompt" || fail "the judge prompt does not show the short omission marker"
 echo "PASS: judge prompt names evidenceTrimmed and its markers"
 
+# No agent or prompt names a retired or renamed workspace tool (the artifact_* read tools), and no
+# agent declares workspace access: the judge reads no discussion workspace.
+! render | grep -qE '(^|[^A-Za-z0-9_])artifact_(head|tail|grep|count|rows|select|jq)($|[^A-Za-z0-9_])' || fail "the chart names a retired or renamed artifact_* tool"
+[ "$(render | grep -c 'workspace:' || true)" = "0" ] || fail "the chart declares workspace access"
+echo "PASS: no retired artifact tool and no workspace access"
+
 helm lint "$chart" >/dev/null || fail "helm lint"
 echo "PASS: helm lint"

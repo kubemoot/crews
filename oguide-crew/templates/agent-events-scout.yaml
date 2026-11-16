@@ -10,7 +10,7 @@ metadata:
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "events-scout") }}
   type: chat
   description: "Finds upcoming O'Reilly live events and live courses on a topic and reports every session date, and finds books, videos, and courses scheduled for release."
-  discussRole: tooler
+  discussRole: tooler{{ include "oguide-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   discussChannels:
     - library

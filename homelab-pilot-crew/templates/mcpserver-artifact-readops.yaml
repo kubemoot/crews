@@ -8,14 +8,14 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
-  # Shared artifact read-ops service. Network-capable agents (analyst, RAG,
-  # coordinator) call head/tail/grep/select/count/rows/jq over a referenced artifact
+  # Shared workspace read service. Network-capable agents (analyst, RAG,
+  # coordinator) call head/tail/grep/query over a referenced workspace
   # KEY to sip a slice near the data, so a bulk object never enters an LLM context -
   # the non-code counterpart to the no-network sandbox's materializer. Same binary as
   # the sandbox sidecar (kubemoot/artifact-access), run in mcp mode. Pure stdio ->
   # operator adds the bridge sidecar (port below is the bridge's TCP port).
   # kubemootImage selects the artifact-access image the operator's KubemootConfig names
-  # (spec.images.artifactAccess), so the operator also wires the artifact query engine
+  # (spec.images.artifactAccess), so the operator also wires the workspace query engine
   # (ARTIFACT_QUERY_ENGINE, the /artifacts emptyDir and TMPDIR). It is exclusive with image.
   kubemootImage: artifactAccess
   transport: stdio
@@ -25,7 +25,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - "/cnb/process/web"
   port: 3000
   replicas: 1
-  # Unlike the sandbox, this server IS network-capable: it reads the artifacts bucket
+  # Unlike the sandbox, this server IS network-capable: it reads the workspace bucket
   # directly from NATS, so it needs NATS egress (and no other credentials).
   env:
     - name: ARTIFACT_MODE
