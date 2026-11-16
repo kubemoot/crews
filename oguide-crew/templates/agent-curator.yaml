@@ -18,7 +18,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "cura
     - general
   triageSummary: "Ranks and compares O'Reilly search results by recency, depth, and audience, drops older editions, and builds reading and learning paths."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, curator-system, analyst-review-protocol]
-  enabledTools: [workspace_head, workspace_tail, workspace_grep{{ if .Values.curator.workspaceQuery }}, workspace_query{{ end }}]
+  enabledTools: [workspace_head, workspace_tail, workspace_grep{{ if .Values.curator.workspaceQuery }}, workspace_query{{ end }}]{{ include "oguide-crew.workspaceDisabled" (dict "root" $ "on" .Values.curator.workspaceQuery "tools" (list "workspace_query")) }}
   discussKeywords:
     - rank
     - compare

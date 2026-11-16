@@ -407,8 +407,12 @@ egress:
 # results stored by key). declareAccess puts Agent.spec.workspace.access on each agent:
 # write on the tools-only agents (they store results and read none), read on the analysts
 # (advisors), readWrite on compute. The coordinator declares nothing. false renders no
-# workspace field, for a Kubemoot operator that does not know it; the agents then behave as
-# they did before access was declared.
+# workspace field and no disabledTools, for an operator whose Agent CRD has no spec.workspace
+# (the agents still list the new tool names, so the workspace server must serve
+# workspace_head, workspace_tail and workspace_grep); the agents then behave as they did before
+# access was declared. The analysts on read store none of their own tool results, which come
+# back inline and may be cut. A false query switch below renders disabledTools, because the
+# declared access grants every workspace tool it allows.
 workspace:
   declareAccess: true
 
