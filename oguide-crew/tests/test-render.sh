@@ -184,9 +184,9 @@ check "the coordinator compares no dates" 1 "$(has synthesis-prompt 'you have no
 check "an explicit order sets the sequence in the curator" 1 "$(has curator-system 'sets the sequence of the released items, over relevance_score')"
 check "an explicit order sets the sequence in the coordinator" 1 "$(has synthesis-prompt 'the released items follow that order by publication_date')"
 check "a search is never sent twice" 1 "$(has tooler-discipline 'NEVER send a search call identical to one you already sent in this turn')"
-check "the curator is told what an [EMPTY RESULT] block means" 1 "$(has analyst-review-protocol 'an [EMPTY RESULT] block after a call line means the call returned nothing')"
-check "the curator is told the cut args text still ran in full" 1 "$(has analyst-review-protocol '(args cut at <n> of <m> chars)')"
-check "the curator reads the workspace when no result block follows" 1 "$(has analyst-review-protocol 'no [RESULT] or [EMPTY RESULT] block after it')"
+check "the curator is told what an [EMPTY RESULT] block means" 1 "$(has analyst-review-protocol 'an [EMPTY RESULT] block after a call line means the call succeeded and returned nothing')"
+check "the curator is told the cut args text still ran in full" 1 "$(has analyst-review-protocol 'args= may end with "(args cut at <n> of <m> chars)": the call ran with the full arguments')"
+check "the curator reads the workspace when no result block follows" 1 "$(has analyst-review-protocol 'with no [RESULT] or [EMPTY RESULT] block after it THEN read the workspace')"
 check "the curator never concludes from the head of a stored result" 1 "$(has analyst-review-protocol 'workspace_head shows only the start of a stored result')"
 all_modules="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
 check "no prompt text says advisory (the word the coordinator repeated to users)" 0 \

@@ -22,11 +22,17 @@ for name in tooler-discipline analyst-review-protocol compute-system scheduler-a
   check "$name lists the agent's tools with the placeholder" 1 "$(mentions "$name" '${agent.tools}')"
 done
 
-# The modules that describe the workspace call lines say what an [EMPTY RESULT] block means and that
-# a shortened args= text still ran with the full arguments.
+# The modules that describe the workspace call lines say, in these exact words, what an
+# [EMPTY RESULT] block means and that a shortened args= text still ran with the full arguments,
+# and that a call line carries data only when a [RESULT] or [EMPTY RESULT] block follows or comes after it.
+empty_sentence='an [EMPTY RESULT] block after a call line means the call succeeded and returned nothing'
+# shellcheck disable=SC2016
+args_sentence='args= may end with "(args cut at <n> of <m> chars)": the call ran with the full arguments'
 for name in analyst-review-protocol compute-system; do
-  check "$name describes the [EMPTY RESULT] block" yes "$(has "$(module "$name")" '[EMPTY RESULT]')"
-  check "$name describes the cut args text" yes "$(has "$(module "$name")" '(args cut at <n> of <m> chars)')"
+  check "$name pins the [EMPTY RESULT] sentence" yes "$(has "$(module "$name")" "$empty_sentence")"
+  check "$name pins the cut args sentence" yes "$(has "$(module "$name")" "$args_sentence")"
+  check "$name names the [RESULT] or [EMPTY RESULT] block" yes "$(has "$(module "$name")" '[RESULT] or [EMPTY RESULT] block')"
+  check "$name does not say nothing is stored after an empty result" no "$(has "$(module "$name")" 'nothing stored to read')"
 done
 
 # The shared modules name no tool: each agent's own tool list comes from the placeholder.

@@ -401,3 +401,11 @@ Usage: enabledTools: [...]{{ include "homelab-pilot-crew.workspaceDisabled" (dic
   disabledTools: [{{ join ", " .tools }}]
 {{- end }}
 {{- end }}
+
+{{/*
+What an [EMPTY RESULT] block and a cut args= text mean in a workspace call line. The analyst
+and compute modules share it so the two descriptions cannot drift.
+*/}}
+{{- define "homelab-pilot-crew.callLineNotes" -}}
+an [EMPTY RESULT] block after a call line means the call succeeded and returned nothing; args= may end with "(args cut at <n> of <m> chars)": the call ran with the full arguments
+{{- end }}
