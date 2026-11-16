@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
 metadata:
@@ -248,3 +249,4 @@ spec:
 
     WHEN blocks are present:
       - Report the blocking issue to the user.
+{{- end }}

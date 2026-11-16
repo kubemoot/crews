@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- if and .Values.mcpGateway .Values.mcpGateway.enabled }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPGateway
@@ -102,4 +103,5 @@ spec:
   credentialPolicies:
     {{- toYaml .Values.mcpGateway.credentialPolicies | nindent 4 }}
   {{- end }}
+{{- end }}
 {{- end }}

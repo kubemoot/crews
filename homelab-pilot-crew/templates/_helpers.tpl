@@ -341,3 +341,32 @@ NOTE: kubernetesAccess.{{ $tier }}.namespaces lists {{ . }}, which is not in kub
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/* Which part of the chart this release renders (values.yaml, rbac.render): "all", "cluster"
+(only the objects a namespaced applier cannot create: ClusterRoles, ClusterRoleBindings and
+RoleBindings) or "namespaced" (everything else). Any other value fails the render. */}}
+{{- define "homelab-pilot-crew.rbacRender" -}}
+{{- $mode := (.Values.rbac | default dict).render | default "all" -}}
+{{- if not (has $mode (list "all" "cluster" "namespaced")) -}}
+{{- fail (printf "rbac.render must be all, cluster or namespaced, got %q" $mode) -}}
+{{- end -}}
+{{- $mode -}}
+{{- end }}
+
+{{/* "true" when this release renders the RBAC objects (ClusterRoles, ClusterRoleBindings,
+RoleBindings), and nothing otherwise, so it works as a condition. */}}
+{{- define "homelab-pilot-crew.rbacAdmin" -}}
+{{- if ne (include "homelab-pilot-crew.rbacRender" .) "namespaced" -}}true{{- end -}}
+{{- end }}
+
+{{/* "true" when this release renders everything except the RBAC objects. */}}
+{{- define "homelab-pilot-crew.rbacTenant" -}}
+{{- if ne (include "homelab-pilot-crew.rbacRender" .) "cluster" -}}true{{- end -}}
+{{- end }}
+
+{{/* The name the RBAC objects and the accounts they bind derive from: rbac.namePrefix, or the
+release name. The release that renders only the RBAC objects sets rbac.namePrefix to the name of
+the release that renders the accounts, so the bindings name those accounts. */}}
+{{- define "homelab-pilot-crew.rbacName" -}}
+{{- ((.Values.rbac | default dict).namePrefix | default .Release.Name) -}}
+{{- end }}

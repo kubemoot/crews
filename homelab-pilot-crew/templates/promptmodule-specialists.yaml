@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: PromptModule
 metadata:
@@ -1103,3 +1104,4 @@ spec:
     ASSERT "Run the weekly health summary every Monday at 9" → tell user this is an admin task (Kubernetes CronJob), not a chat-set schedule
     ASSERT "Cancel the Harbor one" → list_scheduled, find the Harbor entry, confirm, cancel_scheduled
     ASSERT "What's scheduled?" → list_scheduled, summarize in natural language
+{{- end }}

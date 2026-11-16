@@ -24,6 +24,7 @@ grant them, each one because an agent reads it:
   customresourcedefinitions  k8s-nodes (list and get CRDs)
   clusterroles, clusterrolebindings  k8s-config (list and get cluster RBAC objects)
 */}}
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -31,11 +32,13 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+{{- end }}
+{{- if include "homelab-pilot-crew.rbacAdmin" . }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Release.Name }}-kubernetes-mcp
+  name: {{ (include "homelab-pilot-crew.rbacName" .) }}-kubernetes-mcp
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
@@ -52,12 +55,12 @@ rules:
     resources: ["clusterroles", "clusterrolebindings"]
     verbs: ["get", "list", "watch"]
 ---
-{{ include "homelab-pilot-crew.binding" (dict "root" . "role" (printf "%s-kubernetes-mcp" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "cluster" true) }}
+{{ include "homelab-pilot-crew.binding" (dict "root" . "role" (printf "%s-kubernetes-mcp" (include "homelab-pilot-crew.rbacName" .)) "account" (printf "%s-kubernetes-mcp" (include "homelab-pilot-crew.rbacName" .)) "cluster" true) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Release.Name }}-kubernetes-mcp-read
+  name: {{ (include "homelab-pilot-crew.rbacName" .) }}-kubernetes-mcp-read
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
@@ -103,13 +106,13 @@ rules:
   - apiGroups: ["kubemoot.ai"]
     resources: ["agents", "mcpservers", "mcpgateways", "ragsources", "models", "modelservers"]
     verbs: ["get", "list", "watch"]
-{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-read" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "path" "kubernetesAccess.namespaces" "namespaces" .Values.kubernetesAccess.namespaces "clusterWide" .Values.kubernetesAccess.clusterWide) }}
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-read" (include "homelab-pilot-crew.rbacName" .)) "account" (printf "%s-kubernetes-mcp" (include "homelab-pilot-crew.rbacName" .)) "path" "kubernetesAccess.namespaces" "namespaces" .Values.kubernetesAccess.namespaces "clusterWide" .Values.kubernetesAccess.clusterWide) }}
 {{- if (include "homelab-pilot-crew.secretReadOn" .) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Release.Name }}-kubernetes-mcp-secrets
+  name: {{ (include "homelab-pilot-crew.rbacName" .) }}-kubernetes-mcp-secrets
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
@@ -117,14 +120,14 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
-{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-secrets" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "path" "kubernetesAccess.secretRead.namespaces" "namespaces" .Values.kubernetesAccess.secretRead.namespaces) }}
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-secrets" (include "homelab-pilot-crew.rbacName" .)) "account" (printf "%s-kubernetes-mcp" (include "homelab-pilot-crew.rbacName" .)) "path" "kubernetesAccess.secretRead.namespaces" "namespaces" .Values.kubernetesAccess.secretRead.namespaces) }}
 {{- end }}
 {{- if (include "homelab-pilot-crew.writeOn" .) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Release.Name }}-kubernetes-mcp-write
+  name: {{ (include "homelab-pilot-crew.rbacName" .) }}-kubernetes-mcp-write
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 rules:
@@ -140,5 +143,6 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments/rollout"]
     verbs: ["get", "patch"]
-{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-write" .Release.Name) "account" (printf "%s-kubernetes-mcp" .Release.Name) "path" "kubernetesAccess.write.namespaces" "namespaces" .Values.kubernetesAccess.write.namespaces) }}
+{{- include "homelab-pilot-crew.tierBindings" (dict "root" . "role" (printf "%s-kubernetes-mcp-write" (include "homelab-pilot-crew.rbacName" .)) "account" (printf "%s-kubernetes-mcp" (include "homelab-pilot-crew.rbacName" .)) "path" "kubernetesAccess.write.namespaces" "namespaces" .Values.kubernetesAccess.write.namespaces) }}
+{{- end }}
 {{- end }}

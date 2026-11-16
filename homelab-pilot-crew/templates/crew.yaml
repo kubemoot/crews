@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: Crew
 metadata:
@@ -14,4 +15,5 @@ spec:
   network:
     allowedIngress:
       {{- toYaml . | nindent 6 }}
+{{- end }}
 {{- end }}

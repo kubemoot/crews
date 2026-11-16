@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: Agent
 metadata:
@@ -56,3 +57,4 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # Tolerate model swaps + GPU queue.
       - name: QUARKUS_LANGCHAIN4J_OLLAMA_TIMEOUT
         value: "300s"
+{{- end }}

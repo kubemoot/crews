@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- if .Values.mcpQualityPolicy.enabled }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPQualityPolicy
@@ -21,4 +22,5 @@ spec:
     confidenceThreshold: {{ .Values.mcpQualityPolicy.considering.confidenceThreshold | default "0.7" | quote }}
     timeoutSeconds: {{ .Values.mcpQualityPolicy.considering.timeoutSeconds | default 30 }}
     fallbackAction: {{ .Values.mcpQualityPolicy.considering.fallbackAction | default "deny" }}
+{{- end }}
 {{- end }}

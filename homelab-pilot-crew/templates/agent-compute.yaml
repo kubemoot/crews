@@ -1,3 +1,4 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: Agent
 metadata:
@@ -67,3 +68,4 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # inline preview in its head. Forces deterministic compute via execute_code.
       - name: KUBEMOOT_DISCUSS_COMPUTE_CONTRACT
         value: "true"
+{{- end }}

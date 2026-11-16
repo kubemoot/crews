@@ -241,6 +241,19 @@ mcpQualityPolicy:
     timeoutSeconds: 30
     fallbackAction: deny
 
+# Which part of the chart one release renders, so an admin and a tenant can install the same
+# chart from the same values. RBAC objects (ClusterRoles, ClusterRoleBindings, RoleBindings) need
+# rights a namespaced applier, such as a Flux ServiceAccount that holds only its crew
+# namespace, does not have.
+#   all         everything (the default; install the chart once)
+#   cluster     only the RBAC objects, for an admin to install
+#   namespaced  everything else, for the tenant to install
+# namePrefix is the release name of the "namespaced" release. Set it on the "cluster" release so
+# its bindings name the ServiceAccounts that release creates. Leave it empty otherwise.
+rbac:
+  render: all
+  namePrefix: ""
+
 # Access for the Kubernetes MCP servers (kubernetes, kubernetesLegacy, which share one
 # ServiceAccount) and k8sgpt (its own). This chart ships both accounts' roles and binds them, so
 # the grant is in the chart's manifests: creating a binding in a namespace is the consent for
