@@ -22,6 +22,13 @@ for name in tooler-discipline analyst-review-protocol compute-system scheduler-a
   check "$name lists the agent's tools with the placeholder" 1 "$(mentions "$name" '${agent.tools}')"
 done
 
+# The modules that describe the workspace call lines say what an [EMPTY RESULT] block means and that
+# a shortened args= text still ran with the full arguments.
+for name in analyst-review-protocol compute-system; do
+  check "$name describes the [EMPTY RESULT] block" yes "$(has "$(module "$name")" '[EMPTY RESULT]')"
+  check "$name describes the cut args text" yes "$(has "$(module "$name")" '(args cut at <n> of <m> chars)')"
+done
+
 # The shared modules name no tool: each agent's own tool list comes from the placeholder.
 vocab='resources_list|resources_get|pods_list|pods_list_in_namespace|list_api_resources|list_metrics|get_targets|get_metric_metadata|execute_code|workspace_head|workspace_grep|workspace_query'
 for name in tooler-discipline analyst-review-protocol compute-system discussion-protocol response-style advisory-prompt coordinator-decision-logic synthesis-prompt; do
