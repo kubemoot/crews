@@ -389,3 +389,15 @@ Usage: discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict 
     access: {{ .access }}
 {{- end }}
 {{- end }}
+
+{{/*
+Denies workspace tools a chart switch turned off. A declared access grants every workspace
+tool it allows unless disabledTools names it, so a switch that is off must name its tools.
+Renders nothing when the switch is on or workspace.declareAccess is false (no grant is made then).
+Usage: enabledTools: [...]{{ include "homelab-pilot-crew.workspaceDisabled" (dict "root" $ "on" .Values.compute.workspaceQuery "tools" (list "workspace_query")) }}
+*/}}
+{{- define "homelab-pilot-crew.workspaceDisabled" -}}
+{{- if and .root.Values.workspace.declareAccess (not .on) }}
+  disabledTools: [{{ join ", " .tools }}]
+{{- end }}
+{{- end }}

@@ -158,6 +158,12 @@ check "no rendering names a retired or renamed artifact_* tool" 0 \
 # Workspace access: write on the search agents, read on the curator, nothing on the coordinator.
 access() { yq -N 'select(.kind == "Agent") | .metadata.name + "=" + (.spec.workspace.access // "-")' <<<"$1" | sed 's/^oguide-//' | sort | paste -sd' '; }
 check "agents declare their workspace access" "coordinator=- curator=read events-scout=write library-search=write" "$(access "$out")"
+# A declared access grants every workspace tool it allows unless disabledTools names it, so a
+# query switch that is off must render the denial; nothing renders with the switch on or no declaration.
+disabled() { yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | (.spec.disabledTools // []) | join(" ")' <<<"$1"; }
+check "curator.workspaceQuery=false denies workspace_query" "workspace_query" "$(disabled "$(render --set curator.workspaceQuery=false)")"
+check "the curator denies nothing by default" "" "$(disabled "$out")"
+check "no denial without a declared access" "" "$(disabled "$(render --set curator.workspaceQuery=false --set workspace.declareAccess=false)")"
 check "workspace.declareAccess=false renders no workspace field" 0 "$(render --set workspace.declareAccess=false | grep -c 'workspace:' || true)"
 check "the curator has workspace_query by default" 1 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -c '^workspace_query$' || true)"
@@ -303,6 +309,8 @@ check "the search server tests pass" 0 \
 # The goose seat: off by default, one extra Agent run by goose when on.
 goose="$(render --set gooseSeat.enabled=true)"
 gagent() { yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"goose-curator\") | $1" <<<"$goose"; }
+check "the goose seat declares write, with no workspace tool" "goose-curator=write/none" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "goose-curator") | .metadata.name + "=" + .spec.workspace.access + "/" + ((.spec.enabledTools[] | select(test("^workspace_"))) // "none")' <<<"$goose")"
 check "the goose seat is off by default" 0 "$(grep -c 'goose' <<<"$out" || true)"
 check "the goose seat adds one Agent" "curator,events-scout,goose-curator,library-search,oguide-coordinator" \
   "$(yq -N 'select(.kind == "Agent") | .metadata.name' <<<"$goose" | sort | paste -sd,)"

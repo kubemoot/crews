@@ -49,8 +49,12 @@ oreilly:
 # The discussion workspace: the scratch data the agents of one discussion share (large tool
 # results stored by key). declareAccess puts Agent.spec.workspace.access on each agent:
 # write on the search agents (they store results and read none), read on the curator. The
-# coordinator declares nothing. false renders no workspace field, for a Kubemoot operator
-# that does not know it; the agents then behave as they did before access was declared.
+# coordinator declares nothing. false renders no workspace field and no disabledTools, for an
+# operator whose Agent CRD has no spec.workspace (the agents still list the new tool names, so
+# the workspace server must serve workspace_head, workspace_tail and workspace_grep). The
+# curator on read stores none of its own tool results, which come back inline and may be cut.
+# curator.workspaceQuery false renders disabledTools, because the declared access grants every
+# workspace tool it allows.
 workspace:
   declareAccess: true
 

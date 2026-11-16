@@ -224,10 +224,11 @@ wq_on="$(render)"
 [ "$(tools compute <<<"$wq_off")" = "execute_code,validate_code,workspace_head,workspace_tail,workspace_grep" ] || fail "compute.workspaceQuery=false must leave compute the code and text tools"
 [ "$(tools compute <<<"$wq_on")" = "execute_code,validate_code,workspace_head,workspace_tail,workspace_grep,workspace_query,workspace_list,workspace_describe" ] || fail "compute.workspaceQuery must append the workspace tools to compute"
 for t in workspace_list workspace_describe; do
-  [ "$(grep -c "$t" <<<"$wq_on")" = "1" ] || fail "$t must appear only in the compute agent"
-  ! grep -q "$t" <<<"$wq_off" || fail "$t rendered with compute.workspaceQuery=false"
+  [ "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$wq_on" | grep -c "^$t$")" = "1" ] || fail "$t must be listed only by the compute agent"
+  ! tools compute <<<"$wq_off" | grep -q "$t" || fail "$t listed with compute.workspaceQuery=false"
 done
-[ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "2" ] || fail "compute.workspaceQuery must change only the compute enabledTools line"
+# The switch also renders the denial (a declared access would otherwise grant the tools back).
+[ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "3" ] || fail "compute.workspaceQuery must change only the compute enabledTools and disabledTools lines"
 echo "PASS: compute.workspaceQuery"
 
 # advisors.workspaceQuery: on by default adds workspace_query to the four advisors; off leaves
@@ -239,6 +240,17 @@ for a in k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor; do
   [ "$(tools "$a" <<<"$adv_off")" = "workspace_head,workspace_tail,workspace_grep" ] || fail "$a: tools without advisors.workspaceQuery"
 done
 [ "$(grep -c 'workspace_query' <<<"$adv_on")" = "5" ] || fail "workspace_query must appear on the four advisors and compute only"
+# A declared access grants every workspace tool it allows unless disabledTools names it, so a switch
+# that is off renders the denial; nothing renders with the switch on or with no declaration.
+denied() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | (.spec.disabledTools // []) | join(\",\")"; }
+all_off="$(render --set advisors.workspaceQuery=false --set compute.workspaceQuery=false)"
+[ "$(denied compute <<<"$all_off")" = "workspace_query,workspace_list,workspace_describe" ] || fail "compute.workspaceQuery=false must deny the three workspace query tools"
+for a in k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor; do
+  [ "$(denied "$a" <<<"$all_off")" = "workspace_query" ] || fail "$a: advisors.workspaceQuery=false must deny workspace_query"
+  [ "$(denied "$a" <<<"$adv_on")" = "" ] || fail "$a: no denial with advisors.workspaceQuery on"
+done
+[ "$(denied compute <<<"$adv_on")" = "" ] || fail "compute denies nothing by default"
+[ "$(yq -N 'select(.kind == "Agent") | .spec.disabledTools // [] | .[]' <<<"$(render --set advisors.workspaceQuery=false --set compute.workspaceQuery=false --set workspace.declareAccess=false)" | grep -c .)" = "0" ] || fail "no denial without a declared access"
 echo "PASS: advisors.workspaceQuery"
 
 # No crew agent or prompt names a retired or renamed tool: artifact_head, artifact_tail and
@@ -264,6 +276,11 @@ bad="$(grep -vE '=(write/(tooler|researcher)|read/analyst|readWrite/analyst|-/co
 grep -qx 'compute=readWrite/analyst' <<<"$acc_on" || fail "compute must declare readWrite"
 [ "$(grep -c '^[a-z0-9-]*advisor=read/analyst$' <<<"$acc_on")" = "4" ] || fail "the four advisors must declare read"
 grep -qx 'internet-search=write/researcher' <<<"$acc_on" || fail "internet-search must declare write"
+# Only tool-less-of-workspace toolers: none declares read or readWrite, none lists a workspace tool,
+# and spec.workspace appears only under an Agent.
+toolers_bad="$(yq -N 'select(.kind == "Agent" and .spec.discussRole == "tooler") | select(.spec.workspace.access != "write" or ((.spec.enabledTools // []) | map(select(test("^workspace_"))) | length) > 0) | .metadata.name' <<<"$(render --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x --set mcpServers.scheduling.enabled=true)")"
+[ -z "$toolers_bad" ] || fail "a tooler declares other than write or lists a workspace tool: $toolers_bad"
+[ "$(yq -N 'select(.kind != "Agent") | select(.spec | has("workspace")) | .kind' <<<"$(render)" | grep -c .)" = "0" ] || fail "spec.workspace appears on a resource that is not an Agent"
 off_workspace="$(render --set workspace.declareAccess=false | grep -c 'workspace:' || true)"
 [ "$off_workspace" = "0" ] || fail "workspace.declareAccess=false must render no workspace field"
 echo "PASS: workspace access declarations"

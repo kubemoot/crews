@@ -49,9 +49,10 @@ spec:
     DESCRIPTION Read marker-only contributions from the workspace before answering.
 
     ASSERT a tooler whose data overflowed the discussion bus posts it MARKER-ONLY: the
-      inline text is a marker of the form [CALL key=<key> ... /artifacts/<key>] and
-      carries NO data - the FULL data lives in the workspace.
-    WHEN a contribution shows such a [CALL key=<key> ...] marker:
+      inline text is a [WORKSPACE agent=<agent> calls=<n> ...] header followed by call
+      lines of the form [CALL key=<key> tool=<tool> args=... bytes=... rows=... error=...];
+      a call line carries NO data - the FULL data lives in the workspace under its key.
+    WHEN a contribution shows such a [CALL key=<key> ...] line with no [RESULT] block after it:
     THEN the inline line is NOT the data - READ the workspace with your workspace read
       tools (the data read tools in your list) over the KEY before you answer.
     NEVER answer from the marker line itself, and NEVER report a count, list, or
