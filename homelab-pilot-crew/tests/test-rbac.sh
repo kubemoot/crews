@@ -193,12 +193,15 @@ check "k8sgpt off: the Kubernetes read binding stays" "RoleBinding apps" "$(boun
 
 # Two releases from the same values: rbac.render=cluster renders only the objects a namespaced
 # applier cannot create, rbac.render=namespaced renders everything else, and together they are
-# the default rendering (rbac.render=all). rbac.namePrefix keeps the names the bindings use.
+# the default rendering (rbac.render=all), object for object. rbac.namePrefix keeps the names the
+# bindings use.
 split_set=(--set 'kubernetesAccess.namespaces={apps}' "${all_on[@]}")
 whole="$(render "${split_set[@]}")"
 admin="$(render "${split_set[@]}" --set rbac.render=cluster --set rbac.namePrefix=t)"
 tenant="$(render "${split_set[@]}" --set rbac.render=namespaced)"
 kinds_of() { yq -N '.kind' <<<"$1" | sort -u | paste -sd, -; }
+# Every document as one sorted JSON line: the whole object, not its name.
+content() { yq -N -o json -I0 '.' <<<"$1" | sort; }
 check "rbac.render=cluster renders only ClusterRoles, ClusterRoleBindings and RoleBindings" \
   "ClusterRole,ClusterRoleBinding,RoleBinding" "$(kinds_of "$admin")"
 check "rbac.render=namespaced renders no object of the RBAC API group" "0" \
@@ -206,15 +209,58 @@ check "rbac.render=namespaced renders no object of the RBAC API group" "0" \
 check "rbac.render=namespaced still renders both ServiceAccounts" "t-k8sgpt-mcp,t-kubernetes-mcp" \
   "$(yq -N 'select(.kind == "ServiceAccount") | .metadata.name' <<<"$tenant" | sort | paste -sd, -)"
 check "rbac.render=cluster renders no ServiceAccount" "0" "$(yq -N 'select(.kind == "ServiceAccount") | .metadata.name' <<<"$admin" | count)"
-ident() { yq -N -o json -I0 '[.kind, .metadata.name] | join("/")' <<<"$1" | sort; }
-check "cluster plus namespaced is the default rendering" "$(ident "$whole")" "$( { ident "$admin"; ident "$tenant"; } | sort)"
-check "the default is rbac.render=all" "$(ident "$whole")" "$(ident "$(render "${split_set[@]}" --set rbac.render=all)")"
-check "rbac.namePrefix names the accounts in the cluster release's bindings" "t-k8sgpt-mcp,t-kubernetes-mcp" \
-  "$(render "${split_set[@]}" --set rbac.render=cluster --set rbac.namePrefix=t | yq -N 'select(.kind == "RoleBinding" or .kind == "ClusterRoleBinding") | .subjects[].name' | sort -u | paste -sd, -)"
-prefixed="$(render "${split_set[@]}" --set rbac.render=cluster --set rbac.namePrefix=other)"
-check "rbac.namePrefix renames the roles and bindings" "other-k8sgpt-mcp,other-k8sgpt-mcp-read,other-k8sgpt-mcp-secret-get,other-kubernetes-mcp,other-kubernetes-mcp-read,other-kubernetes-mcp-secrets,other-kubernetes-mcp-write" \
+check "cluster plus namespaced equals the default rendering, object for object" "$(content "$whole")" "$( { content "$admin"; content "$tenant"; } | sort)"
+check "the default is rbac.render=all" "$(content "$whole")" "$(content "$(render "${split_set[@]}" --set rbac.render=all)")"
+check "no object is rendered by both releases" "0" "$( { ident_of() { yq -N '.kind + "/" + .metadata.name' <<<"$1"; }; ident_of "$admin"; ident_of "$tenant"; } | sort | uniq -d | count)"
+
+# rbac.namePrefix differing from the release name: names, subjects and the namespace follow it.
+prefixed="$(render "${split_set[@]}" --namespace crew-x --set rbac.render=cluster --set rbac.namePrefix=other)"
+check "rbac.namePrefix renames the roles" "other-k8sgpt-mcp,other-k8sgpt-mcp-read,other-k8sgpt-mcp-secret-get,other-kubernetes-mcp,other-kubernetes-mcp-read,other-kubernetes-mcp-secrets,other-kubernetes-mcp-write" \
   "$(yq -N 'select(.kind == "ClusterRole") | .metadata.name' <<<"$prefixed" | sort | paste -sd, -)"
-check "rbac.render rejects any other value" "yes" "$(has "$(helm template t "$chart" --set rbac.render=bogus 2>&1 || true)" 'rbac.render must be')"
+check "rbac.namePrefix names the accounts in every binding" "other-k8sgpt-mcp,other-kubernetes-mcp" \
+  "$(yq -N 'select(.kind == "RoleBinding" or .kind == "ClusterRoleBinding") | .subjects[].name' <<<"$prefixed" | sort -u | paste -sd, -)"
+check "every binding subject is in the namespace the release is installed into" "crew-x" \
+  "$(yq -N 'select(.kind == "RoleBinding" or .kind == "ClusterRoleBinding") | .subjects[].namespace' <<<"$prefixed" | sort -u | paste -sd, -)"
+check "no binding names the release name when a prefix is set" "0" \
+  "$(yq -N 'select(.kind == "RoleBinding" or .kind == "ClusterRoleBinding") | .subjects[].name' <<<"$prefixed" | grep -c '^t-' || true)"
+
+# rbac.render: only an absent key means all; anything else outside the three values fails.
+render_err() { helm template t "$chart" --set ragSources.enabled=false --set vectorStore.host=db.test "$@" 2>&1 || true; }
+check "rbac.render rejects an unknown value" "yes" "$(has "$(render_err --set rbac.render=bogus)" 'rbac.render must be')"
+check "rbac.render rejects an empty string" "yes" "$(has "$(render_err --set rbac.render=)" 'got ""')"
+check "rbac.render rejects the wrong case" "yes" "$(has "$(render_err --set rbac.render=Cluster)" 'got "Cluster"')"
+check "an absent rbac.render key renders everything" "$(content "$whole")" \
+  "$(content "$(render "${split_set[@]}" --set rbac=null)")"
+
+# The install notes warn only in the release that binds. A namespaced release has nothing to
+# warn about and says where the binding comes from.
+check "namespaced release: no access warning" "no" "$(has "$(notes --set rbac.render=namespaced)" "WARNING")"
+check "cluster release: the access warning stays" "yes" "$(has "$(notes --set rbac.render=cluster)" "binds no")"
+check "namespaced release: the notes say where the binding comes from" "yes" "$(has "$(notes --set rbac.render=namespaced)" "renders no RBAC objects")"
+
+# The Homelab Pilot's own values (tests/fixtures/homelab-pilot-values.yaml): the release pair the
+# homelab runs. The tenant release is named as it is there; the admin release has another name
+# and sets rbac.namePrefix, so only the instance label differs from the whole.
+hrel=crew-homelab-pilot-homelab-pilot-crew
+hv="$chart/tests/fixtures/homelab-pilot-values.yaml"
+hrender() { helm template "$1" "$chart" --namespace crew-homelab-pilot -f "$hv" "${@:2}"; }
+h_all="$(hrender $hrel)"
+h_admin="$(hrender ${hrel}-rbac --set rbac.render=cluster --set rbac.namePrefix=$hrel)"
+h_tenant="$(hrender $hrel --set rbac.render=namespaced)"
+noinst() { yq -N -o json -I0 'del(.metadata.labels."app.kubernetes.io/instance")' <<<"$1" | sort; }
+check "homelab values: the whole release has 4 ClusterRoles and 4 ClusterRoleBindings" "4 4" \
+  "$(yq -N 'select(.kind == "ClusterRole") | .kind' <<<"$h_all" | count) $(yq -N 'select(.kind == "ClusterRoleBinding") | .kind' <<<"$h_all" | count)"
+check "homelab values: the cluster release alone renders those 8 objects" "ClusterRole,ClusterRoleBinding" "$(kinds_of "$h_admin")"
+check "homelab values: the cluster release renders 8 objects (clusterWide is set)" "8" "$(yq -N '.kind' <<<"$h_admin" | count)"
+check "homelab values: the tenant release renders no RBAC object" "0" "$(yq -N 'select(.apiVersion == "rbac.authorization.k8s.io/v1") | .kind' <<<"$h_tenant" | count)"
+check "homelab values: the tenant release keeps both ServiceAccounts" "$hrel-k8sgpt-mcp,$hrel-kubernetes-mcp" \
+  "$(yq -N 'select(.kind == "ServiceAccount") | .metadata.name' <<<"$h_tenant" | sort | paste -sd, -)"
+check "homelab values: the two releases are the whole, ignoring the instance label" "$(noinst "$h_all")" \
+  "$( { noinst "$h_admin"; noinst "$h_tenant"; } | sort)"
+check "homelab values: the MCP servers name the ServiceAccounts the bindings name" "$hrel-k8sgpt-mcp,$hrel-kubernetes-mcp" \
+  "$(yq -N 'select(.kind == "MCPServer") | .spec.serviceAccountName // ""' <<<"$h_tenant" | grep . | sort -u | paste -sd, -)"
+check "homelab values: the bindings name the same accounts in the render namespace" "crew-homelab-pilot/$hrel-k8sgpt-mcp,crew-homelab-pilot/$hrel-kubernetes-mcp" \
+  "$(yq -N 'select(.kind == "ClusterRoleBinding") | .subjects[] | .namespace + "/" + .name' <<<"$h_admin" | sort -u | paste -sd, -)"
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

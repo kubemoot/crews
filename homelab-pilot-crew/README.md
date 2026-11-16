@@ -40,7 +40,14 @@ A Flux or Argo CD identity that holds only its crew namespace cannot create Clus
 | tenant | the crew's own account (for Flux, `serviceAccountName` on the HelmRelease) | `rbac.render: namespaced` | everything except the RBAC objects, including both ServiceAccounts |
 | rbac | an admin | `rbac.render: cluster`, `rbac.namePrefix: <tenant release name>` | the ClusterRoles, ClusterRoleBindings and RoleBindings |
 
-Use the same `kubernetesAccess` values in both. The admin release creates every binding, so the access the tool servers get stays a decision of whoever may create bindings, and the tenant account needs no RBAC rights at all. `tests/test-rbac.sh` pins that the two renderings together equal the default one. A tenant account also needs the `use` verb on the Secrets and ServiceAccounts the MCPServers name when the Kubemoot use-grant check is on: `<release>-kubernetes-mcp`, `<release>-k8sgpt-mcp`, `<release>-kubernetes-mcp-config`, and the Proxmox Secret if `mcpServers.proxmox.secretRef` is set.
+Use the same `kubernetesAccess` values in both, and install the rbac release into the same namespace as the tenant release: the bindings name the ServiceAccounts in the namespace they are rendered for. The admin release creates every binding, so the access the tool servers get stays a decision of whoever may create bindings, and the tenant account needs no RBAC rights at all.
+
+- **Which objects the rbac release renders.** The four ClusterRoles and, for each account, the cluster-wide binding of its small read role. With `kubernetesAccess.clusterWide: true` it also renders the two read-role ClusterRoleBindings, which is all 8 objects the Homelab Pilot runs; without it, it renders a RoleBinding per namespace listed in `kubernetesAccess.namespaces` (and for the Secret and write tiers) instead.
+- **Instance label.** Objects the rbac release takes over from a single-release install carry `app.kubernetes.io/instance: <rbac release name>` afterwards; that label is the only difference from the single-release rendering when `rbac.namePrefix` is the tenant release name.
+- **Tests.** `tests/test-rbac.sh` pins that the two renderings together equal the default one object for object, that a prefix different from the release name renames the roles and the binding subjects, that the subjects are in the render namespace, that `rbac.render` accepts only `all`, `cluster` and `namespaced` (an empty or wrongly cased value fails; only an absent key means `all`), and the Homelab Pilot's own values (`tests/fixtures/homelab-pilot-values.yaml`).
+- **Install notes.** The access warning prints in the release that binds; a `namespaced` release says where the binding comes from.
+
+A tenant account also needs the `use` verb on the Secrets and ServiceAccounts the MCPServers name when the Kubemoot use-grant check is on: `<release>-kubernetes-mcp`, `<release>-k8sgpt-mcp`, `<release>-kubernetes-mcp-config`, and the Proxmox Secret if `mcpServers.proxmox.secretRef` is set.
 
 ## Proxmox
 

@@ -320,6 +320,7 @@ nothing for an empty list that is not clusterWide. */}}
 
 {{/* The install notes about Kubernetes access. NOTES.txt prints it. */}}
 {{- define "homelab-pilot-crew.accessNotes" -}}
+{{- if include "homelab-pilot-crew.rbacAdmin" . }}
 {{- if and (not .Values.kubernetesAccess.clusterWide) (not .Values.kubernetesAccess.namespaces) }}
 WARNING: kubernetesAccess lists no namespaces and clusterWide is false, so this release binds no
 namespaced read role. The Kubernetes tool servers and k8sgpt can list the cluster-scoped kinds
@@ -340,15 +341,20 @@ NOTE: kubernetesAccess.{{ $tier }}.namespaces lists {{ . }}, which is not in kub
 {{- end }}
 {{- end }}
 {{- end }}
+{{- else }}
+This release (rbac.render: namespaced) renders no RBAC objects. The Kubernetes tool servers read what the release with rbac.render: cluster binds for {{ include "homelab-pilot-crew.rbacName" . }}-kubernetes-mcp and {{ include "homelab-pilot-crew.rbacName" . }}-k8sgpt-mcp.
+{{- end }}
 {{- end }}
 
-{{/* Which part of the chart this release renders (values.yaml, rbac.render): "all", "cluster"
-(only the objects a namespaced applier cannot create: ClusterRoles, ClusterRoleBindings and
+{{/* Which part of the chart this release renders (values.yaml, rbac.render): "all" (also when the key is
+absent), "cluster" (only the objects a namespaced applier cannot create: ClusterRoles, ClusterRoleBindings and
 RoleBindings) or "namespaced" (everything else). Any other value fails the render. */}}
 {{- define "homelab-pilot-crew.rbacRender" -}}
-{{- $mode := (.Values.rbac | default dict).render | default "all" -}}
+{{- $rbac := .Values.rbac | default dict -}}
+{{- $mode := "all" -}}
+{{- if hasKey $rbac "render" -}}{{- $mode = $rbac.render -}}{{- end -}}
 {{- if not (has $mode (list "all" "cluster" "namespaced")) -}}
-{{- fail (printf "rbac.render must be all, cluster or namespaced, got %q" $mode) -}}
+{{- fail (printf "rbac.render must be all, cluster or namespaced (an absent key means all), got %q" (printf "%v" $mode)) -}}
 {{- end -}}
 {{- $mode -}}
 {{- end }}
