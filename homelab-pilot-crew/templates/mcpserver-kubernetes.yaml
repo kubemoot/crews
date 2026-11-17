@@ -195,7 +195,7 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-legacy-mcp" .Release.Name)) }}
-  description: "Runs kubectl commands against the cluster, read-only unless write access is enabled. Kept for what the main Kubernetes server does not cover."
+  description: "Runs kubectl and Helm commands through the cluster account. Without write access it registers only the tools the server marks non-destructive."
   image: {{ .Values.mcpServers.kubernetesLegacy.image }}
   transport: stdio
   port: 3000
