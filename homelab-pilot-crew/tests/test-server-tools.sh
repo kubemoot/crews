@@ -102,5 +102,9 @@ check "fixture: nine servers, each with tools" 9 "$(yq -N '[.servers[] | select(
 check "self-test: a name no server lists is reported" "no_such_tool" "$(missing "$(printf 'pods_list\nno_such_tool')" "$known")"
 check "self-test: pods_exec is not a read-only Kubernetes tool" "pods_exec" "$(missing pods_exec "$k8s_read")"
 
+# Every MCPServer says what it is for, so the dashboard's tile and page can show it.
+check "every MCPServer has a spec.description" "" \
+  "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out_all" | tr '\n' ' ' | sed 's/ $//')"
+
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

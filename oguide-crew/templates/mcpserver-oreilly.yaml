@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "oreilly-mcp") }}
+  description: "The O'Reilly catalog search that O'Reilly provides to subscribers. Only the crew's search server calls it, with the subscriber key."
   # The O'Reilly MCP server that O'Reilly provides to subscribers: one tool,
   # search_oreilly_content, a catalog keyword search. No deployment is created; the
   # gateway calls the endpoint with the subscriber key from the Secret below. Only the

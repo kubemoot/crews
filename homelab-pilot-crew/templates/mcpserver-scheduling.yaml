@@ -8,6 +8,7 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "scheduling-mcp") }}
+  description: "Sets reminders and follow-ups for the crew."
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.scheduling.image) | quote }}
   transport: stdio
   # Buildpacks image: the launcher /cnb/process/web starts the binary.

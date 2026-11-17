@@ -431,5 +431,9 @@ coord="$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "coordinato
 check "a failed search makes only its own part unknown" 1 "$(grep -c 'makes UNKNOWN only the part' <<<"$coord")"
 check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the answer is UNKNOWN' <<<"$coord" || true)"
 
+# Every MCPServer says what it is for, so the dashboard's tile and page can show it.
+check "every MCPServer has a spec.description" "" \
+  "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"
