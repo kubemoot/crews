@@ -43,6 +43,7 @@ MAX_REPLY_BYTES = 5_000_000
 MAX_UPSTREAM_MESSAGE_CHARS = 160
 TITLE_ITEMS = 10
 REPEAT_SECONDS = 20
+MAX_REMEMBERED_CALLS = 256
 NAME_SUFFIXES = frozenset({"jr", "sr", "ii", "iii", "iv"})
 MIN_ITEMS_FOR_NAMED_AUTHOR = 3
 MAX_ARGUMENT_CHARS = 300
@@ -302,11 +303,16 @@ def items_from(text):
         raise CatalogError(f"the gateway said: {short(content)}")
     try:
         results = json.loads(content)["search_results"]
-        # The catalog answers {urn: item} when it found items and [] when it found none.
-        found = results.values() if isinstance(results, dict) else list(results if isinstance(results, list) else None)
-        return [item for item in found if isinstance(item, dict)]
     except (ValueError, KeyError, TypeError, AttributeError):
         raise CatalogError(f"the catalog did not return results: {short(content)}") from None
+    # The catalog answers {urn: item} when it found items and [] when it found none.
+    if isinstance(results, dict):
+        found = results.values()
+    elif isinstance(results, list):
+        found = results
+    else:
+        raise CatalogError(f"the catalog did not return results: {short(content)}")
+    return [item for item in found if isinstance(item, dict)]
 
 
 def ranged_search(catalog, arguments, today, released):
@@ -377,8 +383,9 @@ def author_live_events(catalog, name, wanted, today):
     except CatalogError as err:
         return None, [f"the live events could not be searched ({err})"]
     _, scheduled = ordered([i for i in items if has_author(i, wanted)], today)
-    return scheduled, [f"the live events reached the limit of {N_ITEMS}, so later ones may be missing"] \
-        if len(items) >= N_ITEMS else []
+    if len(items) >= N_ITEMS:
+        return scheduled, [f"the live events reached the limit of {N_ITEMS}, so later ones may be missing"]
+    return scheduled, []
 
 
 def find_by_author(catalog, name, today):
@@ -461,19 +468,27 @@ def argument_of(name, arguments):
 
 class RecentCalls:
     """Remembers successful searches and their results for a short while, so a repeat is answered
-    from memory, whichever caller of the thread made the first search."""
+    from memory, whichever caller of the thread made the first search. It holds at most
+    max_entries searches (the oldest go first) however many distinct searches arrive."""
 
-    def __init__(self, clock=time.monotonic, window=REPEAT_SECONDS):
-        self._clock, self._window, self._seen = clock, window, {}
+    def __init__(self, clock=time.monotonic, window=REPEAT_SECONDS, max_entries=MAX_REMEMBERED_CALLS):
+        self._clock, self._window, self._max, self._seen = clock, window, max_entries, {}
+
+    def _prune(self):
+        now = self._clock()
+        self._seen = {k: v for k, v in self._seen.items() if now - v[0] < self._window}
 
     def earlier(self, key):
         """The result of the same search run within the window, or None."""
-        now = self._clock()
-        self._seen = {k: v for k, v in self._seen.items() if now - v[0] < self._window}
+        self._prune()
         return self._seen[key][1] if key in self._seen else None
 
     def remember(self, key, result):
+        self._prune()
+        self._seen.pop(key, None)
         self._seen[key] = (self._clock(), result)
+        while len(self._seen) > self._max:
+            del self._seen[next(iter(self._seen))]
 
 
 REPEAT_NOTE = ("This repeats an identical search run moments ago in this thread, so these are the same results "
