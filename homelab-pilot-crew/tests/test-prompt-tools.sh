@@ -108,8 +108,8 @@ first_rule() { # the index of the first rendered rule that rejects the selector,
 }
 check "rules: the rendered patterns equal the fixture's, in order" "$(yq -p=json -o=y -N '.rules[].reject' "$fixture")" "$(rule_patterns)"
 check "rules: resources_list fieldSelector has four rules" 4 "$(rule_patterns | wc -l | tr -d ' ')"
-check "rules: only resources_list fieldSelector carries rules" resources_list.fieldSelector \
-  "$(k8s_mcp '.spec.toolOverrides[] | select(.parameters) | .name as $t | .parameters | to_entries[] | select(.value.rules) | $t + "." + .key' "$out")"
+check "rules: only the list tools' fieldSelector and limit carry rules" "pods_list.limit pods_list_in_namespace.limit resources_list.fieldSelector resources_list.limit" \
+  "$(k8s_mcp '.spec.toolOverrides[] | select(.parameters) | .name as $t | .parameters | to_entries[] | select(.value.rules) | $t + "." + .key' "$out" | tr '\n' ' ' | sed 's/ $//')"
 check "rules: every rule has a pattern and an ADL message" 4 \
   "$(override resources_list '.parameters.fieldSelector.rules[] | select(.reject != "" and (.message | test("^ASSERT "))) | .reject' | wc -l | tr -d ' ')"
 while IFS=$'\t' read -r input want; do
@@ -132,16 +132,41 @@ check "overrides: pods_top all_namespaces says it defaults to true" yes \
   "$(has "$(override pods_top .parameters.all_namespaces.description)" 'defaults to true')"
 check "overrides: pods_top says the Metrics API ignores limit" yes \
   "$(has "$(override pods_top .description)" 'ignores limit')"
-# A count is limit=1 with no selector: the header carries remainingItemCount, which a selector
-# suppresses. One text serves every list tool, so the descriptions cannot drift apart.
+# A positive limit cuts a list and delivers no later page, so the gateway refuses it; a count is the
+# rows of a list with no limit. One text serves every list tool, so the descriptions cannot drift apart.
+limit_fixture="$chart/tests/fixtures/limit-rule.json"
+limit_pattern="$(yq -p=json -o=y -N '.reject' "$limit_fixture")"
 for tool in pods_list pods_list_in_namespace resources_list; do
-  check "overrides: $tool says limit=1 counts through remainingItemCount" yes \
-    "$(has "$(override "$tool" .description)" 'pass limit=1 with no labelSelector and no fieldSelector')"
-  check "overrides: $tool limit says a selector suppresses remainingItemCount" yes \
-    "$(has "$(override "$tool" .parameters.limit.description)" 'reports no remainingItemCount')"
+  check "overrides: $tool says a count is the rows of a list with no limit" yes \
+    "$(has "$(override "$tool" .description)" 'list with no limit and count the rows')"
+  check "overrides: $tool no longer counts through remainingItemCount" no \
+    "$(has "$(override "$tool" .description)" 'remainingItemCount')"
+  check "overrides: $tool limit says a positive limit is refused" yes \
+    "$(has "$(override "$tool" .parameters.limit.description)" 'A positive limit is refused')"
+  check "rules: $tool limit carries the fixture's one pattern" "$limit_pattern" \
+    "$(override "$tool" '.parameters.limit.rules | map(.reject) | join("|")')"
+  check "rules: $tool limit message is ADL and names the alternative" yes \
+    "$(has "$(override "$tool" '.parameters.limit.rules[0].message')" 'WHEN you need every row, or a count, THEN call again with no limit')"
 done
 check "overrides: the three limit descriptions are one text" 1 \
   "$(yq ea -N '[select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[].parameters.limit.description | select(. != null)] | unique | length' <<<"$out")"
+while IFS= read -r value; do
+  if grep -qP -- "$limit_pattern" <<<"$value"; then got=rejected; else got=allowed; fi
+  check "rules: limit '$value' is rejected" rejected "$got"
+done < <(yq -p=json -o=y -N '.rejectValues[]' "$limit_fixture")
+while IFS= read -r value; do
+  if [ -n "$value" ] && grep -qP -- "$limit_pattern" <<<"$value"; then got=rejected; else got=allowed; fi
+  check "rules: limit '$value' is allowed" allowed "$got"
+done < <(yq -p=json -o=y -N '.passValues[]' "$limit_fixture")
+# The Node table has no capacity column: the descriptions and the rule message send an agent to resources_get.
+check "overrides: resources_list says the Node table has no capacity column" yes \
+  "$(has "$(override resources_list .description)" 'the Node table has no CPU, memory, capacity or allocatable column')"
+check "rules: memory selectors are sent to resources_get for the Node" yes \
+  "$(has "$(rule_messages | sed -n 1p)" 'call resources_get with apiVersion v1, kind Node')"
+check "overrides: resources_list labelSelector says an absent label matches nothing" yes \
+  "$(has "$(override resources_list .parameters.labelSelector.description)" 'a worker Node usually has no node-role label')"
+check "prompt: k8s-nodes does not promise capacity columns in the node list" 0 \
+  "$(render | yq -N 'select(.kind == "PromptModule" and .metadata.name == "k8s-nodes-system") | .spec.content' | grep -c 'with the capacity/allocatable columns' || true)"
 # One pod field list serves every pod tool, so the three descriptions cannot drift apart.
 pod_fields="$(override pods_list .parameters.fieldSelector.description | grep -o 'Accepted fields: [^;]*')"
 check "overrides: pods_list_in_namespace fieldSelector lists the same pod fields" "$pod_fields" \
