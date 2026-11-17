@@ -179,6 +179,27 @@ class SearchArgumentsTest(unittest.TestCase):
         reply = json.dumps({"isError": False, "content": json.dumps({"search_results": [{"title": "T"}, "x"]})})
         self.assertEqual([{"title": "T"}], server.items_from(reply))
 
+    def test_the_repeat_store_is_bounded_and_drops_the_oldest(self):
+        clock = [1.0]
+        recent = server.RecentCalls(lambda: clock[0], 20, max_entries=3)
+        for n in range(5):
+            clock[0] += 1
+            recent.remember(("t", "find_released", f"q{n}"), {"n": n})
+        self.assertEqual(3, len(recent._seen))
+        self.assertIsNone(recent.earlier(("t", "find_released", "q0")))
+        self.assertIsNone(recent.earlier(("t", "find_released", "q1")))
+        self.assertEqual({"n": 4}, recent.earlier(("t", "find_released", "q4")))
+
+    def test_remembering_prunes_expired_searches_and_refreshes_a_repeated_key(self):
+        clock = [1.0]
+        recent = server.RecentCalls(lambda: clock[0], 20, max_entries=3)
+        recent.remember(("t", "a", "x"), {"n": 1})
+        clock[0] = 30.0
+        recent.remember(("t", "a", "y"), {"n": 2})
+        self.assertEqual(1, len(recent._seen))
+        recent.remember(("t", "a", "y"), {"n": 3})
+        self.assertEqual({"n": 3}, recent.earlier(("t", "a", "y")))
+
     def test_items_from_refuses_a_result_that_is_neither_list_nor_object(self):
         reply = json.dumps({"isError": False, "content": json.dumps({"search_results": "none"})})
         with self.assertRaises(server.CatalogError):
