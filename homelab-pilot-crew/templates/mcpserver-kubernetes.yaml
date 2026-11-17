@@ -4,10 +4,16 @@
 {{- $labelSyntax := "kubectl -l syntax: key=value, key!=value, key in (a,b), key, !key; a comma means AND." }}
 {{- $cantSelectStates := "ASSERT container states such as CrashLoopBackOff cannot be selected; read STATUS and RESTARTS in the table." }}
 {{- $noWildcard := "NEVER pass all or * as a namespace: they are not wildcards, match no namespace, and return an empty result." }}
-{{- $countHow := "pass limit=1 with no labelSelector and no fieldSelector" }}
-{{- $countHeader := "# remainingItemCount: N in the header lines of the reply, so the total is N+1" }}
-{{- $countRule := printf "WHEN the question asks only how many THEN %s (namespace is fine) and read %s; a reply with no such line holds every match." $countHow $countHeader }}
-{{- $limitParam := printf "ASSERT the most rows to return; omit it or pass 0 for every row.\nWHEN counting THEN %s and read %s.\nASSERT a list with a labelSelector or fieldSelector reports no remainingItemCount, so count a selected list from its rows." $countHow $countHeader }}
+{{- $countRule := "WHEN the question asks how many THEN list with no limit and count the rows: the reply holds every match." }}
+{{- $nodeTable := "ASSERT the Node table has no CPU, memory, capacity or allocatable column; a Node's capacity and allocatable are in the Node object, so call resources_get with apiVersion v1, kind Node and the node name and read status.capacity and status.allocatable." }}
+{{- $limitParam := "ASSERT omit it or pass 0: every matching row is returned. A positive limit is refused, because it returns only that many rows and leaves the rest out, so the list is partial and a count of it is wrong.\nWHEN the list is too large THEN narrow it with namespace, labelSelector or fieldSelector." }}
+{{- /* A positive limit cuts a list and delivers no later page, so what an agent reads looks
+     like the whole set and is not. The gateway refuses it before the call (the agent runtime
+     declares every argument as a string, so the text is what the model sent). tests/fixtures/
+     limit-rule.json holds the pattern and the values it must reject or pass. */}}
+{{- $limitRules := list
+     (dict "reject" `^\s*0*[1-9]` "message" "ASSERT a limit is not accepted: it returns only that many rows and leaves the rest out, so the list is partial and its count is wrong.\nWHEN you need every row, or a count, THEN call again with no limit and read the rows of the reply.\nWHEN the list is too large THEN narrow it with namespace, labelSelector or fieldSelector.")
+}}
 {{- /* The API server refuses these selector shapes. A term is field=value; a comma inside a
      value is escaped as \, so the patterns walk whole terms and do not treat \, as a separator.
      tests/fixtures/field-selector-rules.json holds these patterns and the selectors each
@@ -15,7 +21,7 @@
      pattern (RE2, searched anywhere in the text) and answers with the message, so the call never
      reaches the server and the agent is told what to do instead. */}}
 {{- $selectorRules := list
-     (dict "reject" `(?i)^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=!]|\\.)*(memory|cpu|capacity|allocatable)` "message" "ASSERT memory, CPU, capacity and allocatable cannot be selected; no fieldSelector reaches them.\nWHEN the question asks for a node's capacity or allocatable resources THEN list the nodes with no fieldSelector and read the table.\nWHEN the question asks how much memory or CPU is in use THEN use a metrics tool, not resources_list.")
+     (dict "reject" `(?i)^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=!]|\\.)*(memory|cpu|capacity|allocatable)` "message" "ASSERT memory, CPU, capacity and allocatable cannot be selected; no fieldSelector reaches them, and the Node table has no column for them.\nWHEN the question asks for a node's capacity or allocatable resources THEN call resources_get with apiVersion v1, kind Node and the node name, and read status.capacity and status.allocatable; list the nodes with no fieldSelector for their names.\nWHEN the question asks how much memory or CPU is in use THEN use a metrics tool, not resources_list.")
      (dict "reject" `=~|!~` "message" "ASSERT a fieldSelector term is field=value or field!=value; =~ and !~ are not selector operators, so a pattern cannot be selected.\nWHEN the question needs a pattern match THEN call again with no fieldSelector (or with a labelSelector) and read the matching rows in the table.")
      (dict "reject" `[<>]` "message" "ASSERT a fieldSelector term is field=value or field!=value; < and > are not selector operators, so a number cannot be compared in a selector.\nWHEN the question compares a value THEN call again with no fieldSelector and read the table.")
      (dict "reject" `^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=]|\\.)+(,|$)` "message" "ASSERT every fieldSelector term is field=value or field!=value; a field name alone is an error.\nWHEN the question needs a field's value THEN call again with no fieldSelector and read the table.")
@@ -101,6 +107,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }} It matches labels only, never fields such as status.phase."
         limit:
           description: {{ $limitParam | toJson }}
+          rules:
+            {{- toYaml $limitRules | nindent 12 }}
     - name: pods_list_in_namespace
       description: |-
         DESCRIPTION Lists the pods of one namespace as a table, one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS)
@@ -117,10 +125,13 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }}"
         limit:
           description: {{ $limitParam | toJson }}
+          rules:
+            {{- toYaml $limitRules | nindent 12 }}
     - name: resources_list
       description: |-
         DESCRIPTION Lists objects of one apiVersion and kind as a table, one wide row per object with a LABELS column; with no namespace it lists every namespace (or only the server's own namespace when its account cannot list cluster-wide), so a cluster-wide list of a common kind such as Deployment, ConfigMap, NetworkPolicy, Node or Pod is large
         {{ $countRule }}
+        {{ $nodeTable }}
         WHEN the question names a namespace THEN pass namespace
         WHEN the question names labels or a selectable field THEN pass labelSelector or fieldSelector
         {{ $noWildcard }} Omit namespace to list every namespace.
@@ -129,13 +140,15 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         namespace:
           description: "ASSERT the exact namespace name, for a namespaced kind; cluster-scoped kinds such as Node and Namespace ignore it.\nWHEN the question covers every namespace THEN omit namespace or pass an empty string\n{{ $noWildcard }}"
         labelSelector:
-          description: "ASSERT a server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes."
+          description: "ASSERT a server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes.\nASSERT a label the objects do not carry matches nothing and returns an empty result; a worker Node usually has no node-role label (its ROLES column shows <none>), so to list every Node pass no selector."
         fieldSelector:
-          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table.\nASSERT each term is field=value or field!=value, never a field name alone.\nASSERT memory, CPU, capacity and allocatable cannot be selected; to compare them, list the objects without a selector and read the table, or use a metrics tool."
+          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table.\nASSERT each term is field=value or field!=value, never a field name alone.\nASSERT memory, CPU, capacity and allocatable cannot be selected and the Node table has no column for them; read a Node's status.capacity and status.allocatable with resources_get, or use a metrics tool for usage."
           rules:
             {{- toYaml $selectorRules | nindent 12 }}
         limit:
           description: {{ $limitParam | toJson }}
+          rules:
+            {{- toYaml $limitRules | nindent 12 }}
     - name: pods_top
       description: |-
         DESCRIPTION CPU and memory from the Metrics Server, one row per container, not per pod
