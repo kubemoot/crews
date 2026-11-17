@@ -36,7 +36,8 @@ PROTOCOL_VERSION = "2025-03-26"
 N_ITEMS = 25
 N_BOOKS = 50
 BOOK_TYPES = ["books"]
-OTHER_TYPES = ["videos", "courses", "live-events", "interactive", "audiobooks", "certifications"]
+OTHER_TYPES = ["videos", "courses", "interactive", "audiobooks", "certifications"]
+LIVE_TYPES = ["live-events"]
 TIMEOUT_SECONDS = 15
 MAX_REPLY_BYTES = 5_000_000
 MAX_UPSTREAM_MESSAGE_CHARS = 160
@@ -51,7 +52,8 @@ TOOLS = [
     {
         "name": "find_released",
         "description": "Search the O'Reilly catalog for released books, videos, courses and other recorded "
-                       "content on a topic. Every item is labelled Released and the list is newest first.",
+                       "content on a topic (not live events: find_live_events has those). Every item is "
+                       "labelled Released and the list is newest first. For one person's work use find_by_author.",
         "argument": "topic",
         "argument_description": "Descriptive keywords for the topic, not a question",
     },
@@ -64,9 +66,11 @@ TOOLS = [
     },
     {
         "name": "find_by_author",
-        "description": "Find the work of one author in the O'Reilly catalog. Books (up to 50 "
-                       "per status) come first as released_books newest first and scheduled_books soonest first; "
-                       "other formats (videos, courses, live events and more) are only the newest 25 per status. "
+        "description": "Find the work of one author in the O'Reilly catalog, books and live events included. "
+                       "Books (up to 50 per status) come first as released_books newest first and "
+                       "scheduled_books soonest first; other recorded formats (videos, courses and more) are "
+                       "only the newest 25 per status; upcoming_live_events lists the author's live events "
+                       "and live courses with every session date, soonest first. "
                        "A message says when a list may be missing items. "
                        "Every item is labelled Released or Scheduled.",
         "argument": "name",
@@ -83,7 +87,8 @@ TOOLS = [
     {
         "name": "find_live_events",
         "description": "Search the O'Reilly catalog for upcoming live events and live courses on a topic, with "
-                       "their session dates, soonest first.",
+                       "their session dates, soonest first. Past events are never listed. For one person's "
+                       "live events use find_by_author.",
         "argument": "topic",
         "argument_description": "Descriptive keywords for the topic, not a question",
     },
@@ -296,8 +301,10 @@ def items_from(text):
     if failed:
         raise CatalogError(f"the gateway said: {short(content)}")
     try:
-        payload = json.loads(content)
-        return [item for item in payload["search_results"].values() if isinstance(item, dict)]
+        results = json.loads(content)["search_results"]
+        # The catalog answers {urn: item} when it found items and [] when it found none.
+        found = results.values() if isinstance(results, dict) else list(results if isinstance(results, list) else None)
+        return [item for item in found if isinstance(item, dict)]
     except (ValueError, KeyError, TypeError, AttributeError):
         raise CatalogError(f"the catalog did not return results: {short(content)}") from None
 
@@ -312,7 +319,7 @@ def topic_search(catalog, topic, today, released):
 
 
 def find_released(catalog, topic, today):
-    items = topic_search(catalog, topic, today, True)
+    items = [i for i in topic_search(catalog, topic, today, True) if not i.get("live_event_start_dates")]
     author = named_author(topic, items)
     if author:
         return author_pointer(topic, author)
@@ -356,6 +363,24 @@ def author_group(catalog, name, group, today):
     return found[True], found[False], notes
 
 
+def live_search(catalog, arguments):
+    """Upcoming live events. The catalog never returns past ones and its publication_date is not the
+    session date, so a date range would drop events; the order is the soonest session first."""
+    return catalog.search({**arguments, "content_types": LIVE_TYPES, "n_items": N_ITEMS,
+                           "order_by": "upcoming_events", "sort_order": "asc"})
+
+
+def author_live_events(catalog, name, wanted, today):
+    """(upcoming live events of the author, notes naming a failed search)."""
+    try:
+        items = live_search(catalog, {"query": "*", "author_filter": [name]})
+    except CatalogError as err:
+        return None, [f"the live events could not be searched ({err})"]
+    _, scheduled = ordered([i for i in items if has_author(i, wanted)], today)
+    return scheduled, [f"the live events reached the limit of {N_ITEMS}, so later ones may be missing"] \
+        if len(items) >= N_ITEMS else []
+
+
 def find_by_author(catalog, name, today):
     """The author's books and the newest items of the other formats, each group searched on its own.
 
@@ -366,7 +391,8 @@ def find_by_author(catalog, name, today):
         return {"message": "Give the author's full name (first and last name)."}
     books = author_group(catalog, name, AUTHOR_GROUPS[0], today)
     other = author_group(catalog, name, AUTHOR_GROUPS[1], today)
-    if all(found is None for group in (books, other) for found in group[:2]):
+    live, live_notes = author_live_events(catalog, name, wanted, today)
+    if live is None and all(found is None for group in (books, other) for found in group[:2]):
         raise CatalogError("every author search failed")
     mine_books = [i for i in merge_unique(books[0] or [], books[1] or []) if has_author(i, wanted)]
     in_books = {item_key(i) for i in mine_books}
@@ -375,8 +401,9 @@ def find_by_author(catalog, name, today):
     released_books, scheduled_books = ordered(mine_books, today)
     released_other, scheduled_other = ordered(mine_other, today)
     payload = {"released_books": released_books, "scheduled_books": scheduled_books,
-               "released_other_formats": released_other, "scheduled_other_formats": scheduled_other}
-    notes = books[2] + other[2]
+               "released_other_formats": released_other, "scheduled_other_formats": scheduled_other,
+               "upcoming_live_events": live or []}
+    notes = books[2] + other[2] + live_notes
     if notes:
         payload["message"] = "Part of this list may be missing: " + "; ".join(notes) + "."
     return payload
@@ -390,8 +417,10 @@ def find_title(catalog, title, today):
 
 
 def find_live_events(catalog, topic, today):
-    items = catalog.search({"query": topic, "content_types": ["live-events"], "n_items": N_ITEMS,
-                            "order_by": "upcoming_events", "sort_order": "asc"})
+    items = live_search(catalog, {"query": topic})
+    author = named_author(topic, items)
+    if author:
+        return author_pointer(topic, author)
     _, scheduled = ordered(items, today)
     return {"scheduled": scheduled}
 
@@ -431,22 +460,24 @@ def argument_of(name, arguments):
 
 
 class RecentCalls:
-    """Remembers successful searches for a short while, so a repeat can be answered without repeating it."""
+    """Remembers successful searches and their results for a short while, so a repeat is answered
+    from memory, whichever caller of the thread made the first search."""
 
     def __init__(self, clock=time.monotonic, window=REPEAT_SECONDS):
         self._clock, self._window, self._seen = clock, window, {}
 
-    def repeated(self, key):
+    def earlier(self, key):
+        """The result of the same search run within the window, or None."""
         now = self._clock()
-        self._seen = {k: t for k, t in self._seen.items() if now - t < self._window}
-        return key in self._seen
+        self._seen = {k: v for k, v in self._seen.items() if now - v[0] < self._window}
+        return self._seen[key][1] if key in self._seen else None
 
-    def remember(self, key):
-        self._seen[key] = self._clock()
+    def remember(self, key, result):
+        self._seen[key] = (self._clock(), result)
 
 
-REPEAT_MESSAGE = ("This exact search was just run, so its results are the same as before. If you have them above, "
-                  "use them or search with different keywords; otherwise try again in a few seconds.")
+REPEAT_NOTE = ("This repeats an identical search run moments ago in this thread, so these are the same results "
+               "as before; search with different keywords for anything new.")
 
 
 def call_key(name, value, meta):
@@ -470,13 +501,14 @@ def call_tool(name, arguments, catalog, today, source="the default time zone UTC
     if value is None:
         return text_result(f"{name} needs its one text argument (at most {MAX_ARGUMENT_CHARS} characters)", True)
     key = call_key(name, value, meta)
-    if recent and recent.repeated(key):
-        return text_result(json.dumps({"today": today.isoformat(), "message": REPEAT_MESSAGE}))
+    earlier = recent.earlier(key) if recent else None
+    if earlier is not None:
+        return text_result(json.dumps({"repeat": REPEAT_NOTE, **earlier}, ensure_ascii=False))
     try:
         found = with_nothing_found(HANDLERS[name](catalog, value, today), value, today)
         payload = {"today": today.isoformat(), "dateSource": source, **found}
         if recent:
-            recent.remember(key)
+            recent.remember(key, payload)
         return text_result(json.dumps(payload, ensure_ascii=False))
     except CatalogError as err:
         return text_result(f"The O'Reilly catalog could not be searched: {err}", True)

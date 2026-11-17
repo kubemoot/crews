@@ -135,11 +135,11 @@ class SearchArgumentsTest(unittest.TestCase):
         out = server.find_scheduled(catalog, "agents", TODAY)
         self.assertEqual(["B"], [e["title"] for e in out["scheduled"]])
 
-    def test_the_author_search_makes_four_calls(self):
+    def test_the_author_search_makes_five_calls(self):
         ford = ["Neal Ford"]
         catalog = FakeCatalog([book("Past", "2025-01-01", authors=ford)], [book("Future", "2027-02-25", authors=ford)])
         out = server.find_by_author(catalog, "Neal Ford", TODAY)
-        past, future, other_past, other_future = catalog.calls
+        past, future, other_past, other_future, _live = catalog.calls
         self.assertEqual(["Neal Ford"], past["author_filter"])
         self.assertEqual("*", past["query"])
         self.assertEqual("2026-10-20", past["date_range"]["end_date"])
@@ -164,6 +164,57 @@ class SearchArgumentsTest(unittest.TestCase):
         self.assertEqual("upcoming_events", call["order_by"])
         self.assertNotIn("date_range", call)
         self.assertEqual("Scheduled", out["scheduled"][0]["status"])
+
+    def test_a_live_search_with_no_results_is_nothing_found_not_an_error(self):
+        # The catalog answers an empty list, not an empty object, when it finds nothing.
+        reply = json.dumps({"isError": False, "content": json.dumps({"search_results": []})})
+        self.assertEqual([], server.items_from(reply))
+        result = server.call_tool("find_live_events", {"topic": "watermarking"},
+                                  server.GatewayCatalog("http://gw", opener=lambda *a, **k: io.BytesIO(reply.encode())),
+                                  TODAY)
+        self.assertFalse(result["isError"])
+        self.assertIn("Nothing found", json.loads(result["content"][0]["text"])["message"])
+
+    def test_items_from_reads_a_list_of_items(self):
+        reply = json.dumps({"isError": False, "content": json.dumps({"search_results": [{"title": "T"}, "x"]})})
+        self.assertEqual([{"title": "T"}], server.items_from(reply))
+
+    def test_items_from_refuses_a_result_that_is_neither_list_nor_object(self):
+        reply = json.dumps({"isError": False, "content": json.dumps({"search_results": "none"})})
+        with self.assertRaises(server.CatalogError):
+            server.items_from(reply)
+
+    def test_an_author_search_lists_their_live_events_with_no_date_filter(self):
+        hopkins = "Bruce Hopkins"
+        live = {**event("Series", ["2026-11-19T16:00:00Z", "2026-12-03T16:00:00Z"]), "authors": [hopkins],
+                "publication_date": "2026-09-03"}
+        catalog = FakeCatalog([], [], [], [], [live])
+        out = server.find_by_author(catalog, hopkins, TODAY)
+        self.assertEqual(["Series"], [e["title"] for e in out["upcoming_live_events"]])
+        self.assertEqual(["2026-11-19T16:00:00Z", "2026-12-03T16:00:00Z"],
+                         out["upcoming_live_events"][0]["live_event_start_dates"])
+        call = catalog.calls[4]
+        self.assertEqual(["live-events"], call["content_types"])
+        self.assertEqual([hopkins], call["author_filter"])
+        self.assertEqual("upcoming_events", call["order_by"])
+        self.assertNotIn("date_range", call)
+        for other in catalog.calls[:4]:
+            self.assertNotIn("live-events", other["content_types"])
+
+    def test_a_failed_live_search_is_named_and_the_rest_of_the_author_list_stays(self):
+        catalog = FailingNthCatalog({5}, [book("B", "2026-01-01", authors=["Bruce Hopkins"])], [], [], [])
+        out = server.find_by_author(catalog, "Bruce Hopkins", TODAY)
+        self.assertEqual(1, len(out["released_books"]))
+        self.assertIn("live events could not be searched", out["message"])
+
+    def test_the_released_search_leaves_live_events_to_find_live_events(self):
+        out = server.find_released(FakeCatalog([book("B", "2026-01-01"), event("E", ["2026-11-01"])]), "x", TODAY)
+        self.assertEqual(["B"], [e["title"] for e in out["released"]])
+
+    def test_a_live_event_topic_that_names_an_author_points_to_find_by_author(self):
+        items = [{**event(f"E{i}", ["2026-11-01"]), "authors": ["Bruce Hopkins"]} for i in range(3)]
+        out = server.find_live_events(FakeCatalog(items), "Bruce Hopkins", TODAY)
+        self.assertIn("find_by_author", out["message"])
 
     def test_the_model_cannot_supply_dates_or_counts(self):
         catalog = FakeCatalog([])
@@ -359,7 +410,7 @@ class NothingFoundAndRepeatTest(unittest.TestCase):
                                   FakeCatalog([book("B", "2026-01-01", authors=["Someone Else"])], []), TODAY)
         self.assertIn("Nothing found", self.text(result)["message"])
 
-    def test_the_same_search_within_the_window_gets_the_repeat_message(self):
+    def test_the_same_search_within_the_window_gets_the_same_results_with_a_note(self):
         clock = [100.0]
         recent = server.RecentCalls(lambda: clock[0], 20)
         catalog = FakeCatalog([book("B", "2026-01-01")], [book("B", "2026-01-01")])
@@ -367,7 +418,9 @@ class NothingFoundAndRepeatTest(unittest.TestCase):
         clock[0] = 110.0
         again = server.call_tool("find_released", {"topic": "vector dbs"}, catalog, TODAY, recent=recent)
         self.assertIn("released", self.text(first))
-        self.assertEqual(server.REPEAT_MESSAGE, self.text(again)["message"])
+        self.assertEqual(server.REPEAT_NOTE, self.text(again)["repeat"])
+        self.assertEqual(self.text(first)["released"], self.text(again)["released"])
+        self.assertNotIn("repeat", self.text(first))
         self.assertEqual(1, len(catalog.calls))
 
     def test_an_empty_title_or_events_search_says_nothing_was_found(self):
@@ -385,8 +438,11 @@ class NothingFoundAndRepeatTest(unittest.TestCase):
                 "name": "find_released", "arguments": {"topic": "x"}, "_meta": {"threadId": thread}}}
             reply = server.handle(message, catalog, "UTC", lambda: NOW, recent)
             return json.loads(reply["result"]["content"][0]["text"])
-        self.assertIn("released", ask("t1"))
-        self.assertEqual(server.REPEAT_MESSAGE, ask("t1")["message"])
+        first = ask("t1")
+        self.assertIn("released", first)
+        again = ask("t1")
+        self.assertEqual(server.REPEAT_NOTE, again["repeat"])
+        self.assertEqual(first["released"], again["released"])
         self.assertIn("released", ask("t2"))
 
     def test_serve_keeps_one_guard_across_messages(self):
@@ -398,14 +454,34 @@ class NothingFoundAndRepeatTest(unittest.TestCase):
         replies = [json.loads(line) for line in stdout.getvalue().splitlines()]
         texts = [json.loads(r["result"]["content"][0]["text"]) for r in replies]
         self.assertIn("released", texts[0])
-        self.assertEqual(server.REPEAT_MESSAGE, texts[1]["message"])
+        self.assertEqual(texts[0]["released"], texts[1]["released"])
+        self.assertEqual(server.REPEAT_NOTE, texts[1]["repeat"])
 
-    def test_a_repeat_of_nothing_found_is_also_answered_briefly(self):
+    def test_a_repeat_of_nothing_found_is_also_answered_from_memory(self):
         recent = server.RecentCalls(lambda: 1.0, 20)
         catalog = FakeCatalog([], [])
         server.call_tool("find_released", {"topic": "zzz"}, catalog, TODAY, recent=recent)
         again = server.call_tool("find_released", {"topic": "zzz"}, catalog, TODAY, recent=recent)
-        self.assertEqual(server.REPEAT_MESSAGE, self.text(again)["message"])
+        self.assertEqual(server.REPEAT_NOTE, self.text(again)["repeat"])
+        self.assertIn("Nothing found", self.text(again)["message"])
+
+    def test_a_second_caller_of_the_same_search_gets_the_data_not_just_a_note(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        catalog = FakeCatalog([], [], [], [], [], [])
+        server.call_tool("find_by_author", {"name": "Bruce Hopkins"}, catalog, TODAY, recent=recent)
+        again = server.call_tool("find_by_author", {"name": "Bruce Hopkins"}, catalog, TODAY, recent=recent)
+        body = self.text(again)
+        self.assertIn("released_books", body)
+        self.assertIn("upcoming_live_events", body)
+
+    def test_a_failed_search_is_not_remembered(self):
+        recent = server.RecentCalls(lambda: 1.0, 20)
+        failing = server.call_tool("find_released", {"topic": "x"}, FakeCatalog(error=server.CatalogError("x")),
+                                   TODAY, recent=recent)
+        self.assertTrue(failing["isError"])
+        ok = server.call_tool("find_released", {"topic": "x"}, FakeCatalog([book("B", "2026-01-01")]), TODAY,
+                              recent=recent)
+        self.assertNotIn("repeat", self.text(ok))
 
     def test_the_same_search_after_the_window_runs_again(self):
         clock = [100.0]
