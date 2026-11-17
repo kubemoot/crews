@@ -13,6 +13,7 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "code-sandbox-mcp") }}
+  description: "Runs a short Python or bash program an agent writes, inside an isolated pod with a time limit and capped output, and returns stdout, stderr, and the exit code."
   # Kubemoot code-sandbox: the agent writes a short Python or bash program, the
   # server runs it inside THIS pod (no stdin, a time limit that kills the whole
   # process group, capped output) and returns stdout, stderr and the exit code.

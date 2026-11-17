@@ -8,6 +8,7 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "web-search-mcp") }}
+  description: "Searches the web with DuckDuckGo and fetches the text of a page."
   # Web search and page fetch for the internet-search researcher: the DuckDuckGo
   # MCP server (github.com/nickclyde/duckduckgo-mcp-server, MIT), tools search and
   # fetch_content. It needs egress to the internet and no cluster credentials.
