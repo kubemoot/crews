@@ -8,7 +8,7 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
-  description: "Reads slices of large results kept outside the discussion (head, tail, grep, count, rows, select, jq), so a whole result never enters a model's context."
+  description: "Reads slices of large results kept outside the discussion (head, tail, grep, and query), so a whole result never enters a model's context."
   # Shared workspace read service. Network-capable agents (analyst, RAG,
   # coordinator) call head/tail/grep/query over a referenced workspace
   # KEY to sip a slice near the data, so a bulk object never enters an LLM context -
