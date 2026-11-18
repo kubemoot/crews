@@ -387,11 +387,9 @@ mcpServers:
     # network-capable agents call head/tail/grep/query over a
     # referenced key of the discussion workspace to read a slice of the data where it is stored.
     enabled: true
-    # Sized from the 2026-11-17 gate: the default 128Mi limit was OOMKilled (cgroup working-set peaks
-    # of 84-94Mi earlier, 128Mi when killed) once agents stored whole lists. A workspace_query may
-    # grow the process by queryMemory (the service default is 256MB) and two run at once, so the
-    # limit holds the process, two queries at queryMemory and a margin; a query over queryMemory
-    # is stopped with an error instead of the container being killed.
+    # A workspace_query may grow the process by queryMemory and two run at once; the limit holds the
+    # process, two queries and a margin. A query over queryMemory stops with an error instead of the
+    # container being killed.
     queryMemory: "128MB"
     resources:
       requests:
