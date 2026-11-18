@@ -26,6 +26,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - kubernetes
     - k8s
     - metrics
+    - observability
+    - prometheus
   discussKeywords:
     - top
     - cpu
