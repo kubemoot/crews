@@ -106,8 +106,7 @@ check "self-test: pods_exec is not a read-only Kubernetes tool" "pods_exec" "$(m
 check "every MCPServer has a spec.description" "" \
   "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out_all" | tr '\n' ' ' | sed 's/ $//')"
 
-# The workspace server was OOMKilled at 128Mi once agents stored whole lists: its memory is a value,
-# at least 512Mi by default, and the query memory guard sits below what two queries can hold.
+# The workspace server's memory is a value, at least 512Mi by default, with the query memory guard below what two queries hold.
 ro() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"artifact-readops-mcp\") | $1" <<<"$2"; }
 check "read-ops: the memory limit is 512Mi" 512Mi "$(ro '.spec.resources.limits.memory' "$out")"
 check "read-ops: the memory request is 256Mi" 256Mi "$(ro '.spec.resources.requests.memory' "$out")"

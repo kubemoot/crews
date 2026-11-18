@@ -122,7 +122,7 @@ check "the read-ops server names no image" null "$(readops .spec.image <<<"$out"
 check "the read-ops server keeps its stdio transport" stdio "$(readops .spec.transport <<<"$out")"
 check "the read-ops server keeps the Buildpacks launcher" /cnb/process/web "$(readops '.spec.command[0]' <<<"$out")"
 check "the read-ops server keeps ARTIFACT_MODE mcp" mcp "$(readops '.spec.env[] | select(.name == "ARTIFACT_MODE") | .value' <<<"$out")"
-check "the read-ops memory limit is 512Mi (128Mi was OOMKilled under whole lists)" 512Mi "$(readops .spec.resources.limits.memory <<<"$out")"
+check "the read-ops memory limit is 512Mi" 512Mi "$(readops .spec.resources.limits.memory <<<"$out")"
 check "the read-ops memory request is 256Mi" 256Mi "$(readops .spec.resources.requests.memory <<<"$out")"
 check "the read-ops query memory guard is 128MB" 128MB "$(readops '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' <<<"$out")"
 check "the read-ops memory is a value" 1Gi \
