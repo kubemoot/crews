@@ -171,6 +171,8 @@ A runtime that predates the placeholder leaves the text `${agent.tools}` in the 
 
 `tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead.namespaces`, `kubernetesAccess.write.namespaces`, `compute.workspaceQuery`, `advisors.workspaceQuery`) on and off.
 
+The workspace server (`artifact-readops-mcp`, which runs `workspace_query`) takes its memory from `mcpServers.artifactReadOps.resources` (request 256Mi, limit 512Mi by default) and caps what one query may add to the process with `mcpServers.artifactReadOps.queryMemory` (`WORKSPACE_QUERY_MEMORY`, 128MB). Two queries run at once, so the limit must hold both plus the process; a query over the cap stops with an error and the container stays up. The same two values exist in the O'guide crew chart.
+
 ## Tool overrides
 
 A tool result is as large as what the call asks for. The chart rewrites the descriptions agents see, through the `toolOverrides` on each `MCPServer`, so the narrow form of a call is the obvious one. The descriptions are ADL, like the prompts.

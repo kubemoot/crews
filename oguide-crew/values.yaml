@@ -91,6 +91,20 @@ nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
 
 mcpServers:
+  artifactReadOps:
+    # Sized from the 2026-11-17 gate: the default 128Mi limit was OOMKilled (cgroup working-set peaks
+    # of 84-94Mi earlier, 128Mi when killed) once agents stored whole lists. A workspace_query may
+    # grow the process by queryMemory (the service default is 256MB) and two run at once, so the
+    # limit holds the process, two queries at queryMemory and a margin; a query over queryMemory
+    # is stopped with an error instead of the container being killed.
+    queryMemory: "128MB"
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
   search:
     # The crew's search server runs in the official Python image, pinned by digest (never a
     # tag); its code is search-server/server.py, delivered through a Secret.
