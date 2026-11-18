@@ -359,6 +359,100 @@ class AuthorTest(unittest.TestCase):
         self.assertIn("released", server.find_released(FakeCatalog(items), "Neal Ford", TODAY))
 
 
+# An item as the catalog returns it (search_oreilly_content, 2026-11-17).
+RECORDED_VIDEO = {
+    "url": "https://learning.oreilly.com/videos/-/9780135480892/?orm_source=mcp", "page_count": None,
+    "title": "Building Intelligent AI Agents", "publication_date": "2025-09-19", "live_event_start_dates": None,
+    "marketing_type": "on-demand course", "publisher_names": ["Pearson"], "ourn": "urn:orm:video:9780135480892",
+    "authors": ["Bruce Hopkins"], "tags": ["structured-learning"], "image_url": "https://example.test/i.jpg",
+    "duration": 9089, "display_format": "video", "relevance_score": 6.167e-05}
+
+
+def tax_book(i):
+    """A catalog item recorded for the tax-law author who shares a name with the AI author."""
+    return book(f"Tax Law {i}", "2020-05-01", authors=["Bruce R. Hopkins"],
+                tags=["Nonprofit law", "Tax"], publisher_names=["Wiley"])
+
+
+class SameNameAuthorTest(unittest.TestCase):
+    def catalog(self):
+        ai_book = book("AI Agents", "2026-03-01", authors=["Bruce Hopkins"], tags=["AI", "Agents"])
+        course = {**event("Agents Live", ["2026-11-19T16:00:00Z"]), "authors": ["Bruce Hopkins"], "tags": ["AI"]}
+        return FakeCatalog([ai_book, *[tax_book(i) for i in range(15)]], [], [], [], [course])
+
+    def test_two_entries_for_one_name_are_returned_as_separate_groups(self):
+        out = server.find_by_author(self.catalog(), "Bruce Hopkins", TODAY)
+        self.assertEqual(["Bruce Hopkins", "Bruce R. Hopkins"], [g["author"] for g in out["authors"]])
+        ai, tax = out["authors"]
+        self.assertEqual(["AI Agents"], [b["title"] for b in ai["released_books"]])
+        self.assertEqual(["Agents Live"], [e["title"] for e in ai["upcoming_live_events"]])
+        self.assertEqual(15, len(tax["released_books"]))
+        self.assertEqual(15, tax["item_counts"]["released_books"])
+        self.assertEqual(["Nonprofit law", "Tax", "Tax Law 0", "Tax Law 1", "Tax Law 2"], tax["topics"])
+        self.assertEqual(["Wiley"], tax["publishers"])
+        self.assertEqual(["AI", "Agents", "AI Agents", "Agents Live"], ai["topics"])
+        self.assertNotIn("released_books", out)
+
+    def test_the_result_says_the_name_matches_more_than_one_author(self):
+        out = server.find_by_author(self.catalog(), "Bruce Hopkins", TODAY)
+        self.assertIn("2 different author entries", out["message"])
+        self.assertIn('"Bruce R. Hopkins"', out["message"])
+
+    def test_a_missing_list_note_stays_beside_the_same_name_message(self):
+        catalog = FailingNthCatalog({5}, [tax_book(1), book("B", "2020-01-01", authors=["Bruce Hopkins"])], [], [], [])
+        out = server.find_by_author(catalog, "Bruce Hopkins", TODAY)
+        self.assertIn("different author entries", out["message"])
+        self.assertIn("live events could not be searched", out["message"])
+
+    def test_topics_use_tags_then_titles_and_skip_what_is_not_text(self):
+        items = [{"title": "A", "tags": []}, {"title": "B", "tags": ["x", 5, None, ["y"]]}, {"title": "C"}]
+        self.assertEqual(["x", "A", "B", "C"], server.topics_of(items))
+        self.assertEqual(["A", "B"], server.topics_of([{"title": "A"}, {"title": "B"}]))
+
+    def test_a_recorded_item_gives_its_tag_format_and_publisher(self):
+        other = {**RECORDED_VIDEO, "authors": ["Bruce R. Hopkins"], "url": "u2", "tags": []}
+        out = server.find_by_author(FakeCatalog([], [], [RECORDED_VIDEO, other], []), "Bruce Hopkins", TODAY)
+        ai = out["authors"][0]
+        self.assertEqual("Bruce Hopkins", ai["author"])
+        self.assertEqual(["structured-learning", "Building Intelligent AI Agents"], ai["topics"])
+        self.assertEqual(["on-demand course"], ai["formats"])
+        self.assertEqual(["Pearson"], ai["publishers"])
+        self.assertEqual("2 h 31 min", ai["released_other_formats"][0]["duration"])
+
+    def test_an_item_listing_two_matching_strings_is_in_both_groups(self):
+        both = book("Joint", "2021-01-01", authors=["Bruce Hopkins", "Bruce R. Hopkins"])
+        out = server.find_by_author(FakeCatalog([both], [], [], []), "Bruce Hopkins", TODAY)
+        self.assertEqual([1, 1], [g["item_counts"]["released_books"] for g in out["authors"]])
+
+    def test_one_entry_keeps_the_flat_result_with_no_groups(self):
+        out = server.find_by_author(FakeCatalog([tax_book(1)], [], [], []), "Bruce Hopkins", TODAY)
+        self.assertNotIn("authors", out)
+        self.assertNotIn("message", out)
+        self.assertEqual(1, len(out["released_books"]))
+
+
+class DurationTest(unittest.TestCase):
+    def test_seconds_become_hours_and_minutes(self):
+        cases = {37854: "10 h 31 min", 3600: "1 h", 2700: "45 min",
+                 7260: "2 h 1 min", 30: "30 s", 59: "59 s", 60: "1 min"}
+        for seconds, text in cases.items():
+            self.assertEqual(text, server.human_duration(seconds), seconds)
+
+    def test_a_value_that_is_not_seconds_is_returned_as_is(self):
+        for value in ("10h", None, True, -5):
+            self.assertEqual(value, server.human_duration(value))
+
+    def test_a_recorded_course_shows_no_raw_seconds(self):
+        course = {"title": "Course", "authors": ["A. Author"], "marketing_type": "course", "duration": 37854,
+                  "publication_date": "2025-01-01", "url": "u"}
+        out = server.shape(course, TODAY)
+        self.assertEqual("10 h 31 min", out["duration"])
+        self.assertNotIn("37854", json.dumps(out))
+
+    def test_an_item_without_duration_has_no_duration_field(self):
+        self.assertNotIn("duration", server.shape(book("B", "2020-01-01"), TODAY))
+
+
 class NameEdgeTest(unittest.TestCase):
     def test_a_name_with_no_usable_words_asks_for_a_full_name_and_searches_nothing(self):
         for name in ("J", "Jr", "A. B."):
