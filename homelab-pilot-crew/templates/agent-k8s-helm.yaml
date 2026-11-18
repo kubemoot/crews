@@ -26,6 +26,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # forbidden without it; resources_list then lists Flux HelmRelease objects, as the
   # helm_list description says. Install and uninstall register only with kubernetesAccess.write.namespaces.
   enabledTools: [helm_list, resources_list{{ if (include "homelab-pilot-crew.writeOn" $) }}, helm_install, helm_uninstall{{ end }}]
+  domains:
+    - kubernetes
+    - k8s
+    - helm
   discussKeywords:
     - helm
     - chart

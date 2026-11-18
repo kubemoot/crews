@@ -22,6 +22,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   triageSummary: "Answers questions about persistent storage: which claims exist and whether they are bound, their requested size, the volumes behind them, access modes, reclaim policies, and the StorageClasses and provisioners that create them."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8s-storage-system]
   enabledTools: [resources_list, resources_get, events_list]
+  domains:
+    - kubernetes
+    - k8s
   discussKeywords:
     - pv
     - pvc
