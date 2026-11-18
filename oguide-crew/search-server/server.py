@@ -73,7 +73,9 @@ TOOLS = [
                        "only the newest 25 per status; upcoming_live_events lists the author's live events "
                        "and live courses with every session date, soonest first. "
                        "A message says when a list may be missing items, or when the name matches more than "
-                       "one author entry (then authors holds one separate group per entry). "
+                       "one author entry (then authors holds one separate group per entry, each with author, "
+                       "item_counts, topics, formats, publishers and its own lists). Durations are text such as "
+                       "10 h 31 min. "
                        "Every item is labelled Released or Scheduled.",
         "argument": "name",
         "argument_description": "The author's full name",
@@ -182,6 +184,8 @@ def human_duration(value):
     """The catalog's duration in seconds as "10 h 31 min"; any other value is returned unchanged."""
     if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
         return value
+    if value < 60:
+        return f"{int(value)} s"
     minutes = int(value / 60 + 0.5)
     hours, minutes = divmod(minutes, 60)
     if hours and minutes:
@@ -444,16 +448,21 @@ def matching_names(items, wanted):
     return sorted({a for i in items for a in i.get("authors") or [] if wanted <= name_tokens(a)})
 
 
-def topics_of(items, limit=5):
-    """The most common topics of the items, or their first titles when the catalog gives no topics."""
+def common(items, key, limit=5):
+    """The most common string values of a field, or of each entry of a list field; other values are skipped."""
     counts = {}
     for item in items:
-        for topic in item.get("topics") or []:
-            if isinstance(topic, str):
-                counts[topic] = counts.get(topic, 0) + 1
-    if counts:
-        return [t for t, _ in sorted(counts.items(), key=lambda p: (-p[1], p[0]))[:limit]]
-    return [i["title"] for i in items[:3] if i.get("title")]
+        value = item.get(key)
+        for text in value if isinstance(value, list) else [value]:
+            if isinstance(text, str) and text:
+                counts[text] = counts.get(text, 0) + 1
+    return [t for t, _ in sorted(counts.items(), key=lambda p: (-p[1], p[0]))[:limit]]
+
+
+def topics_of(items, limit=5):
+    """What the items are about: their most common tags, then the first titles (tags are often empty)."""
+    titles = [i["title"] for i in items if i.get("title")][:3]
+    return [*common(items, "tags", limit), *titles]
 
 
 def split_by_author(names, mine_books, mine_other, live, today):
@@ -465,7 +474,9 @@ def split_by_author(names, mine_books, mine_other, live, today):
         lists = author_lists(own(mine_books), own(mine_other), own(live), today)
         items = [*own(mine_books), *own(mine_other), *own(live)]
         counts = {key: len(value) for key, value in lists.items()}
-        groups.append({"author": name, "item_counts": counts, "topics": topics_of(items), **lists})
+        groups.append({"author": name, "item_counts": counts, "topics": topics_of(items),
+                       "formats": common(items, "marketing_type"), "publishers": common(items, "publisher_names"),
+                       **lists})
     listed = ", ".join(f'"{n}"' for n in names)
     return {"message": f"The name matches {len(names)} different author entries in the catalog: {listed}. They may "
                        "be different people or one person listed two ways. Each group below is one entry, not "
