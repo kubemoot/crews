@@ -35,6 +35,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
       value: {{ .Values.nats.url | quote }}
     - name: ARTIFACT_BUCKET
       value: "kubemoot_discussion_artifacts"
+    - name: WORKSPACE_QUERY_MEMORY
+      value: {{ .Values.mcpServers.artifactReadOps.queryMemory | quote }}
   capabilities:
     - data-access
     - data-analysis
@@ -49,11 +51,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     seccompProfile:
       type: RuntimeDefault
   resources:
-    requests:
-      cpu: "50m"
-      memory: "64Mi"
-    limits:
-      cpu: "200m"
-      memory: "128Mi"
+    {{- toYaml .Values.mcpServers.artifactReadOps.resources | nindent 4 }}
 {{- end }}
 {{- end }}

@@ -32,6 +32,8 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
       value: {{ .Values.nats.url | quote }}
     - name: ARTIFACT_BUCKET
       value: "kubemoot_discussion_artifacts"
+    - name: WORKSPACE_QUERY_MEMORY
+      value: {{ .Values.mcpServers.artifactReadOps.queryMemory | quote }}
   capabilities:
     - data-access
     - data-analysis
@@ -46,9 +48,4 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     seccompProfile:
       type: RuntimeDefault
   resources:
-    requests:
-      cpu: "50m"
-      memory: "64Mi"
-    limits:
-      cpu: "200m"
-      memory: "128Mi"
+    {{- toYaml .Values.mcpServers.artifactReadOps.resources | nindent 4 }}
