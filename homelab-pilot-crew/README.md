@@ -366,7 +366,7 @@ chart values still render for one release.
    replaces `workspace.queryMemory` the same way.
 4. The Kubemoot image is `workspace-access` and the MCPServer field is
    `kubemootImage: workspaceAccess`; set `images.workspaceAccess` in KubemootConfig.
-5. In the sandbox the workspace is mounted at `/workspace` (the operator also mounts the same volume at `/artifacts` for
+5. In the sandbox the workspace is mounted at `/kubemoot/workspace`, not `/workspace`, which a Buildpacks image keeps its program in (the operator also mounts the same volume at `/artifacts` for
    one release). Custom environment uses `WORKSPACE_BUCKET`, `WORKSPACE_SUBJECT` and `WORKSPACE_DIR`,
    and the bucket is `kubemoot_workspace`; data in the old bucket is temporary and needs no copy.
 6. Operator setting `artifacts.queryEngine` is now `workspace.queryEngine`.

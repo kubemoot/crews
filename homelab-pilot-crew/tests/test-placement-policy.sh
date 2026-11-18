@@ -210,7 +210,10 @@ http_out="$(sbx --set mcpServers.codeSandbox.transport=http)"
 [ "$(yq '.spec.env[] | select(.name == "PORT") | .value' <<<"$http_out")" = "3000" ] || fail "http PORT must match the port"
 [ "$(yq '.spec.env[] | select(.name == "EXECUTION_TIMEOUT") | .value' <<<"$http_out")" = "25" ] || fail "http must keep EXECUTION_TIMEOUT"
 [ "$(yq '.spec.sidecars[0].name' <<<"$http_out")" = "workspace-access" ] || fail "http must keep the workspace-access sidecar"
-[ "$(yq '.spec.emptyDirVolumes[0].mountPath' <<<"$http_out")" = "/workspace" ] || fail "http must keep the /workspace volume"
+[ "$(yq '.spec.emptyDirVolumes[0].mountPath' <<<"$http_out")" = "/kubemoot/workspace" ] || fail "http must keep the /kubemoot/workspace volume"
+# The sandbox's volume is mounted where the materializer writes: the emptyDir path is the sidecar's WORKSPACE_DIR.
+[ "$(yq '.spec.emptyDirVolumes[0].mountPath' <<<"$http_out")" = "$(yq '.spec.sidecars[0].env[] | select(.name == "WORKSPACE_DIR") | .value' <<<"$http_out")" ] \
+  || fail "the code sandbox emptyDir mountPath must equal the sidecar WORKSPACE_DIR"
 http_rc="$(sbx --set mcpServers.codeSandbox.transport=http --set mcpServers.codeSandbox.runtimeClassName=gvisor)"
 [ "$(yq '.spec.runtimeClassName' <<<"$http_rc")" = "gvisor" ] || fail "http must keep runtimeClassName"
 err="$(render --set mcpServers.codeSandbox.transport=grpc 2>&1 >/dev/null || true)"

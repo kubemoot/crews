@@ -28,7 +28,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   promptRefs: [discussion-protocol, response-style, analyst-review-protocol, compute-system]
   # execute_code/validate_code run the math. The workspace tools read the stored results of
   # the other agents server-side by key, so a key goes to the workspace server instead of
-  # into open('/workspace/<key>') in sandbox code. The query tools need compute.workspaceQuery.
+  # into open('/kubemoot/workspace/<key>') in sandbox code. The query tools need compute.workspaceQuery.
   enabledTools: [execute_code, validate_code, workspace_head, workspace_tail, workspace_grep{{ if .Values.compute.workspaceQuery }}, workspace_query, workspace_list, workspace_describe{{ end }}]{{ include "homelab-pilot-crew.workspaceDisabled" (dict "root" $ "on" .Values.compute.workspaceQuery "tools" (list "workspace_query" "workspace_list" "workspace_describe")) }}
   discussKeywords:
     - count

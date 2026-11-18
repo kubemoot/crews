@@ -14,7 +14,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
   # adds the bridge sidecar (port is the bridge's TCP port).
   # kubemootImage selects the workspace-access image the operator's KubemootConfig names
   # (spec.images.workspaceAccess), so the operator also wires the workspace query engine
-  # (WORKSPACE_QUERY_ENGINE, the /workspace emptyDir and TMPDIR). It is exclusive with image.
+  # (WORKSPACE_QUERY_ENGINE, the /kubemoot/workspace emptyDir and TMPDIR). It is exclusive with image.
   kubemootImage: workspaceAccess
   transport: stdio
   # Buildpacks image: the launcher /cnb/process/web starts the binary. The bridge runs
