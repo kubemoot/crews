@@ -107,13 +107,17 @@ check "every MCPServer has a spec.description" "" \
   "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out_all" | tr '\n' ' ' | sed 's/ $//')"
 
 # The workspace server's memory is a value, at least 512Mi by default, with the query memory guard below what two queries hold.
-ro() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"artifact-readops-mcp\") | $1" <<<"$2"; }
+ro() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"workspace-mcp\") | $1" <<<"$2"; }
 check "read-ops: the memory limit is 512Mi" 512Mi "$(ro '.spec.resources.limits.memory' "$out")"
 check "read-ops: the memory request is 256Mi" 256Mi "$(ro '.spec.resources.requests.memory' "$out")"
 check "read-ops: the query memory guard is 128MB" 128MB "$(ro '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' "$out")"
 check "read-ops: resources are a value" 1Gi \
+  "$(ro '.spec.resources.limits.memory' "$(render --set mcpServers.workspace.resources.limits.memory=1Gi)")"
+check "read-ops: the old artifactReadOps resources still apply" 1Gi \
   "$(ro '.spec.resources.limits.memory' "$(render --set mcpServers.artifactReadOps.resources.limits.memory=1Gi)")"
 check "read-ops: the query memory is a value" 64MB \
+  "$(ro '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' "$(render --set mcpServers.workspace.queryMemory=64MB)")"
+check "read-ops: the old artifactReadOps query memory still applies" 64MB \
   "$(ro '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' "$(render --set mcpServers.artifactReadOps.queryMemory=64MB)")"
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }

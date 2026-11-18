@@ -105,6 +105,9 @@ two-space indent, so it starts with a newline.
 {{- $egress := default dict .root.Values.egress -}}
 {{- $named := default dict (get $egress .kind) -}}
 {{- $entry := index $named .name -}}
+{{- if and (eq .name "workspace-mcp") (kindIs "invalid" $entry) -}}
+{{- $entry = index $named "artifact-readops-mcp" -}}
+{{- end -}}
 {{- if and (eq .kind "agents") (kindIs "invalid" $entry) -}}
 {{- $entry = index $egress "agentsDefault" -}}
 {{- end -}}
@@ -344,7 +347,7 @@ NOTE: kubernetesAccess.{{ $tier }}.namespaces lists {{ . }}, which is not in kub
 {{- else }}
 This release (rbac.render: namespaced) renders no RBAC objects. The Kubernetes tool servers read what the release with rbac.render: cluster binds for {{ include "homelab-pilot-crew.rbacName" . }}-kubernetes-mcp and {{ include "homelab-pilot-crew.rbacName" . }}-k8sgpt-mcp.
 {{- end }}
-{{- end }}
+{{ include "homelab-pilot-crew.workspaceDeprecations" . }}{{- end }}
 
 {{/* Which part of the chart this release renders (values.yaml, rbac.render): "all" (also when the key is
 absent), "cluster" (only the objects a namespaced applier cannot create: ClusterRoles, ClusterRoleBindings and
@@ -408,4 +411,26 @@ and compute modules share it so the two descriptions cannot drift.
 */}}
 {{- define "homelab-pilot-crew.callLineNotes" -}}
 an [EMPTY RESULT] block after a call line means the call succeeded and returned nothing; args= may end with "(args cut at <n> of <m> chars)": the call ran with the full arguments
+{{- end }}
+
+{{/* The sandbox sidecar's image: mcpServers.workspace.image when a value sets it, otherwise the
+old mcpServers.artifactAccess.image when that is set, otherwise the stamped default. The chart's
+own default is the bare reference workspace-access:<tag>, so that form counts as not set. */}}
+{{- define "homelab-pilot-crew.workspaceImage" -}}
+{{- $new := .Values.mcpServers.workspace.image -}}
+{{- $old := dig "artifactAccess" "image" "" .Values.mcpServers -}}
+{{- if and $old (regexMatch "^workspace-access:[^/]*$" $new) -}}{{ $old }}{{- else -}}{{ $new }}{{- end -}}
+{{- end }}
+
+{{/* Warnings for the pre-workspace values that still apply for one release. */}}
+{{- define "homelab-pilot-crew.workspaceDeprecations" -}}
+{{- if hasKey .Values.mcpServers "artifactReadOps" }}
+DEPRECATED: mcpServers.artifactReadOps is renamed mcpServers.workspace (enabled, queryMemory, resources). The old value still applies for one release and is then removed.
+{{- end }}
+{{- if dig "artifactAccess" "image" "" .Values.mcpServers }}
+DEPRECATED: mcpServers.artifactAccess.image is renamed mcpServers.workspace.image. The old value still applies when mcpServers.workspace.image is not set, for one release.
+{{- end }}
+{{- if hasKey (default dict (default dict .Values.egress).mcpServers) "artifact-readops-mcp" }}
+DEPRECATED: egress.mcpServers.artifact-readops-mcp is renamed egress.mcpServers.workspace-mcp. The old key still applies for one release.
+{{- end }}
 {{- end }}

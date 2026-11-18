@@ -114,23 +114,27 @@ check "no pull secret by default" null "$(yq -N 'select(.kind == "MCPGateway") |
 check "a pull secret is a value" '[{"name":"p"}]' \
   "$(render --set 'imagePullSecrets[0].name=p' | yq -N -o=json -I=0 'select(.kind == "MCPGateway") | .spec.imagePullSecrets')"
 
-# The read-ops server selects Kubemoot's built-in artifact-access image; the chart names
+# The workspace server selects Kubemoot's built-in workspace-access image; the chart names
 # no image of its own (the operator takes it from KubemootConfig spec.images).
-readops() { yq -N 'select(.kind == "MCPServer" and .metadata.name == "artifact-readops-mcp") | '"$1"; }
-check "the read-ops server selects kubemootImage artifactAccess" artifactAccess "$(readops .spec.kubemootImage <<<"$out")"
-check "the read-ops server names no image" null "$(readops .spec.image <<<"$out")"
-check "the read-ops server keeps its stdio transport" stdio "$(readops .spec.transport <<<"$out")"
-check "the read-ops server keeps the Buildpacks launcher" /cnb/process/web "$(readops '.spec.command[0]' <<<"$out")"
-check "the read-ops server keeps ARTIFACT_MODE mcp" mcp "$(readops '.spec.env[] | select(.name == "ARTIFACT_MODE") | .value' <<<"$out")"
-check "the read-ops memory limit is 512Mi" 512Mi "$(readops .spec.resources.limits.memory <<<"$out")"
-check "the read-ops memory request is 256Mi" 256Mi "$(readops .spec.resources.requests.memory <<<"$out")"
-check "the read-ops query memory guard is 128MB" 128MB "$(readops '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' <<<"$out")"
-check "the read-ops memory is a value" 1Gi \
-  "$(render --set mcpServers.artifactReadOps.resources.limits.memory=1Gi | yq -N 'select(.metadata.name == "artifact-readops-mcp") | .spec.resources.limits.memory')"
-check "the chart pins no Kubemoot-built image value" "" "$(yq '.mcpServers.artifactAccess' "${chart}/values.yaml" | grep -v '^null$' || true)"
+readops() { yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | '"$1"; }
+check "the workspace server selects kubemootImage workspaceAccess" workspaceAccess "$(readops .spec.kubemootImage <<<"$out")"
+check "the workspace server names no image" null "$(readops .spec.image <<<"$out")"
+check "the workspace server keeps its stdio transport" stdio "$(readops .spec.transport <<<"$out")"
+check "the workspace server keeps the Buildpacks launcher" /cnb/process/web "$(readops '.spec.command[0]' <<<"$out")"
+check "the workspace server keeps WORKSPACE_MODE mcp" mcp "$(readops '.spec.env[] | select(.name == "WORKSPACE_MODE") | .value' <<<"$out")"
+check "the workspace server memory limit is 512Mi" 512Mi "$(readops .spec.resources.limits.memory <<<"$out")"
+check "the workspace server memory request is 256Mi" 256Mi "$(readops .spec.resources.requests.memory <<<"$out")"
+check "the workspace server query memory guard is 128MB" 128MB "$(readops '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' <<<"$out")"
+check "the workspace server memory is a value" 1Gi \
+  "$(render --set mcpServers.workspace.resources.limits.memory=1Gi | yq -N 'select(.metadata.name == "workspace-mcp") | .spec.resources.limits.memory')"
+check "the old artifactReadOps memory value still applies" 1Gi \
+  "$(render --set mcpServers.artifactReadOps.resources.limits.memory=1Gi | yq -N 'select(.metadata.name == "workspace-mcp") | .spec.resources.limits.memory')"
+check "the old artifactReadOps query memory still applies" 64MB \
+  "$(render --set mcpServers.artifactReadOps.queryMemory=64MB | yq -N 'select(.metadata.name == "workspace-mcp") | .spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value')"
+check "the chart pins no Kubemoot-built image value" "" "$(yq '.mcpServers.workspace.image' "${chart}/values.yaml" | grep -v '^null$' || true)"
 check "no :latest anywhere" 0 "$(grep -rc ':latest' "${chart}/values.yaml" "${chart}/templates" | awk -F: '{s += $NF} END {print s}')"
 check "the NATS URL is a value" nats://n.test:4222 \
-  "$(render --set nats.url=nats://n.test:4222 | yq -N 'select(.metadata.name == "artifact-readops-mcp") | .spec.env[] | select(.name == "NATS_URL") | .value')"
+  "$(render --set nats.url=nats://n.test:4222 | yq -N 'select(.metadata.name == "workspace-mcp") | .spec.env[] | select(.name == "NATS_URL") | .value')"
 
 # Agents: four, each labeled with the crew, each PromptModule it names shipped with it.
 check "renders four Agents" "curator,events-scout,library-search,oguide-coordinator" \
@@ -160,6 +164,26 @@ check "the curator has the three text tools with the query tool off" "workspace_
 # artifact_select and artifact_jq are retired in favor of workspace_query.
 check "no rendering names a retired or renamed artifact_* tool" 0 \
   "$( { render; render --set curator.workspaceQuery=false; } | grep -cE '(^|[^A-Za-z0-9_])artifact_(head|tail|grep|count|rows|select|jq)($|[^A-Za-z0-9_])' || true)"
+check "no rendering says artifact" 0 "$( { render; render --set curator.workspaceQuery=false; } | grep -ciE 'artifact' || true)"
+check "an egress entry keyed by the old server name still applies" true \
+  "$(render --set 'egress.mcpServers.artifact-readops-mcp.bus=true' | yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | .spec.egress.bus')"
+# The install notes a render prints. NOTES.txt only includes a helper, so a copy of the chart renders
+# the same helper into a ConfigMap that helm template keeps; helm install --dry-run needs a cluster
+# (or reads the current one) and so differs between a laptop and CI.
+notes_for() {
+  local probe
+  probe="$(mktemp -d)"
+  trap 'rm -rf "$probe"' RETURN
+  cp -r "$chart/." "$probe/"
+  printf '%s\n' 'apiVersion: v1' 'kind: ConfigMap' 'metadata:' '  name: notes-probe' 'data:' \
+    '  notes: {{ include "oguide-crew.workspaceDeprecations" . | toJson }}' >"$probe/templates/notes-probe.yaml"
+  helm template t "$probe" "$@" | yq -N 'select(.metadata.name == "notes-probe") | .data.notes'
+}
+check "the install notes warn about the old egress key" 1 \
+  "$(notes_for --set 'egress.mcpServers.artifact-readops-mcp.bus=true' | grep -c 'artifact-readops-mcp is renamed' || true)"
+check "the install notes warn about mcpServers.artifactReadOps" 1 \
+  "$(notes_for --set 'mcpServers.artifactReadOps.queryMemory=64MB' | grep -c 'mcpServers.artifactReadOps is renamed' || true)"
+check "the install notes do not warn without an old value" 0 "$(notes_for | grep -c DEPRECATED || true)"
 # Workspace access: write on the search agents, read on the curator, nothing on the coordinator.
 access() { yq -N 'select(.kind == "Agent") | .metadata.name + "=" + (.spec.workspace.access // "-")' <<<"$1" | sed 's/^oguide-//' | sort | paste -sd' '; }
 check "agents declare their workspace access" "coordinator=- curator=read events-scout=write library-search=write" "$(access "$out")"

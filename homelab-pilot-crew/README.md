@@ -175,7 +175,7 @@ A runtime that predates the placeholder leaves the text `${agent.tools}` in the 
 
 `tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead.namespaces`, `kubernetesAccess.write.namespaces`, `compute.workspaceQuery`, `advisors.workspaceQuery`) on and off.
 
-The workspace server (`artifact-readops-mcp`, which runs `workspace_query`) takes its memory from `mcpServers.artifactReadOps.resources` (request 256Mi, limit 512Mi by default) and caps what one query may add to the process with `mcpServers.artifactReadOps.queryMemory` (`WORKSPACE_QUERY_MEMORY`, 128MB). Two queries run at once, so the limit must hold both plus the process; a query over the cap stops with an error and the container stays up. The same two values exist in the O'guide crew chart.
+The workspace server (`workspace-mcp`, which runs `workspace_query`) takes its memory from `mcpServers.workspace.resources` (request 256Mi, limit 512Mi by default) and caps what one query may add to the process with `mcpServers.workspace.queryMemory` (`WORKSPACE_QUERY_MEMORY`, 128MB). Two queries run at once, so the limit must hold both plus the process; a query over the cap stops with an error and the container stays up. The same two values exist in the O'guide crew chart.
 
 ## Tool overrides
 
@@ -225,7 +225,7 @@ scheduler documentation, section "Placement policy".
 
 ## Workspace query
 
-`compute.workspaceQuery` (default `true`) adds the workspace tools to the compute agent's `enabledTools`: `workspace_query` (read-only SQL over the discussion's stored results, the way to count, filter, sort and total a listing), `workspace_list` (what the discussion has stored, from which tool, with its type, rows and errors) and `workspace_describe` (each stored table's columns, types and example values, read before writing a query). The tool's own description carries its usage and SQL dialect. The workspace read-ops server offers the query tools only when the Kubemoot operator's `artifacts.queryEngine` is set to `sqlite` or `duckdb`. With the operator's default `none` the agents do not register them (an agent registers only the tools its gateway offers).
+`compute.workspaceQuery` (default `true`) adds the workspace tools to the compute agent's `enabledTools`: `workspace_query` (read-only SQL over the discussion's stored results, the way to count, filter, sort and total a listing), `workspace_list` (what the discussion has stored, from which tool, with its type, rows and errors) and `workspace_describe` (each stored table's columns, types and example values, read before writing a query). The tool's own description carries its usage and SQL dialect. The workspace read-ops server offers the query tools only when the Kubemoot operator's `workspace.queryEngine` is set to `sqlite` or `duckdb`. With the operator's default `none` the agents do not register them (an agent registers only the tools its gateway offers).
 
 Without `workspace_query`, whether the switch is off or the operator's engine is `none`, compute cannot count, filter or select stored results: it has `workspace_head`, `workspace_tail` and `workspace_grep` and the code sandbox only. Its prompt still describes a query tool in that case.
 
@@ -346,3 +346,27 @@ The default, `stdio`, reaches the sandbox through the operator's bridge sidecar,
 ## Deployment
 
 The per-crew release workflow publishes the chart to `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` on each release commit to `main`.
+
+## Migrating from the artifact names
+
+Kubemoot renamed the discussion artifact store to the workspace. This chart follows; the old
+chart values still render for one release.
+
+1. Upgrade Kubemoot first (operator chart, so the CRDs accept `workspaceAccess`), then this chart.
+2. The workspace MCP server is now `workspace-mcp` (it was `artifact-readops-mcp`) and its
+   template is `mcpserver-workspace.yaml`. Rename any `egress.mcpServers.artifact-readops-mcp`
+   entry to `egress.mcpServers.workspace-mcp`; the old key still applies for one release.
+3. Rename `mcpServers.artifactReadOps.enabled` to `mcpServers.workspace.enabled` and
+   `mcpServers.artifactAccess.image` to `mcpServers.workspace.image`; both old values still apply
+   for one release and the install notes warn while they are set. When both image values are set,
+   `mcpServers.workspace.image` wins.
+   An old `mcpServers.artifactReadOps.resources` replaces the whole `mcpServers.workspace.resources`
+   map, it is not merged into it: set only `limits` there and the default `requests` are dropped,
+   so set both or move the value to `mcpServers.workspace.resources`. `artifactReadOps.queryMemory`
+   replaces `workspace.queryMemory` the same way.
+4. The Kubemoot image is `workspace-access` and the MCPServer field is
+   `kubemootImage: workspaceAccess`; set `images.workspaceAccess` in KubemootConfig.
+5. In the sandbox the workspace is mounted at `/workspace` (the operator also mounts the same volume at `/artifacts` for
+   one release). Custom environment uses `WORKSPACE_BUCKET`, `WORKSPACE_SUBJECT` and `WORKSPACE_DIR`,
+   and the bucket is `kubemoot_workspace`; data in the old bucket is temporary and needs no copy.
+6. Operator setting `artifacts.queryEngine` is now `workspace.queryEngine`.
