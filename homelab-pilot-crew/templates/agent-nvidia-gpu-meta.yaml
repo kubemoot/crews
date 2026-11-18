@@ -28,6 +28,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # Scrape health comes from the up series through the instant query; a full scrape-target
   # listing has no argument that narrows it and outgrows a tool result.
   enabledTools: [list_metrics, execute_query]
+  domains:
+    - gpu
+    - nvidia
+    - dcgm
   discussKeywords:
     - gpu
     - dcgm

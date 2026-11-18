@@ -26,6 +26,11 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   triageSummary: "Answers how a GPU metric trended over time: usage spikes, averages over an hour or a day, peaks, and comparisons across windows, with metric metadata for units. Not current state, not scrape health."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-history-system]
   enabledTools: [execute_range_query, get_metric_metadata]
+  domains:
+    - gpu
+    - nvidia
+    - dcgm
+    - vram
   discussKeywords:
     - gpu
     - trend

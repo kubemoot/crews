@@ -22,6 +22,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   triageSummary: "Cluster-wide diagnostics: runs K8sGPT deterministic analyzers to detect misconfigurations (Pods, Services, Ingresses, Deployments, StatefulSets, PVCs, NetworkPolicies) AND surfaces Kubernetes Events/warnings from any object (kubelet, scheduler, nodes, storage, controllers)."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, k8sgpt-system]
   enabledTools: [analyze, cluster-info, events_list]
+  domains:
+    - kubernetes
+    - k8s
   discussKeywords:
     - analyze
     - analysis

@@ -122,6 +122,10 @@ Agents act on text they read from tools and the web, so treat each namespace you
 - **1 coordinator** (`homelab-coordinator`) declares the `reasoning` capability and leans to a large model.
 - **Up to 22 specialists** (19 with the chart defaults, which leave Proxmox VE and scheduling off) cover Kubernetes (`k8s-*`, `k8sgpt`), observability (`obs-*`), GPU monitoring (`nvidia-gpu-*`), Proxmox (`proxmox-*`), computation (`compute`), scheduling, and internet search. They declare `tool-calling` plus their domain capability, and lean to medium models through `CrewSchedulingPolicy.spec.qualityBias`.
 
+## Agent domains
+
+Every tooler and analyst declares `spec.domains`, the subject areas it works in (`proxmox`, `kubernetes`, `gpu`, `observability`). The coordinator convenes the analysts that review a discussion by them: an analyst reviews when one of its domains is a domain of the question, or of a tooler that gathered data, so a Proxmox answer is reviewed by the Proxmox advisor alone. `compute` and `scheduler-advisor` declare none, so they review only when the coordinator selects them. Each analyst shares a domain with the toolers whose data it reviews; `tests/test-domains.sh` checks that. The `review` block of the crew's `MootArchetype` sets the rule (`convene: all` brings every analyst back).
+
 ## Agent descriptions
 
 The coordinator picks agents for a question from what each Agent says about itself. It reads each candidate's `description` and tool names. The resume search that narrows the candidates also embeds the `triageSummary`, the `discussKeywords`, and the agent's prompt.

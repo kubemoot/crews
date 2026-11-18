@@ -28,6 +28,11 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   triageSummary: "Answers what each NVIDIA GPU is doing right now: current utilization, VRAM use, temperature, power draw, and clock speeds. Not trends over time, not which metrics exist, not scrape health."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, nvidia-gpu-now-system]
   enabledTools: [execute_query]
+  domains:
+    - gpu
+    - nvidia
+    - dcgm
+    - vram
   discussKeywords:
     - gpu
     - gpus
