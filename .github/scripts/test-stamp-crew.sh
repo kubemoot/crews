@@ -46,9 +46,9 @@ for crew in "${crews[@]}"; do
   check "${crew} release workflow forces the candidate on that event" "1" \
     "$(grep -cF "force: \${{ inputs.force_release || github.event_name == 'repository_dispatch' }}" "${repo}/.github/workflows/${crew}-release.yaml")"
 done
-check "the pilot crews pin Kubemoot images as placeholders" "artifact-access code-sandbox scheduling-mcp" \
+check "the pilot crews pin Kubemoot images as placeholders" "code-sandbox scheduling-mcp workspace-access" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "O'guide pins no Kubemoot image (its read-ops server selects the operator's)" "" \
+check "O'guide pins no Kubemoot image (its workspace server selects the operator's)" "" \
   "$(rl_image_placeholders "${repo}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
@@ -57,7 +57,7 @@ trap 'rm -rf "$root"' EXIT
 git init -q -b main "${root}/kubemoot"
 git -C "${root}/kubemoot" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
 for t in code-sandbox-v0.14.4 code-sandbox-v0.17.0 code-sandbox-v0.18.0-rc.126 \
-  artifact-access-v0.342.1 artifact-access-v0.343.0 artifact-access-v0.344.0-rc.126 \
+  workspace-access-v0.342.1 workspace-access-v0.343.0 workspace-access-v0.344.0-rc.126 \
   scheduling-mcp-v0.1.0 scheduling-mcp-v0.2.0-rc.3 v0.99.0; do
   git -C "${root}/kubemoot" tag "$t"
 done
@@ -86,7 +86,7 @@ check "candidate chart version" "0.47.0-rc.4|0.47.0-rc.4" \
   "$(sed -n 's/^version: //p' "${root}/homelab-pilot-crew/Chart.yaml")|$(sed -n 's/^appVersion: //p' "${root}/homelab-pilot-crew/Chart.yaml")"
 images="$(rendered_images homelab-pilot-crew)"
 check "renders the newest candidate code-sandbox" 1 "$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.18.0-rc.126' <<<"$images")"
-check "renders the newest candidate artifact-access" 1 "$(grep -cx 'ghcr.io/kubemoot/artifact-access:0.344.0-rc.126' <<<"$images")"
+check "renders the newest candidate workspace-access" 1 "$(grep -cx 'ghcr.io/kubemoot/workspace-access:0.344.0-rc.126' <<<"$images")"
 check "renders the newest candidate scheduling-mcp" 1 "$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.2.0-rc.3' <<<"$images")"
 check "renders no 0.0.0 Kubemoot image" 0 "$(grep -cE 'kubemoot/[a-z-]+:0\.0\.0' <<<"$images" || true)"
 check "the stamped chart lints" 0 "$(helm lint "${root}/homelab-pilot-crew" >/dev/null 2>&1; echo $?)"
@@ -114,28 +114,28 @@ copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.2-rc.0 && status=0 || status=$?
 check "the final outranks its own rcs" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.20.0')"
 # A deliberate finals-only build skips candidates.
-git -C "${root}/kubemoot" tag artifact-access-v0.345.0-rc.1
-git -C "${root}/kubemoot" push -q "${root}/kubemoot.git" artifact-access-v0.345.0-rc.1
+git -C "${root}/kubemoot" tag workspace-access-v0.345.0-rc.1
+git -C "${root}/kubemoot" push -q "${root}/kubemoot.git" workspace-access-v0.345.0-rc.1
 copy_crew homelab-pilot-crew
 KUBEMOOT_PINS=final stamp "${root}/homelab-pilot-crew" 0.47.2-rc.1 && status=0 || status=$?
 images="$(rendered_images homelab-pilot-crew)"
 check "KUBEMOOT_PINS=final takes the latest final" "0|1|1|1" \
-  "${status}|$(grep -cx 'ghcr.io/kubemoot/artifact-access:0.343.0' <<<"$images")|$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.20.0' <<<"$images")|$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.1.0' <<<"$images")"
+  "${status}|$(grep -cx 'ghcr.io/kubemoot/workspace-access:0.343.0' <<<"$images")|$(grep -cx 'ghcr.io/kubemoot/code-sandbox:0.20.0' <<<"$images")|$(grep -cx 'ghcr.io/kubemoot/scheduling-mcp:0.1.0' <<<"$images")"
 copy_crew homelab-pilot-crew
 stamp "${root}/homelab-pilot-crew" 0.47.2-rc.2 && status=0 || status=$?
-check "the default build takes the newer artifact-access candidate" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/artifact-access:0.345.0-rc.1')"
+check "the default build takes the newer workspace-access candidate" 1 "$(rendered_images homelab-pilot-crew | grep -cx 'ghcr.io/kubemoot/workspace-access:0.345.0-rc.1')"
 copy_crew homelab-pilot-crew
 KUBEMOOT_PINS=newest stamp "${root}/homelab-pilot-crew" 0.47.2-rc.3 && status=0 || status=$?
 check "refuses an unknown KUBEMOOT_PINS" 1 "$((status != 0))"
 
-# O'guide pins no Kubemoot image: its read-ops server selects the operator's with
+# O'guide pins no Kubemoot image: its workspace server selects the operator's with
 # kubemootImage, so it stamps without a Kubemoot remote.
 copy_crew oguide-crew
 KUBEMOOT_REMOTE="${root}/missing.git" stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'guide candidate stamp succeeds" 0 "$status"
 check "O'guide renders no Kubemoot-built image" 0 "$(rendered_images oguide-crew | grep -c '^ghcr.io/kubemoot/' || true)"
-check "O'guide read-ops selects kubemootImage artifactAccess" 1 \
-  "$(helm template t "${root}/oguide-crew" | grep -cx '  kubemootImage: artifactAccess')"
+check "O'guide workspace server selects kubemootImage workspaceAccess" 1 \
+  "$(helm template t "${root}/oguide-crew" | grep -cx '  kubemootImage: workspaceAccess')"
 check "O'guide keeps the search server's Python image pinned by digest, unstamped" 1 \
   "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
 check "O'guide stamped chart lints" 0 "$(helm lint "${root}/oguide-crew" >/dev/null 2>&1; echo $?)"
@@ -159,7 +159,7 @@ check "refuses when Kubemoot's tags cannot be read" 1 "$((status != 0))"
 check "leaves the images unstamped then" 3 "$(rl_image_placeholders "${root}/homelab-pilot-crew/values.yaml" | wc -l | tr -d ' ')"
 git init -q -b main "${root}/empty"
 git -C "${root}/empty" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
-git -C "${root}/empty" tag artifact-access-v0.343.0
+git -C "${root}/empty" tag workspace-access-v0.343.0
 git -C "${root}/empty" tag scheduling-mcp-v0.1.0
 git -C "${root}/empty" tag code-sandbox-v0.18.0-rc.1
 KUBEMOOT_PINS=final KUBEMOOT_REMOTE="${root}/empty" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
@@ -171,7 +171,7 @@ check "and stamps it" 1 "$(grep -c 'code-sandbox:0.18.0-rc.1"' "${root}/homelab-
 copy_crew homelab-pilot-crew
 git init -q -b main "${root}/nocand"
 git -C "${root}/nocand" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
-git -C "${root}/nocand" tag artifact-access-v0.343.0
+git -C "${root}/nocand" tag workspace-access-v0.343.0
 git -C "${root}/nocand" tag scheduling-mcp-v0.1.0
 KUBEMOOT_REMOTE="${root}/nocand" stamp "${root}/homelab-pilot-crew" 0.47.0-rc.4 && status=0 || status=$?
 check "a candidate build refuses an image with no candidate at all" 1 "$((status != 0))"
@@ -190,6 +190,29 @@ check "refuses missing candidate values" 1 "$((status != 0))"
 stamp "${root}/none" 0.47.0-rc.4 && status=0 || status=$?
 check "refuses a missing chart directory" 1 "$((status != 0))"
 check "refuses without arguments" 1 "$(bash "${here}/stamp-crew.sh" >/dev/null 2>&1 && echo 0 || echo 1)"
+
+# The workspace-access series is seeded in Kubemoot when the component is renamed. The stamp reads
+# tags only and never checks that an image exists, so what a seed makes it pick matters: a FINAL seed
+# is the base the next candidate continues from (candidates of the next minor outrank it), and is
+# picked only until the first candidate is built; a candidate-only seed is no base, the series
+# restarts below it, and the stamp keeps picking the seed's candidate.
+seed_pick() {
+  local name="$1"; shift
+  local repo_dir="${root}/seed-${name}"
+  git init -q -b main "$repo_dir"
+  git -C "$repo_dir" -c user.email=t@e -c user.name=t commit -q --allow-empty -m init
+  for t in code-sandbox-v0.17.0 scheduling-mcp-v0.1.0 "$@"; do git -C "$repo_dir" tag "$t"; done
+  git clone -q --bare "$repo_dir" "${root}/seed-${name}.git"
+  copy_crew homelab-pilot-crew
+  KUBEMOOT_REMOTE="${root}/seed-${name}.git" stamp "${root}/homelab-pilot-crew" 0.47.9-rc.0 || return 1
+  rendered_images homelab-pilot-crew | grep -E '^ghcr.io/kubemoot/workspace-access:' | sed 's#.*:##'
+}
+check "a final seed is what the stamp picks until the first candidate exists" "0.348.0" \
+  "$(seed_pick final-seed workspace-access-v0.348.0)"
+check "the first candidate of the next minor outranks the final seed" "0.349.0-rc.2" \
+  "$(seed_pick final-seed-rc workspace-access-v0.348.0 workspace-access-v0.349.0-rc.2)"
+check "with a candidate-only seed the stamp stays on the seed after the series restarts below it" "0.349.0-rc.0" \
+  "$(seed_pick rc-seed workspace-access-v0.349.0-rc.0 workspace-access-v0.1.0-rc.2)"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all stamp-crew tests passed"

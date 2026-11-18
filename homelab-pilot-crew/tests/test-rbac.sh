@@ -262,5 +262,11 @@ check "homelab values: the MCP servers name the ServiceAccounts the bindings nam
 check "homelab values: the bindings name the same accounts in the render namespace" "crew-homelab-pilot/$hrel-k8sgpt-mcp,crew-homelab-pilot/$hrel-kubernetes-mcp" \
   "$(yq -N 'select(.kind == "ClusterRoleBinding") | .subjects[] | .namespace + "/" + .name' <<<"$h_admin" | sort -u | paste -sd, -)"
 
+# The install notes warn once per pre-workspace value that is set, and nothing when none is.
+check "the notes do not warn when no old workspace value is set" 0 "$(notes | grep -c DEPRECATED || true)"
+check "the notes warn about mcpServers.artifactReadOps" 1 "$(notes --set mcpServers.artifactReadOps.enabled=true | grep -c 'mcpServers.artifactReadOps is renamed' || true)"
+check "the notes warn about mcpServers.artifactAccess.image" 1 "$(notes --set mcpServers.artifactAccess.image=reg.test/x/old:1 | grep -c 'mcpServers.artifactAccess.image is renamed' || true)"
+check "the notes warn about the old egress key" 1 "$(notes --set 'egress.mcpServers.artifact-readops-mcp.bus=true' | grep -c 'artifact-readops-mcp is renamed' || true)"
+
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

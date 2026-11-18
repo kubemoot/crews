@@ -144,7 +144,7 @@ helm upgrade --install oguide \
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the discussion workspace |
-| `curator.workspaceQuery` | `true` | Gives the curator `workspace_query` beside `workspace_head`, `workspace_tail` and `workspace_grep` (read-only SQL over stored search results); offered only when the Kubemoot operator's `artifacts.queryEngine` is `sqlite` or `duckdb` |
+| `curator.workspaceQuery` | `true` | Gives the curator `workspace_query` beside `workspace_head`, `workspace_tail` and `workspace_grep` (read-only SQL over stored search results); offered only when the Kubemoot operator's `workspace.queryEngine` is `sqlite` or `duckdb` |
 | `workspace.declareAccess` | `true` | Sets `spec.workspace.access` on each agent: `write` on the search agents (they store large results and read none), `read` on the curator; the coordinator declares nothing. `false` renders no `workspace` field and no `disabledTools`, for an operator whose Agent CRD has no `spec.workspace`; the agents still list the new tool names. The operator grants the workspace tools the access allows, so the curator also gains `workspace_list` and `workspace_describe`; `curator.workspaceQuery=false` renders `disabledTools: [workspace_query]`. The curator on `read` stores none of its own tool results, so they come back inline and may be cut. Needs a workspace server that serves `workspace_head`, `workspace_tail` and `workspace_grep` |
 | `gooseSeat.enabled` | `false` | Adds one extra specialist Agent run by [goose](https://kubemoot.org/docs/architecture/the-harness-seam/) (`harness: {name: goose, mode: sidecar, nativeTools: none}`). The cluster's KubemootConfig must set `images.harnessGoose`. Set it back to `false` to remove the seat |
 | `gooseSeat.name` | `goose-curator` | The goose seat's Agent name |
@@ -206,3 +206,23 @@ The `REFLECTS` assertions need the [fitness crew](../kubemoot-fitness-crew/READM
 ```bash
 bash oguide-crew/tests/test-render.sh
 ```
+
+## Migrating from the artifact names
+
+Kubemoot renamed the discussion artifact store to the workspace. This chart follows; the old
+egress key still applies for one release.
+
+1. Upgrade Kubemoot first (operator chart, so the CRDs accept `workspaceAccess`), then this chart.
+2. The workspace MCP server is now `workspace-mcp` (it was `artifact-readops-mcp`) and its
+   template is `mcpserver-workspace.yaml`. Rename any `egress.mcpServers.artifact-readops-mcp`
+   entry to `egress.mcpServers.workspace-mcp`; the old key still applies for one release and the
+   install notes warn while it is set.
+   An old `mcpServers.artifactReadOps.resources` replaces the whole `mcpServers.workspace.resources`
+   map, it is not merged into it: set only `limits` there and the default `requests` are dropped,
+   so set both or move the value to `mcpServers.workspace.resources`. `artifactReadOps.queryMemory`
+   replaces `workspace.queryMemory` the same way.
+3. The Kubemoot image is `workspace-access` and the MCPServer field is
+   `kubemootImage: workspaceAccess`; set `images.workspaceAccess` in KubemootConfig.
+4. The workspace bucket is `kubemoot_workspace`, the server reads `WORKSPACE_*` environment
+   variables, and the operator setting `artifacts.queryEngine` is now `workspace.queryEngine`.
+   Data in the old bucket is temporary and needs no copy.

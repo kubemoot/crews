@@ -1,24 +1,24 @@
 {{- if include "homelab-pilot-crew.rbacTenant" . }}
-{{- if .Values.mcpServers.artifactReadOps.enabled }}
+{{- if and .Values.mcpServers.workspace.enabled (dig "artifactReadOps" "enabled" true .Values.mcpServers) }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
-  name: artifact-readops-mcp
+  name: workspace-mcp
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "workspace-mcp") }}
   description: "Reads slices of large results kept outside the discussion (head, tail, grep, and query), so a whole result never enters a model's context."
   # Shared workspace read service. Network-capable agents (analyst, RAG,
   # coordinator) call head/tail/grep/query over a referenced workspace
   # KEY to sip a slice near the data, so a bulk object never enters an LLM context -
   # the non-code counterpart to the no-network sandbox's materializer. Same binary as
-  # the sandbox sidecar (kubemoot/artifact-access), run in mcp mode. Pure stdio ->
+  # the sandbox sidecar (kubemoot/workspace-access), run in mcp mode. Pure stdio ->
   # operator adds the bridge sidecar (port below is the bridge's TCP port).
-  # kubemootImage selects the artifact-access image the operator's KubemootConfig names
-  # (spec.images.artifactAccess), so the operator also wires the workspace query engine
-  # (ARTIFACT_QUERY_ENGINE, the /artifacts emptyDir and TMPDIR). It is exclusive with image.
-  kubemootImage: artifactAccess
+  # kubemootImage selects the workspace-access image the operator's KubemootConfig names
+  # (spec.images.workspaceAccess), so the operator also wires the workspace query engine
+  # (WORKSPACE_QUERY_ENGINE, the /workspace emptyDir and TMPDIR). It is exclusive with image.
+  kubemootImage: workspaceAccess
   transport: stdio
   # Buildpacks image: the launcher /cnb/process/web starts the binary. The bridge runs
   # exec mode, so the start command must be explicit.
@@ -29,14 +29,14 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   # Unlike the sandbox, this server IS network-capable: it reads the workspace bucket
   # directly from NATS, so it needs NATS egress (and no other credentials).
   env:
-    - name: ARTIFACT_MODE
+    - name: WORKSPACE_MODE
       value: "mcp"
     - name: NATS_URL
       value: {{ .Values.nats.url | quote }}
-    - name: ARTIFACT_BUCKET
-      value: "kubemoot_discussion_artifacts"
+    - name: WORKSPACE_BUCKET
+      value: "kubemoot_workspace"
     - name: WORKSPACE_QUERY_MEMORY
-      value: {{ .Values.mcpServers.artifactReadOps.queryMemory | quote }}
+      value: {{ dig "artifactReadOps" "queryMemory" .Values.mcpServers.workspace.queryMemory .Values.mcpServers | quote }}
   capabilities:
     - data-access
     - data-analysis
@@ -51,6 +51,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     seccompProfile:
       type: RuntimeDefault
   resources:
-    {{- toYaml .Values.mcpServers.artifactReadOps.resources | nindent 4 }}
+    {{- toYaml (dig "artifactReadOps" "resources" .Values.mcpServers.workspace.resources .Values.mcpServers) | nindent 4 }}
 {{- end }}
 {{- end }}

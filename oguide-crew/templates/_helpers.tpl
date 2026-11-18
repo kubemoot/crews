@@ -96,6 +96,9 @@ two-space indent, so it starts with a newline.
 {{- $egress := default dict .root.Values.egress -}}
 {{- $named := default dict (get $egress .kind) -}}
 {{- $entry := index $named .name -}}
+{{- if and (eq .name "workspace-mcp") (kindIs "invalid" $entry) -}}
+{{- $entry = index $named "artifact-readops-mcp" -}}
+{{- end -}}
 {{- if and (eq .kind "agents") (kindIs "invalid" $entry) -}}
 {{- $entry = index $egress "agentsDefault" -}}
 {{- end -}}
@@ -130,5 +133,15 @@ Usage: enabledTools: [...]{{ include "oguide-crew.workspaceDisabled" (dict "root
 {{- define "oguide-crew.workspaceDisabled" -}}
 {{- if and .root.Values.workspace.declareAccess (not .on) }}
   disabledTools: [{{ join ", " .tools }}]
+{{- end }}
+{{- end }}
+
+{{/* Warning for the pre-workspace egress key that still applies for one release. */}}
+{{- define "oguide-crew.workspaceDeprecations" -}}
+{{- if hasKey .Values.mcpServers "artifactReadOps" }}
+DEPRECATED: mcpServers.artifactReadOps is renamed mcpServers.workspace (queryMemory, resources). The old value still applies for one release and is then removed.
+{{- end }}
+{{- if hasKey (default dict (default dict .Values.egress).mcpServers) "artifact-readops-mcp" }}
+DEPRECATED: egress.mcpServers.artifact-readops-mcp is renamed egress.mcpServers.workspace-mcp. The old key still applies for one release.
 {{- end }}
 {{- end }}

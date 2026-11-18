@@ -30,8 +30,8 @@ egress:
         - namespace: observability
           name: kube-prometheus-stack-prometheus
           ports: [9090]
-    # The artifact store and scheduling state live on the message bus.
-    artifact-readops-mcp:
+    # The workspace and scheduling state live on the message bus.
+    workspace-mcp:
       bus: true
     scheduling-mcp:
       bus: true

@@ -75,33 +75,33 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   # mounts this emptyDir into BOTH the main container and the sidecar at the same
   # path (EmptyDirVolume has no name; the operator auto-shares it).
   emptyDirVolumes:
-    - mountPath: /artifacts
+    - mountPath: /workspace
       sizeLimit: 256Mi
   # Materializer sidecar (native sidecar; operator sets restartPolicy=Always and
-  # auto-mounts /artifacts). It reaches NATS to fetch referenced objects and
-  # stages them on /artifacts for the no-network sandbox. The sandbox container
+  # auto-mounts /workspace). It reaches NATS to fetch referenced objects and
+  # stages them on /workspace for the no-network sandbox. The sandbox container
   # itself has no NATS client; egress for this pod is locked to NATS-only by
   # networkpolicy-code-sandbox.yaml (A1 posture; cross-crew isolation needs
   # per-crew NATS accounts, which are not implemented yet).
   sidecars:
-    - name: artifact-access
-      image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" .Values.mcpServers.artifactAccess.image) | quote }}
+    - name: workspace-access
+      image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" (include "homelab-pilot-crew.workspaceImage" $)) | quote }}
       env:
         - name: NATS_URL
           value: {{ .Values.nats.url | quote }}
-        - name: ARTIFACT_DIR
-          value: "/artifacts"
-        - name: ARTIFACT_BUCKET
-          value: "kubemoot_discussion_artifacts"
+        - name: WORKSPACE_DIR
+          value: "/workspace"
+        - name: WORKSPACE_BUCKET
+          value: "kubemoot_workspace"
         # Crew-scoped subscription (soft boundary): only this crew's references.
-        - name: ARTIFACT_SUBJECT
+        - name: WORKSPACE_SUBJECT
           value: "kubemoot.artifacts.{{ .Release.Namespace }}.{{ .Values.crew.name }}.>"
       securityContext:
-        # Runs non-root: the artifact-access image sets USER 1000, and this enforces
+        # Runs non-root: the workspace-access image sets USER 1000, and this enforces
         # uid:gid 1000:1000 at the pod layer too (defense in depth). runAsUser also
         # makes the runtime user independent of the image tag, so this is safe whether
         # or not the USER-1000 image is the one live. 1000 matches the sandbox reader,
-        # and the shared /artifacts emptyDir is 0777 so the materializer writes fine as
+        # and the shared /workspace emptyDir is 0777 so the materializer writes fine as
         # non-root (verified live). Still contained by read-only rootfs + drop-ALL caps
         # + no-privilege-escalation + NATS-only egress.
         runAsNonRoot: true

@@ -61,7 +61,7 @@ workspace:
 # The curator. workspaceQuery adds the workspace_query tool (read-only SQL over the
 # discussion's stored results, such as large search results) to its tools, beside
 # workspace_head, workspace_tail and workspace_grep. The workspace server offers it only when
-# the operator setting artifacts.queryEngine is sqlite or duckdb; otherwise the curator does
+# the operator setting workspace.queryEngine is sqlite or duckdb; otherwise the curator does
 # not register it.
 curator:
   workspaceQuery: true
@@ -85,13 +85,15 @@ mcpGateway:
 # private registry, e.g. [{name: my-registry-pull-secret}].
 imagePullSecrets: []
 
-# NATS JetStream that carries the discussion and the artifact store. The Kubemoot
+# NATS JetStream that carries the discussion and the workspace. The Kubemoot
 # quickstart and operator chart use release "nats" in namespace "nats".
 nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
 
 mcpServers:
-  artifactReadOps:
+  workspace:
+    # The workspace-access MCP server. The old mcpServers.artifactReadOps.queryMemory and .resources
+    # values still apply for one release.
     # A workspace_query may grow the process by queryMemory and two run at once; the limit holds the
     # process, two queries and a margin. A query over queryMemory stops with an error instead of the
     # container being killed.

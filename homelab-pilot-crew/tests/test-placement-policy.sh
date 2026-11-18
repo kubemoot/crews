@@ -209,8 +209,8 @@ http_out="$(sbx --set mcpServers.codeSandbox.transport=http)"
 [ "$(yq '.spec.env[] | select(.name == "MCP_TRANSPORT") | .value' <<<"$http_out")" = "http" ] || fail "http must set MCP_TRANSPORT=http"
 [ "$(yq '.spec.env[] | select(.name == "PORT") | .value' <<<"$http_out")" = "3000" ] || fail "http PORT must match the port"
 [ "$(yq '.spec.env[] | select(.name == "EXECUTION_TIMEOUT") | .value' <<<"$http_out")" = "25" ] || fail "http must keep EXECUTION_TIMEOUT"
-[ "$(yq '.spec.sidecars[0].name' <<<"$http_out")" = "artifact-access" ] || fail "http must keep the artifact-access sidecar"
-[ "$(yq '.spec.emptyDirVolumes[0].mountPath' <<<"$http_out")" = "/artifacts" ] || fail "http must keep the /artifacts volume"
+[ "$(yq '.spec.sidecars[0].name' <<<"$http_out")" = "workspace-access" ] || fail "http must keep the workspace-access sidecar"
+[ "$(yq '.spec.emptyDirVolumes[0].mountPath' <<<"$http_out")" = "/workspace" ] || fail "http must keep the /workspace volume"
 http_rc="$(sbx --set mcpServers.codeSandbox.transport=http --set mcpServers.codeSandbox.runtimeClassName=gvisor)"
 [ "$(yq '.spec.runtimeClassName' <<<"$http_rc")" = "gvisor" ] || fail "http must keep runtimeClassName"
 err="$(render --set mcpServers.codeSandbox.transport=grpc 2>&1 >/dev/null || true)"
@@ -326,20 +326,40 @@ grep -q 'stated in the question' <<<"$compute_prompt" || fail "compute prompt mu
 grep -q 'NEITHER the question NOR the discussion' <<<"$compute_prompt" || fail "NO_DATA must apply only when neither the question nor the discussion has data"
 echo "PASS: compute prompt accepts inputs in the question"
 
-# The read-ops server selects Kubemoot's built-in artifact-access image (the operator takes
-# it from KubemootConfig and wires the query engine); the code sandbox sidecar keeps naming
-# its image from mcpServers.artifactAccess.image.
-ro_out="$(render | yq -N 'select(.kind == "MCPServer" and .metadata.name == "artifact-readops-mcp")')"
-[ "$(yq '.spec.kubemootImage' <<<"$ro_out")" = "artifactAccess" ] || fail "read-ops must select kubemootImage artifactAccess"
+# The workspace server selects Kubemoot's built-in workspace-access image (the operator takes
+# it from KubemootConfig and wires the query engine); the code sandbox sidecar names its image
+# from mcpServers.workspace.image.
+ro_out="$(render | yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp")')"
+[ "$(yq '.spec.kubemootImage' <<<"$ro_out")" = "workspaceAccess" ] || fail "the workspace server must select kubemootImage workspaceAccess"
 [ "$(yq '.spec | has("image")' <<<"$ro_out")" = "false" ] || fail "read-ops must render no image beside kubemootImage"
 [ "$(yq '.spec.transport' <<<"$ro_out")" = "stdio" ] || fail "read-ops must keep the stdio transport"
 [ "$(yq '.spec.command[0]' <<<"$ro_out")" = "/cnb/process/web" ] || fail "read-ops must keep the Buildpacks launcher command"
-[ "$(yq '.spec.env[] | select(.name == "ARTIFACT_MODE") | .value' <<<"$ro_out")" = "mcp" ] || fail "read-ops must keep ARTIFACT_MODE=mcp"
-ro_override="$(render --set mcpServers.artifactAccess.image=reg.test/x/artifact-access:1.2.3)"
-[ "$(yq -N 'select(.metadata.name == "artifact-readops-mcp") | .spec | has("image")' <<<"$ro_override")" = "false" ] || fail "the artifactAccess image value must not reach the read-ops server"
-[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$ro_override")" = "reg.test/x/artifact-access:1.2.3" ] || fail "the code sandbox sidecar must use the artifactAccess image value"
-[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$out")" = "ghcr.io/kubemoot/artifact-access:0.0.0" ] || fail "the code sandbox sidecar must keep the stamped default image"
-echo "PASS: read-ops server selects kubemootImage artifactAccess"
+[ "$(yq '.spec.env[] | select(.name == "WORKSPACE_MODE") | .value' <<<"$ro_out")" = "mcp" ] || fail "the workspace server must keep WORKSPACE_MODE=mcp"
+ro_override="$(render --set mcpServers.workspace.image=reg.test/x/workspace-access:1.2.3)"
+[ "$(yq -N 'select(.metadata.name == "workspace-mcp") | .spec | has("image")' <<<"$ro_override")" = "false" ] || fail "the workspace image value must not reach the workspace server"
+[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$ro_override")" = "reg.test/x/workspace-access:1.2.3" ] || fail "the code sandbox sidecar must use the workspace image value"
+[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$out")" = "ghcr.io/kubemoot/workspace-access:0.0.0" ] || fail "the code sandbox sidecar must keep the stamped default image"
+echo "PASS: workspace server selects kubemootImage workspaceAccess"
+
+# The old values still render for one release: the sidecar image, the server switch and the
+# egress entry keyed by the old server name.
+old_img="$(render --set mcpServers.artifactAccess.image=reg.test/x/artifact-access:1.2.3)"
+[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$old_img")" = "reg.test/x/artifact-access:1.2.3" ] || fail "the old artifactAccess image value must still reach the code sandbox sidecar"
+[ -z "$(render --set mcpServers.artifactReadOps.enabled=false | yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | .metadata.name')" ] || fail "the old artifactReadOps.enabled=false must still turn the workspace server off"
+[ -z "$(render --set mcpServers.workspace.enabled=false | yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | .metadata.name')" ] || fail "mcpServers.workspace.enabled=false must turn the workspace server off"
+old_egress="$(render --set 'egress.mcpServers.artifact-readops-mcp.bus=true' | yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | .spec.egress.bus')"
+[ "$old_egress" = "true" ] || fail "an egress entry keyed by the old server name must still apply"
+both_img="$(render --set mcpServers.artifactAccess.image=reg.test/x/old:1 --set mcpServers.workspace.image=reg.test/x/new:2)"
+[ "$(yq -N 'select(.kind == "MCPServer" and .spec.sidecars) | .spec.sidecars[0].image' <<<"$both_img")" = "reg.test/x/new:2" ] || fail "mcpServers.workspace.image must win over the old artifactAccess image"
+echo "PASS: the old artifact values still render"
+
+# No rendering names the workspace the old way: the artifact word stays only in the fitness
+# and release meaning, which no template of this chart renders.
+for arms in "" "${all_on[*]}"; do
+  # shellcheck disable=SC2086
+  ! render $arms | grep -qiE 'artifact' || fail "a rendering still says artifact ($arms)"
+done
+echo "PASS: no rendering says artifact"
 
 # RAG bindings: an advisor's spec.ragSources lists the sources whose agents map names it, with
 # the declared topK; no other agent binds a source; RAG off, or a source that lists no agent,

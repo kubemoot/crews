@@ -1,21 +1,21 @@
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
-  name: artifact-readops-mcp
+  name: workspace-mcp
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "oguide-crew.labels" . | nindent 4 }}
-spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "artifact-readops-mcp") }}
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "workspace-mcp") }}
   description: "Reads slices of large results kept outside the discussion (head, tail, grep, and query), so a whole result never enters a model's context."
   # Read tools over the discussion workspace (head, tail, grep, query). A search result
   # too large for the discussion bus is stored in the workspace, and
   # the curator reads it through this server, so the whole result never enters a model
-  # context. The kubemoot/artifact-access image in mcp mode; pure stdio, so the operator
+  # context. The kubemoot/workspace-access image in mcp mode; pure stdio, so the operator
   # adds the bridge sidecar (port is the bridge's TCP port).
-  # kubemootImage selects the artifact-access image the operator's KubemootConfig names
-  # (spec.images.artifactAccess), so the operator also wires the workspace query engine
-  # (ARTIFACT_QUERY_ENGINE, the /artifacts emptyDir and TMPDIR). It is exclusive with image.
-  kubemootImage: artifactAccess
+  # kubemootImage selects the workspace-access image the operator's KubemootConfig names
+  # (spec.images.workspaceAccess), so the operator also wires the workspace query engine
+  # (WORKSPACE_QUERY_ENGINE, the /workspace emptyDir and TMPDIR). It is exclusive with image.
+  kubemootImage: workspaceAccess
   transport: stdio
   # Buildpacks image: the launcher /cnb/process/web starts the binary. The bridge runs
   # exec mode, so the start command must be explicit.
@@ -26,14 +26,14 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
   # It reads the workspace bucket directly from NATS, so it needs NATS egress and no
   # other credentials.
   env:
-    - name: ARTIFACT_MODE
+    - name: WORKSPACE_MODE
       value: "mcp"
     - name: NATS_URL
       value: {{ .Values.nats.url | quote }}
-    - name: ARTIFACT_BUCKET
-      value: "kubemoot_discussion_artifacts"
+    - name: WORKSPACE_BUCKET
+      value: "kubemoot_workspace"
     - name: WORKSPACE_QUERY_MEMORY
-      value: {{ .Values.mcpServers.artifactReadOps.queryMemory | quote }}
+      value: {{ dig "artifactReadOps" "queryMemory" .Values.mcpServers.workspace.queryMemory .Values.mcpServers | quote }}
   capabilities:
     - data-access
     - data-analysis
@@ -48,4 +48,4 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     seccompProfile:
       type: RuntimeDefault
   resources:
-    {{- toYaml .Values.mcpServers.artifactReadOps.resources | nindent 4 }}
+    {{- toYaml (dig "artifactReadOps" "resources" .Values.mcpServers.workspace.resources .Values.mcpServers) | nindent 4 }}

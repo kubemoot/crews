@@ -1,5 +1,5 @@
 global:
-  # Registry and namespace prefixed to the Kubemoot-built images below (artifact-access,
+  # Registry and namespace prefixed to the Kubemoot-built images below (workspace-access,
   # scheduling-mcp). Releases are published to GHCR; a private mirror sets its own
   # registry, e.g. harbor.example.com/kubemoot. Image values that already contain a "/"
   # are used as-is.
@@ -290,7 +290,7 @@ kubernetesAccess:
   write:
     namespaces: []
 
-# NATS JetStream that carries the discussion and the artifact store. The Kubemoot
+# NATS JetStream that carries the discussion and the workspace. The Kubemoot
 # quickstart and operator chart use release "nats" in namespace "nats".
 nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
@@ -377,15 +377,13 @@ mcpServers:
     # Streamable HTTP in the code sandbox) and is required under a sandboxed runtime
     # such as gvisor, where the bridge's FIFOs are not shared between containers.
     transport: stdio
-  artifactAccess:
-    # Materializer sidecar of the code sandbox only. The read-ops server below takes its
-    # image from the operator (kubemootImage: artifactAccess), not from this value. The
-    # 0.0.0 tag is stamped at build with Kubemoot's latest released artifact-access version.
-    image: "artifact-access:0.0.0"
-  artifactReadOps:
-    # Shared read-ops MCP service (the operator's artifact-access image, ARTIFACT_MODE=mcp):
-    # network-capable agents call head/tail/grep/query over a
-    # referenced key of the discussion workspace to read a slice of the data where it is stored.
+  workspace:
+    # The workspace-access MCP server (reads slices of the discussion workspace) and the
+    # materializer sidecar of the code sandbox. The server takes its image from the operator
+    # (kubemootImage: workspaceAccess); image below is the sidecar's only. The 0.0.0 tag is
+    # stamped at build with Kubemoot's latest released workspace-access version. The old
+    # mcpServers.artifactAccess.image and mcpServers.artifactReadOps.enabled values still
+    # apply for one release.
     enabled: true
     # A workspace_query may grow the process by queryMemory and two run at once; the limit holds the
     # process, two queries and a margin. A query over queryMemory stops with an error instead of the
@@ -398,6 +396,7 @@ mcpServers:
       limits:
         cpu: "500m"
         memory: "512Mi"
+    image: "workspace-access:0.0.0"
 
 # Outbound network access per workload. Each map is keyed by the rendered name of an
 # MCPServer (mcpServers) or an Agent (agents); the value is copied verbatim into that
@@ -431,7 +430,7 @@ workspace:
 # (read-only SQL over the discussion's stored results), workspace_list (what the discussion
 # has stored) and workspace_describe (each stored table's columns, types and examples). The
 # workspace server offers the query tools only when the operator setting
-# artifacts.queryEngine is sqlite or duckdb; with it off, the agent registers only the tools
+# workspace.queryEngine is sqlite or duckdb; with it off, the agent registers only the tools
 # its gateway offers, so the tool is simply absent. The compute agent always has
 # workspace_head, workspace_tail and workspace_grep.
 compute:
