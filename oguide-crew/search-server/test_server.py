@@ -359,6 +359,71 @@ class AuthorTest(unittest.TestCase):
         self.assertIn("released", server.find_released(FakeCatalog(items), "Neal Ford", TODAY))
 
 
+def tax_book(i):
+    """A catalog item recorded for the tax-law author who shares a name with the AI author."""
+    return book(f"Tax Law {i}", "2020-05-01", authors=["Bruce R. Hopkins"], topics=["Nonprofit law", "Tax"])
+
+
+class SameNameAuthorTest(unittest.TestCase):
+    def catalog(self):
+        ai_book = book("AI Agents", "2026-03-01", authors=["Bruce Hopkins"], topics=["AI", "Agents"])
+        course = {**event("Agents Live", ["2026-11-19T16:00:00Z"]), "authors": ["Bruce Hopkins"], "topics": ["AI"]}
+        return FakeCatalog([ai_book, *[tax_book(i) for i in range(15)]], [], [], [], [course])
+
+    def test_two_entries_for_one_name_are_returned_as_separate_groups(self):
+        out = server.find_by_author(self.catalog(), "Bruce Hopkins", TODAY)
+        self.assertEqual(["Bruce Hopkins", "Bruce R. Hopkins"], [g["author"] for g in out["authors"]])
+        ai, tax = out["authors"]
+        self.assertEqual(["AI Agents"], [b["title"] for b in ai["released_books"]])
+        self.assertEqual(["Agents Live"], [e["title"] for e in ai["upcoming_live_events"]])
+        self.assertEqual(15, len(tax["released_books"]))
+        self.assertEqual(15, tax["item_counts"]["released_books"])
+        self.assertEqual(["Nonprofit law", "Tax"], tax["topics"])
+        self.assertEqual(["AI", "Agents"], ai["topics"])
+        self.assertNotIn("released_books", out)
+
+    def test_the_result_says_the_name_matches_more_than_one_author(self):
+        out = server.find_by_author(self.catalog(), "Bruce Hopkins", TODAY)
+        self.assertIn("2 different author entries", out["message"])
+        self.assertIn('"Bruce R. Hopkins"', out["message"])
+
+    def test_a_missing_list_note_stays_beside_the_same_name_message(self):
+        catalog = FailingNthCatalog({5}, [tax_book(1), book("B", "2020-01-01", authors=["Bruce Hopkins"])], [], [], [])
+        out = server.find_by_author(catalog, "Bruce Hopkins", TODAY)
+        self.assertIn("different author entries", out["message"])
+        self.assertIn("live events could not be searched", out["message"])
+
+    def test_topics_fall_back_to_titles_when_the_catalog_gives_none(self):
+        self.assertEqual(["A", "B"], server.topics_of([{"title": "A"}, {"title": "B"}]))
+
+    def test_one_entry_keeps_the_flat_result_with_no_groups(self):
+        out = server.find_by_author(FakeCatalog([tax_book(1)], [], [], []), "Bruce Hopkins", TODAY)
+        self.assertNotIn("authors", out)
+        self.assertNotIn("message", out)
+        self.assertEqual(1, len(out["released_books"]))
+
+
+class DurationTest(unittest.TestCase):
+    def test_seconds_become_hours_and_minutes(self):
+        cases = {37854: "10 h 31 min", 3600: "1 h", 2700: "45 min", 7260: "2 h 1 min", 30: "1 min"}
+        for seconds, text in cases.items():
+            self.assertEqual(text, server.human_duration(seconds), seconds)
+
+    def test_a_value_that_is_not_seconds_is_returned_as_is(self):
+        for value in ("10h", None, True, -5):
+            self.assertEqual(value, server.human_duration(value))
+
+    def test_a_recorded_course_shows_no_raw_seconds(self):
+        course = {"title": "Course", "authors": ["A. Author"], "marketing_type": "course", "duration": 37854,
+                  "publication_date": "2025-01-01", "url": "u"}
+        out = server.shape(course, TODAY)
+        self.assertEqual("10 h 31 min", out["duration"])
+        self.assertNotIn("37854", json.dumps(out))
+
+    def test_an_item_without_duration_has_no_duration_field(self):
+        self.assertNotIn("duration", server.shape(book("B", "2020-01-01"), TODAY))
+
+
 class NameEdgeTest(unittest.TestCase):
     def test_a_name_with_no_usable_words_asks_for_a_full_name_and_searches_nothing(self):
         for name in ("J", "Jr", "A. B."):

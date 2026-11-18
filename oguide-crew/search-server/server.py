@@ -72,7 +72,8 @@ TOOLS = [
                        "scheduled_books soonest first; other recorded formats (videos, courses and more) are "
                        "only the newest 25 per status; upcoming_live_events lists the author's live events "
                        "and live courses with every session date, soonest first. "
-                       "A message says when a list may be missing items. "
+                       "A message says when a list may be missing items, or when the name matches more than "
+                       "one author entry (then authors holds one separate group per entry). "
                        "Every item is labelled Released or Scheduled.",
         "argument": "name",
         "argument_description": "The author's full name",
@@ -177,6 +178,17 @@ def status_of(item, today):
     return "Scheduled" if published and published > today.isoformat() else "Released"
 
 
+def human_duration(value):
+    """The catalog's duration in seconds as "10 h 31 min"; any other value is returned unchanged."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        return value
+    minutes = int(value / 60 + 0.5)
+    hours, minutes = divmod(minutes, 60)
+    if hours and minutes:
+        return f"{hours} h {minutes} min"
+    return f"{hours} h" if hours else f"{minutes} min"
+
+
 def shape(item, today):
     """One result item: the catalog's own values plus the status label."""
     out = {
@@ -185,9 +197,11 @@ def shape(item, today):
         "format": item.get("marketing_type") or item.get("display_format"),
         "publication_date": item.get("publication_date") or "",
     }
-    for field in ("live_event_start_dates", "page_count", "duration"):
+    for field in ("live_event_start_dates", "page_count"):
         if item.get(field):
             out[field] = item[field]
+    if item.get("duration"):
+        out["duration"] = human_duration(item["duration"])
     out["status"] = status_of(item, today)
     out["url"] = item.get("url")
     return out
@@ -382,7 +396,7 @@ def author_live_events(catalog, name, wanted, today):
         items = live_search(catalog, {"query": "*", "author_filter": [name]})
     except CatalogError as err:
         return None, [f"the live events could not be searched ({err})"]
-    _, scheduled = ordered([i for i in items if has_author(i, wanted)], today)
+    scheduled = [i for i in items if has_author(i, wanted) and status_of(i, today) == "Scheduled"]
     if len(items) >= N_ITEMS:
         return scheduled, [f"the live events reached the limit of {N_ITEMS}, so later ones may be missing"]
     return scheduled, []
@@ -405,15 +419,58 @@ def find_by_author(catalog, name, today):
     in_books = {item_key(i) for i in mine_books}
     mine_other = [i for i in merge_unique(other[0] or [], other[1] or [])
                   if has_author(i, wanted) and item_key(i) not in in_books]
+    notes = books[2] + other[2] + live_notes
+    names = matching_names([*mine_books, *mine_other, *(live or [])], wanted)
+    if len(names) > 1:
+        payload = split_by_author(names, mine_books, mine_other, live or [], today)
+    else:
+        payload = author_lists(mine_books, mine_other, live or [], today)
+    if notes:
+        payload["message"] = (payload.get("message", "") + " Part of this list may be missing: "
+                              + "; ".join(notes) + ".").strip()
+    return payload
+
+
+def author_lists(mine_books, mine_other, live, today):
     released_books, scheduled_books = ordered(mine_books, today)
     released_other, scheduled_other = ordered(mine_other, today)
-    payload = {"released_books": released_books, "scheduled_books": scheduled_books,
-               "released_other_formats": released_other, "scheduled_other_formats": scheduled_other,
-               "upcoming_live_events": live or []}
-    notes = books[2] + other[2] + live_notes
-    if notes:
-        payload["message"] = "Part of this list may be missing: " + "; ".join(notes) + "."
-    return payload
+    return {"released_books": released_books, "scheduled_books": scheduled_books,
+            "released_other_formats": released_other, "scheduled_other_formats": scheduled_other,
+            "upcoming_live_events": ordered(live, today)[1]}
+
+
+def matching_names(items, wanted):
+    """The author strings, exactly as the catalog lists them, that match the wanted name."""
+    return sorted({a for i in items for a in i.get("authors") or [] if wanted <= name_tokens(a)})
+
+
+def topics_of(items, limit=5):
+    """The most common topics of the items, or their first titles when the catalog gives no topics."""
+    counts = {}
+    for item in items:
+        for topic in item.get("topics") or []:
+            if isinstance(topic, str):
+                counts[topic] = counts.get(topic, 0) + 1
+    if counts:
+        return [t for t, _ in sorted(counts.items(), key=lambda p: (-p[1], p[0]))[:limit]]
+    return [i["title"] for i in items[:3] if i.get("title")]
+
+
+def split_by_author(names, mine_books, mine_other, live, today):
+    """One group per author string; an item is in the group of each matching string it lists."""
+    groups = []
+    for name in names:
+        def own(items, name=name):
+            return [i for i in items if name in (i.get("authors") or [])]
+        lists = author_lists(own(mine_books), own(mine_other), own(live), today)
+        items = [*own(mine_books), *own(mine_other), *own(live)]
+        counts = {key: len(value) for key, value in lists.items()}
+        groups.append({"author": name, "item_counts": counts, "topics": topics_of(items), **lists})
+    listed = ", ".join(f'"{n}"' for n in names)
+    return {"message": f"The name matches {len(names)} different author entries in the catalog: {listed}. They may "
+                       "be different people or one person listed two ways. Each group below is one entry, not "
+                       "merged. Ask which one is meant or pick by topic.",
+            "authors": groups}
 
 
 def find_title(catalog, title, today):
