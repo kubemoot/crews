@@ -7,6 +7,8 @@
 # Usage: RELEASE_LIB=<release-actions>/release-lib.sh bash .github/scripts/test-publish-release.sh
 #        (exit 0 = all passed; in CI the release-actions setup action sets RELEASE_LIB)
 set -euo pipefail
+# The release bot's token; the script moves it out of the environment and uses it only for git push.
+export GH_APP_TOKEN=test-release-token
 
 here="$(cd "$(dirname "$0")" && pwd)"
 command -v helm >/dev/null || { echo "helm is required"; exit 1; }
@@ -172,6 +174,9 @@ ACTIONS_ID_TOKEN_REQUEST_URL='' DRY_RUN=false run_publish nooidcreal && status=0
 check "a real run without an OIDC token fails before any push" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
 GHCR_TOKEN='' DRY_RUN=false run_publish notoken && status=0 || status=$?
 check "a real run without a registry token fails before any push" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
+: > "$LOG"
+GH_APP_TOKEN='' DRY_RUN=false run_publish nomint && status=0 || status=$?
+check "a real run without the release token fails before any push" "1|0|1" "${status}|$(grep -c '^helm push' "$LOG" || true)|$(grep -c 'no release token' "${root}/run-nomint.log")"
 GHCR_USERNAME='' GHCR_TOKEN='' DRY_RUN=true run_publish dryntoken && status=0 || status=$?
 check "a dry run needs no registry token" 0 "${status}"
 # GHCR is written with the workflow's own token, never a stored one.

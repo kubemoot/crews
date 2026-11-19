@@ -42,6 +42,9 @@
 #   OUT_DIR           where packaged charts and notes land (default: release-files)
 #   RELEASE_LIB       release-lib.sh of kubemoot/release-actions (its actions set it)
 set -euo pipefail
+# The release token leaves the environment before any other command runs (see push-token.sh).
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/push-token.sh"
 
 # shellcheck source=/dev/null
 source "${RELEASE_LIB:?RELEASE_LIB must point to release-lib.sh from kubemoot/release-actions}"
