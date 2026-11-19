@@ -55,6 +55,7 @@ jobs:
         run: shellcheck -x .github/scripts/*.sh
       - name: Tests
         run: |
+          bash .github/scripts/test-push-token.sh
           bash .github/scripts/test-publish-release.sh
           bash .github/scripts/test-stamp-crew.sh
           bash .github/scripts/test-create-github-releases.sh
