@@ -32,7 +32,6 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "even
     - sessions
     - conference
     - schedule
-  temperature: "0.3"
   maxTokens: 4096
   think: false
   deployment:

@@ -58,7 +58,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       WHEN the user asks what a metric MEASURES / its units (and wants the catalog entry, not the value) THEN say yes
       WHEN the user asks for the VALUE of a GPU metric (current state OR historical trend) THEN say no
       WHEN the question is not about GPU-monitoring discovery / scrape health THEN say no
-  temperature: "0.3"
   maxTokens: 2048
   deployment:
     replicas: 1

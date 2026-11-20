@@ -40,7 +40,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - bridge
     - task
     - cluster
-  temperature: "0.3"
   maxTokens: 4096
   think: false
   deployment:
@@ -93,7 +92,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - pcie
     - gpu
     - hardware
-  temperature: "0.3"
   maxTokens: 4096
   think: false
   deployment:

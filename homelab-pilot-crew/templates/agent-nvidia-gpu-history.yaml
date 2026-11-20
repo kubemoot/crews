@@ -59,7 +59,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       WHEN the user asks for the CURRENT instant value of a GPU metric ("right now", "current") THEN say no
       WHEN the user asks WHICH metrics or scrape targets EXIST (discovery, metadata) THEN say no
       WHEN the question is not about a time-spanning GPU metric THEN say no
-  temperature: "0.3"
   maxTokens: 2048
   deployment:
     replicas: 1

@@ -78,7 +78,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - postgresql
     - redis
     - mysql
-  temperature: "0.3"
   maxTokens: 4096
   deployment:
     replicas: 1

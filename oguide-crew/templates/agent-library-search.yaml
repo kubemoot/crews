@@ -33,7 +33,6 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "libr
     - audiobook
     - recent
     - newest
-  temperature: "0.3"
   maxTokens: 4096
   think: false
   deployment:

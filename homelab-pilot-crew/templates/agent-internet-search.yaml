@@ -25,7 +25,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   promptRefs: [discussion-protocol, response-style, tooler-discipline, internet-search-system]
   enabledTools: [search, fetch_content]
   discussKeywords: ["*"]
-  temperature: "0.3"
   maxTokens: 4096
   deployment:
     replicas: 1
