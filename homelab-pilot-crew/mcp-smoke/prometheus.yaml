@@ -1,0 +1,6 @@
+# Test calls for the Prometheus MCP server. vector(1) reads no stored series.
+smokeInputs:
+  - name: health_check
+  - name: execute_query
+    arguments:
+      query: "vector(1)"

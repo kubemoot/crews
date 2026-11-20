@@ -434,3 +434,16 @@ DEPRECATED: mcpServers.artifactAccess.image is renamed mcpServers.workspace.imag
 DEPRECATED: egress.mcpServers.artifact-readops-mcp is renamed egress.mcpServers.workspace-mcp. The old key still applies for one release.
 {{- end }}
 {{- end }}
+
+{{/* The MCPServer's spec.smokeInputs, read from mcp-smoke/<name>.yaml (run through tpl) and
+rendered at the spec's indent. Renders nothing when the server has no file. The tool smoke
+that runs first in every CrewFitnessSuite calls each listed tool with its input. */}}
+{{- define "homelab-pilot-crew.smokeInputs" -}}
+{{- $file := .root.Files.Get (printf "mcp-smoke/%s.yaml" .name) -}}
+{{- if $file -}}
+{{- with (tpl $file .root | fromYaml).smokeInputs }}
+  smokeInputs:
+    {{- toYaml . | nindent 4 }}
+{{- end -}}
+{{- end -}}
+{{- end }}

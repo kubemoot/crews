@@ -9,6 +9,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "k8sgpt-mcp") }}
   description: "Analyzes the cluster's Kubernetes resources with K8sGPT and reports the problems it finds, without any language model of its own."
+  {{- include "homelab-pilot-crew.smokeInputs" (dict "root" $ "name" "k8sgpt") }}
   image: {{ .Values.mcpServers.k8sgpt.image }}
   transport: stdio
   command:

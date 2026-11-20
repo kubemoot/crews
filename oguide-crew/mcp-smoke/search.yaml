@@ -1,0 +1,8 @@
+# Test calls for the crew's search server. find_released is a read-only catalog search that
+# goes through this crew's gateway to the O'Reilly server, so it also proves the subscriber
+# key works. The O'Reilly search can be slow: the call gets a longer timeout.
+smokeInputs:
+  - name: find_released
+    arguments:
+      topic: "kubernetes"
+    timeout: 30s

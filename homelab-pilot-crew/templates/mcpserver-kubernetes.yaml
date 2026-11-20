@@ -53,6 +53,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-mcp" .Release.Name)) }}
   description: "Reads the cluster through the Kubernetes API: pods, resources, events, nodes, namespaces, and Helm releases. Changes the cluster only when write access is enabled."
+  {{- include "homelab-pilot-crew.smokeInputs" (dict "root" $ "name" "kubernetes") }}
   image: {{ .Values.mcpServers.kubernetes.image }}
   transport: stdio
   port: 8080
