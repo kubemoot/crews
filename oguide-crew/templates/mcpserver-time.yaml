@@ -1,0 +1,47 @@
+{{- if .Values.mcpServers.time.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: time-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "time-mcp") }}
+  description: "Tells the current time in any time zone and converts a time from one zone to another."
+  {{- include "oguide-crew.smokeInputs" (dict "root" $ "name" "time") }}
+  # The MCP project's reference Time server (github.com/modelcontextprotocol/servers, src/time,
+  # MIT): get_current_time and convert_time. It needs no network and no credentials, so the
+  # default egress is empty (the operator's automatic allows only). The image is Docker's MCP
+  # catalog build of that source, pinned by digest; the upstream project publishes the
+  # mcp-server-time package, not an image. Pure stdio, so the operator adds the bridge sidecar.
+  image: {{ .Values.mcpServers.time.image | quote }}
+  transport: stdio
+  command:
+    - "mcp-server-time"
+    - "--local-timezone"
+    - {{ .Values.oreilly.defaultTimeZone | quote }}
+  port: 3000
+  replicas: 1
+  # The image runs as root, so strict mode's non-root enforcement would refuse it.
+  securityMode: relaxed
+  env:
+    - name: PYTHONDONTWRITEBYTECODE
+      value: "1"
+  capabilities:
+    - time
+  securityContext:
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "48Mi"
+    limits:
+      cpu: "100m"
+      memory: "96Mi"
+{{- end }}

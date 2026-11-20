@@ -142,6 +142,8 @@ helm upgrade --install oguide \
 | `imagePullSecrets` | `[]` | Pull secrets for the gateway, for a private mirror |
 | `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
+| `mcpServers.time.enabled` | `true` | Runs the MCP reference [Time server](https://github.com/modelcontextprotocol/servers/tree/main/src/time) (MIT) and gives `events-scout` and `library-search` its tools `get_current_time` and `convert_time`, for time zone conversion of live event sessions and date arithmetic. The date itself is already in each turn's context line. The server needs no network and no credentials; its default zone is `oreilly.defaultTimeZone` and its default `egress` is empty (the operator's automatic allows only) |
+| `mcpServers.time.image` | `docker.io/mcp/time@sha256:...` | Docker's MCP catalog build of the Time server, pinned by digest (the upstream project publishes the `mcp-server-time` package, not an image) |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the discussion workspace |
 | `curator.workspaceQuery` | `true` | Gives the curator `workspace_query` beside `workspace_head`, `workspace_tail` and `workspace_grep` (read-only SQL over stored search results); offered only when the Kubemoot operator's `workspace.queryEngine` is `sqlite` or `duckdb` |
@@ -167,6 +169,8 @@ egress:
 ```
 
 This lets `search-mcp` reach `api.example.com` on port 443, plus what the operator always allows (DNS, and for an agent the bus, gateway, and model servers). It needs a Kubemoot operator with egress policies, and the operator chart flag `security.networkPolicies.egress.mode: Declared`; without the flag `spec.egress` has no effect, and a workload without `spec.egress` is never restricted. Leave `egress` empty, the default, on a Kubemoot release that has no `spec.egress` field: the chart then renders the same manifests as before. See the Kubemoot documentation page on network policies for the fields and how host names are enforced on each network plugin.
+
+The Time server (`time-mcp`) is the one default entry: `egress.mcpServers.time-mcp: {}` limits it to the operator's automatic allows because it needs no network. On a Kubemoot release that has no `spec.egress` field, set `mcpServers.time.enabled=false` or give the entry as `null` (`--set-json 'egress.mcpServers.time-mcp=null'`).
 
 ### Default egress for every agent
 

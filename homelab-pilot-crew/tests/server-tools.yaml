@@ -40,6 +40,11 @@ servers:
     mcpServer: k8sgpt-mcp
     image: ghcr.io/k8sgpt-ai/k8sgpt:v0.4.26
     tools: [analyze, cluster-info, config]
+  time:
+    # The MCP reference Time server (src/time) at the image's tag 2025.4.24: the image's tools/list.
+    mcpServer: time-mcp
+    image: docker.io/mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf
+    tools: [convert_time, get_current_time]
   web-search:
     # The DuckDuckGo MCP server: the image's tools/list.
     mcpServer: web-search-mcp

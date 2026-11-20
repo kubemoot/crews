@@ -97,7 +97,7 @@ check "nvidia-gpu-meta: list_metrics and execute_query" "list_metrics execute_qu
 
 # The fixture itself: a missing server or an empty list would make every check above pass.
 check "fixture: the kubernetes server lists helm_list read-only" 1 "$(grep -cx helm_list <<<"$k8s_read" || true)"
-check "fixture: nine servers, each with tools" 9 "$(yq -N '[.servers[] | select((.tools // []) | length > 0)] | length' "$fixture")"
+check "fixture: ten servers, each with tools" 10 "$(yq -N '[.servers[] | select((.tools // []) | length > 0)] | length' "$fixture")"
 # The comparison itself reports what it should: a name no server lists, and a write tool.
 check "self-test: a name no server lists is reported" "no_such_tool" "$(missing "$(printf 'pods_list\nno_such_tool')" "$known")"
 check "self-test: pods_exec is not a read-only Kubernetes tool" "pods_exec" "$(missing pods_exec "$k8s_read")"
@@ -119,6 +119,27 @@ check "read-ops: the query memory is a value" 64MB \
   "$(ro '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' "$(render --set mcpServers.workspace.queryMemory=64MB)")"
 check "read-ops: the old artifactReadOps query memory still applies" 64MB \
   "$(ro '.spec.env[] | select(.name == "WORKSPACE_QUERY_MEMORY") | .value' "$(render --set mcpServers.artifactReadOps.queryMemory=64MB)")"
+
+# The Time server (MCP reference server): off by default, opt-in with its tools on obs-metrics, pinned by digest,
+# stdio with the zone from mcpServers.time.defaultTimeZone, no network, and a fixed-zone smoke call.
+timesrv() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"time-mcp\") | $1" <<<"$2"; }
+obs_tools() { yq -N -o=json -I=0 'select(.kind == "Agent" and .metadata.name == "obs-metrics") | .spec.enabledTools' <<<"$1"; }
+on="$(render --set mcpServers.time.enabled=true)"
+check "time: no Time server by default" "" "$(timesrv '.metadata.name' "$out")"
+check "time: no agent lists a Time tool by default" 0 "$(agent_tools "$out" | grep -c -E '^(get_current_time|convert_time)$' || true)"
+check "time: the Time server renders when enabled" '"time-mcp"' "$(timesrv '.metadata.name' "$on")"
+check "time: the image is pinned by digest" 1 "$(timesrv '.spec.image' "$on" | grep -cE '^"docker\.io/mcp/time@sha256:[0-9a-f]{64}"$' || true)"
+check "time: the server is stdio" '"stdio"' "$(timesrv '.spec.transport' "$on")"
+check "time: the default zone is UTC" '["mcp-server-time","--local-timezone","UTC"]' "$(timesrv '.spec.command' "$on")"
+check "time: mcpServers.time.defaultTimeZone sets the zone" '["mcp-server-time","--local-timezone","Europe/Paris"]' \
+  "$(timesrv '.spec.command' "$(render --set mcpServers.time.enabled=true --set mcpServers.time.defaultTimeZone=Europe/Paris)")"
+check "time: default-deny egress" '{}' "$(timesrv '.spec.egress' "$on")"
+check "time: an egress entry replaces the default" '{"allowedHosts":["example.com"]}' \
+  "$(timesrv '.spec.egress' "$(render --set mcpServers.time.enabled=true --set 'egress.mcpServers.time-mcp.allowedHosts={example.com}')")"
+check "time: the smoke call is get_current_time in a fixed zone" '[{"arguments":{"timezone":"UTC"},"name":"get_current_time"}]' "$(timesrv '.spec.smokeInputs' "$on")"
+check "time: obs-metrics lists the Time tools when enabled" 2 "$(obs_tools "$on" | grep -o -E 'get_current_time|convert_time' | wc -l | tr -d ' ')"
+check "time: the Time tools are on obs-metrics only" "obs-metrics" \
+  "$(yq -N 'select(.kind == "Agent") | select((.spec.enabledTools // []) | contains(["get_current_time"])) | .metadata.name' <<<"$on" | paste -sd' ')"
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

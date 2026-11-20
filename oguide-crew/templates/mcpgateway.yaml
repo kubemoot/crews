@@ -9,7 +9,7 @@ spec:
   implementation: kubemoot
   port: {{ .Values.mcpGateway.port }}
   replicas: {{ .Values.mcpGateway.replicas }}
-  # Registers the MCPServers of this release: the O'Reilly server, the search server, and the workspace server.
+  # Registers the MCPServers of this release: the O'Reilly server, the search server, the workspace server, and the Time server when it is on.
   mcpServerSelector:
     matchLabels:
       app.kubernetes.io/instance: {{ .Release.Name }}

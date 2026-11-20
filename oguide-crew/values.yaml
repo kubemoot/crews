@@ -110,6 +110,13 @@ mcpServers:
     # tag); its code is search-server/server.py, delivered through a Secret.
     image: "python@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
     codeSecretName: oguide-search-server
+  time:
+    # The MCP reference Time server (MIT): get_current_time and convert_time, for time zone
+    # conversion and date arithmetic. The date itself is already in each turn's context line.
+    # Enabled because the agents that report event session times use it. Its default zone is
+    # oreilly.defaultTimeZone. Pinned by digest, never a tag.
+    enabled: true
+    image: "docker.io/mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf"
 
 # An optional extra seat run by goose, an external harness (the Moot Mesh sidecar gives it
 # the model and the catalog search). Off by default; turn it off again to remove the seat.
@@ -130,5 +137,7 @@ gooseSeat:
 # MCP servers never take it. {} limits agents to the operator's automatic allows.
 egress:
   # agentsDefault: {}
-  mcpServers: {}
+  # The Time server needs no network: its empty entry limits it to the operator's automatic allows.
+  mcpServers:
+    time-mcp: {}
   agents: {}

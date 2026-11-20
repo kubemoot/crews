@@ -108,7 +108,7 @@ check "values.yaml holds no key value" "" \
 # The MCP gateway registers this release's MCPServers.
 check "the gateway selects this release" '{"app.kubernetes.io/instance":"t"}' \
   "$(yq -N -o=json -I=0 'select(.kind == "MCPGateway") | .spec.mcpServerSelector.matchLabels' <<<"$out")"
-check "all three MCPServers carry the release label" "t t t" \
+check "all four MCPServers carry the release label" "t t t t" \
   "$(yq -N 'select(.kind == "MCPServer") | .metadata.labels."app.kubernetes.io/instance"' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
 check "no pull secret by default" null "$(yq -N 'select(.kind == "MCPGateway") | .spec.imagePullSecrets' <<<"$out")"
 check "a pull secret is a value" '[{"name":"p"}]' \
@@ -153,7 +153,7 @@ has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
 
 
 check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
-check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released,find_title" \
+check "the search agents get the fixed tools and the Time tools only" "events-scout=convert_time,find_live_events,find_scheduled,get_current_time library-search=convert_time,find_by_author,find_released,find_title,get_current_time" \
   "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "library-search" or .metadata.name == "events-scout")) | .metadata.name + "=" + (.spec.enabledTools | sort | join(","))' <<<"$out" | sort | paste -sd' ')"
 check "the curator reads the workspace only" 0 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vcE '^workspace_(head|tail|grep|query)$' || true)"
@@ -388,7 +388,8 @@ egress_fail() { echo "FAIL $*"; failures=$((failures + 1)); }
 # egress.mcpServers.<name> and egress.agents.<name> copy a map verbatim into that resource's
 # spec.egress. Nothing renders by default, so a Kubemoot without egress policies still
 # applies the chart, and a field the operator adds later needs no chart change.
-egress_extra=(--set gooseSeat.enabled=true)
+# The Time server is off here: its default-deny egress is tested with the Time server below.
+egress_extra=(--set gooseSeat.enabled=true --set mcpServers.time.enabled=false)
 egress_render() { render "${egress_extra[@]}" "$@"; }
 # egress_holders RENDERED: Kind/name of every MCPServer and Agent that has spec.egress.
 egress_holders() {
@@ -464,13 +465,37 @@ check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the 
 check "every MCPServer has a spec.description" "" \
   "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
 
-# Tool smoke inputs: only the search server declares calls, and they are the read-only searches.
-check "only search-mcp declares smoke inputs" "search-mcp" \
-  "$(yq -N 'select(.kind == "MCPServer" and ((.spec.smokeInputs // []) | length) > 0) | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
+# Tool smoke inputs: the search server and the Time server declare calls, all read-only.
+check "search-mcp and time-mcp declare smoke inputs" "search-mcp time-mcp" \
+  "$(yq -N 'select(.kind == "MCPServer" and ((.spec.smokeInputs // []) | length) > 0) | .metadata.name' <<<"$out" | sort | tr '\n' ' ' | sed 's/ $//')"
 check "search-mcp smoke calls find_released with a topic and a 30s timeout" '[{"arguments":{"topic":"kubernetes"},"name":"find_released","timeout":"30s"}]' \
   "$(search '.spec.smokeInputs' <<<"$out")"
-check "every smoke input names a search tool that reads" "" \
-  "$(yq -N 'select(.kind == "MCPServer") | .spec.smokeInputs // [] | .[].name' <<<"$out" | grep -v -E '^find_(released|scheduled|by_author|title|live_events)$' | tr '\n' ' ' | sed 's/ $//')"
+check "every smoke input names a tool that reads" "" \
+  "$(yq -N 'select(.kind == "MCPServer") | .spec.smokeInputs // [] | .[].name' <<<"$out" | grep -v -E '^(find_(released|scheduled|by_author|title|live_events)|get_current_time)$' | tr '\n' ' ' | sed 's/ $//')"
+
+# The Time server: the MCP reference server, on by default, pinned by digest, no network.
+timesrv() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"time-mcp\") | $1"; }
+agent_tools() { yq -N -o=json -I=0 "select(.kind == \"Agent\" and .metadata.name == \"$1\") | .spec.enabledTools" <<<"$2"; }
+check "the Time server renders by default" '"time-mcp"' "$(timesrv '.metadata.name' <<<"$out")"
+check "the Time server image is pinned by digest" 1 \
+  "$(timesrv '.spec.image' <<<"$out" | grep -cE '^"docker\.io/mcp/time@sha256:[0-9a-f]{64}"$' || true)"
+check "the Time server is stdio" '"stdio"' "$(timesrv '.spec.transport' <<<"$out")"
+check "the Time server takes the crew's default zone" '["mcp-server-time","--local-timezone","UTC"]' "$(timesrv '.spec.command' <<<"$out")"
+check "the default zone follows oreilly.defaultTimeZone" '["mcp-server-time","--local-timezone","America/New_York"]' \
+  "$(render --set oreilly.defaultTimeZone=America/New_York | timesrv '.spec.command')"
+check "the Time server has default-deny egress" '{}' "$(timesrv '.spec.egress' <<<"$out")"
+check "an egress entry replaces the Time server's default" '{"allowedHosts":["example.com"]}' \
+  "$(render --set 'egress.mcpServers.time-mcp.allowedHosts={example.com}' | timesrv '.spec.egress')"
+check "the Time server smoke calls get_current_time in a fixed zone" '[{"arguments":{"timezone":"UTC"},"name":"get_current_time"}]' \
+  "$(timesrv '.spec.smokeInputs' <<<"$out")"
+check "events-scout lists the Time tools" '["find_scheduled","find_live_events","get_current_time","convert_time"]' "$(agent_tools events-scout "$out")"
+check "library-search lists the Time tools" '["find_released","find_by_author","find_title","get_current_time","convert_time"]' "$(agent_tools library-search "$out")"
+check "the curator and the coordinator list no Time tool" 0 \
+  "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "curator" or .metadata.name == "coordinator")) | .spec.enabledTools // [] | .[]' <<<"$out" | grep -c -E 'get_current_time|convert_time' || true)"
+off="$(render --set mcpServers.time.enabled=false)"
+check "time off: no Time server" "" "$(timesrv '.metadata.name' <<<"$off")"
+check "time off: the agents list no Time tool" 0 "$(grep -c -E 'get_current_time|convert_time' <<<"$off" || true)"
+check "time off: the search agents keep their tools" '["find_scheduled","find_live_events"]' "$(agent_tools events-scout "$off")"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

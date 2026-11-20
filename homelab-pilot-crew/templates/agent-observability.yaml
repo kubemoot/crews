@@ -21,7 +21,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - observability
   triageSummary: "Answers whether monitoring works and what it alerts on: monitoring pods running or restarting and their logs, ServiceMonitors, PodMonitors, PrometheusRules, firing alerts, and PromQL queries that investigate an alert or the stack itself."
   promptRefs: [discussion-protocol, response-style, tooler-discipline, obs-metrics-system]
-  enabledTools: [pods_list_in_namespace, pods_get, pods_log, resources_list, execute_query, execute_range_query, list_metrics]
+  enabledTools: [pods_list_in_namespace, pods_get, pods_log, resources_list, execute_query, execute_range_query, list_metrics{{ if .Values.mcpServers.time.enabled }}, get_current_time, convert_time{{ end }}]
   domains:
     - observability
     - prometheus

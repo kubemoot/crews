@@ -1,0 +1,6 @@
+# Test call for the Time server. A fixed zone, so the call reads no clock setting and
+# fails only when the server or its time zone data is broken.
+smokeInputs:
+  - name: get_current_time
+    arguments:
+      timezone: "UTC"
