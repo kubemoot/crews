@@ -47,7 +47,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - talos
     - rbac
     - operator
-  temperature: "0.3"
   maxTokens: 4096
   deployment:
     replicas: 1

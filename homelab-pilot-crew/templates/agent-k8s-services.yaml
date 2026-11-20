@@ -44,7 +44,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - external
     - dns
     - routing
-  temperature: "0.3"
   maxTokens: 4096
   deployment:
     replicas: 1

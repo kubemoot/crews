@@ -73,7 +73,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - schedule_followup
     - list_scheduled
     - cancel_scheduled
-  temperature: "0.3"
   maxTokens: 2048
   deployment:
     replicas: 1

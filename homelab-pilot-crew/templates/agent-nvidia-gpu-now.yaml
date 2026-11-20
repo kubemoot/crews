@@ -61,7 +61,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       WHEN the user asks how a GPU metric CHANGED OVER A TIME WINDOW (trend, history, average over hour/day) THEN say no
       WHEN the user asks WHICH metrics or scrape targets EXIST (discovery, metadata, "what is available") THEN say no
       WHEN the question is not about GPU state THEN say no
-  temperature: "0.3"
   maxTokens: 2048
   deployment:
     replicas: 1

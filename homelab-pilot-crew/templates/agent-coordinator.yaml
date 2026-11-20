@@ -24,7 +24,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - advisory-prompt
     - coordinator-decision-logic
     - synthesis-prompt
-  temperature: "0.1"
   maxTokens: 4096
   deployment:
     replicas: 1
