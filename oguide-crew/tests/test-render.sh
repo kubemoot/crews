@@ -464,5 +464,13 @@ check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the 
 check "every MCPServer has a spec.description" "" \
   "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
 
+# Tool smoke inputs: only the search server declares calls, and they are the read-only searches.
+check "only search-mcp declares smoke inputs" "search-mcp" \
+  "$(yq -N 'select(.kind == "MCPServer" and ((.spec.smokeInputs // []) | length) > 0) | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
+check "search-mcp smoke calls find_released with a topic and a 30s timeout" '[{"arguments":{"topic":"kubernetes"},"name":"find_released","timeout":"30s"}]' \
+  "$(search '.spec.smokeInputs' <<<"$out")"
+check "every smoke input names a search tool that reads" "" \
+  "$(yq -N 'select(.kind == "MCPServer") | .spec.smokeInputs // [] | .[].name' <<<"$out" | grep -v -E '^find_(released|scheduled|by_author|title|live_events)$' | tr '\n' ' ' | sed 's/ $//')"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

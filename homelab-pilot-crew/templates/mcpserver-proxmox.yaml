@@ -9,6 +9,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "proxmox-mcp") }}
   description: "Reads the Proxmox VE hypervisor through its API: nodes, virtual machines, containers, storage, and their usage over time."
+  {{- include "homelab-pilot-crew.smokeInputs" (dict "root" $ "name" "proxmox") }}
   image: {{ include "homelab-pilot-crew.image" (dict "root" $ "image" (required "mcpServers.proxmox.image is required when mcpServers.proxmox.enabled is true: the chart ships no Proxmox MCP image; the recommended one is ghcr.io/akmalovaa/proxmox-mcp (see values.yaml)" .Values.mcpServers.proxmox.image)) | quote }}
   # akmalovaa/proxmox-mcp serves Streamable HTTP itself, so the operator adds no bridge
   # sidecar. /healthz only says the process is up; /readyz asks Proxmox for its version and

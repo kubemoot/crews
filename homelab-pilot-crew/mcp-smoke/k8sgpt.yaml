@@ -1,0 +1,3 @@
+# Test calls for the k8sgpt MCP server. analyze is not called: it runs a model backend.
+smokeInputs:
+  - name: cluster-info
