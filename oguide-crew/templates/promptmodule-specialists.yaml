@@ -60,11 +60,6 @@ spec:
     WHEN the question names a topic and asks about live events, training, workshops, or sessions THEN call find_live_events with descriptive keywords, and call it again with a neighboring term
     WHEN the question asks what is coming, scheduled, or not yet released THEN call find_scheduled with descriptive keywords
 
-    DEFINE COMPONENT date-math
-    DESCRIPTION Time-zone conversion and date arithmetic run in the code sandbox, never in your head
-
-    WHEN a question needs a time-zone conversion or date arithmetic THEN call execute_code with language bash and GNU date, never Python, for example TZ=Asia/Tokyo date -d "2026-11-20 15:00 EST" "+%F %R %Z" prints 2026-11-21 05:00 JST and date -d "2026-11-20 + 45 days" +%F prints 2027-01-04
-
     DEFINE COMPONENT event-dates
     DESCRIPTION Dates are the point of an event answer
 

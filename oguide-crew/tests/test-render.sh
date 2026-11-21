@@ -490,8 +490,8 @@ check "the code sandbox holds no credentials, volume, or sidecar" "null|null|nul
   "$(sandbox '.spec.sidecars // null')|$(sandbox '.spec.emptyDirVolumes // null')|$(sandbox '.spec.secretVolumes // null')"
 check "the code sandbox egress is denied by default" '{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"code-sandbox-mcp"}},"policyTypes":["Egress"]}' \
   "$(yq -N -o=json -I=0 'select(.kind == "NetworkPolicy" and .metadata.name == "code-sandbox-egress") | .spec' <<<"$out")"
-check "events-scout has execute_code and a date rule" "1|1" \
-  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "events-scout") | .spec.enabledTools[]' <<<"$out" | grep -cx execute_code)|$(has events-scout-system 'THEN call execute_code with language bash and GNU date, never Python')"
+check "events-scout has execute_code and no prompt rule for it (the tool describes itself)" "1|0" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "events-scout") | .spec.enabledTools[]' <<<"$out" | grep -cx execute_code)|$(has events-scout-system 'GNU date' || true)"
 check "library-search keeps no sandbox tool and no date rule" "0|0" \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "library-search") | .spec.enabledTools[]' <<<"$out" | grep -cx execute_code || true)|$(has library-search-system 'execute_code')"
 off="$(render --set mcpServers.codeSandbox.enabled=false)"
