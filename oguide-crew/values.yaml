@@ -9,6 +9,11 @@ crew:
   description: "O'guide: finds, compares, ranks and links O'Reilly library material (books, videos, courses, live events) through the O'Reilly catalog search"
   discussion:
     enabled: true
+    # Who may ask (Crew spec.discussion.access). Empty: the gateway verifies no one and every
+    # caller is anonymous. Set, for example {tokenReview: true, allowAnonymous: false}, the
+    # gateway checks each caller's Kubernetes token and RBAC (get on this Crew) decides who
+    # may use the crew; each conversation then belongs to the caller who started it.
+    access: {}
   # How Kubemoot places this crew's model calls: algorithm, learned (where each call
   # is predicted to finish soonest), or shadow (algorithm places; learned is logged
   # beside it). Empty inherits the cluster default (KubemootConfig).
