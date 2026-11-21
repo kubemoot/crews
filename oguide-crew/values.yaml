@@ -75,11 +75,13 @@ oreilly:
 # Expert entitlement is oreilly.endpoint.
 perPerson:
   enabled: false
-  # Keep the shared-key server (oreilly-mcp) beside the per-person one, for the installer's own
-  # testing (fitness runs, kmctl). false renders only the per-person server. The gateway names a
-  # tool by its own name only, so two servers that list the same O'Reilly tool names overlap; see
-  # the README before leaving this true.
-  keepShared: true
+  # false (default): per-person mode registers no shared-key O'Reilly server, so no per-person call
+  # can reach the shared key; fitness runs and kmctl, which have no O'Reilly sign-in, are told to
+  # connect an O'Reilly account. true keeps the shared-key server (oreilly-mcp) beside the
+  # per-person one for the installer's own testing. The gateway names a tool by its own name only,
+  # so two servers that list the same O'Reilly tool names overlap and a call may reach either,
+  # including the shared key for a per-person call; see the README before setting true.
+  keepShared: false
   # Who vouches for a person: O'Reilly's Search MCP accepts every member's token, so it is the
   # endpoint the token is tried against. The account id is read from the token's payload.
   verifier:
