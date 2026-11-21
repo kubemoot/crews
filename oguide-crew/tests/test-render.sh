@@ -498,5 +498,11 @@ off="$(render --set mcpServers.codeSandbox.enabled=false)"
 check "with the sandbox off: no server, no policy, no execute_code" "0|0|0" \
   "$(yq -N 'select(.metadata.name == "code-sandbox-mcp" or .metadata.name == "code-sandbox-egress") | .metadata.name' <<<"$off" | grep -c . || true)|$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$off" | grep -cx execute_code || true)|$(yq -N 'select(.kind == "NetworkPolicy") | .metadata.name' <<<"$off" | grep -c . || true)"
 
+# Who may ask: nothing by default; the access block renders as given.
+crewspec() { yq -N -o=json -I=0 "select(.kind == \"Crew\") | .spec.discussion.access"; }
+check "the crew sets no access by default" null "$(crewspec <<<"$out")"
+check "the access value renders" '{"allowAnonymous":false,"tokenReview":true}' \
+  "$(render --set crew.discussion.access.tokenReview=true --set crew.discussion.access.allowAnonymous=false | crewspec)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

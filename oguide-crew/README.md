@@ -155,6 +155,7 @@ helm upgrade --install oguide \
 | `gooseSeat.name` | `goose-curator` | The goose seat's Agent name |
 | `crew.name` | `oguide` | The Crew's name |
 | `crew.placementPolicy` | empty | `algorithm`, `learned`, or `shadow`; empty inherits the cluster default |
+| `crew.discussion.access` | `{}` | Who may ask (Crew `spec.discussion.access`): `tokenReview`, `allowAnonymous`, `tokenAudiences`. Empty, every caller is anonymous. Set, the gateway checks each caller's Kubernetes token and RBAC (`get` on the Crew) decides who may use the crew, and each conversation belongs to its caller |
 | `network.allowedIngress` | `[]` | Namespace label selectors whose pods may reach the crew's discussion gateway when the operator generates network policies (Crew `spec.network.allowedIngress`). Empty renders no `network` field; set it only on a Kubemoot operator that supports Crew network policies |
 | `egress.mcpServers`, `egress.agents` | `{}` | Per-resource `spec.egress`, keyed by rendered name and copied as written; see [Egress](#egress) |
 | `egress.agentsDefault` | unset | `spec.egress` for every Agent without its own `egress.agents` entry; `{}` limits agents to Kubemoot's automatic allows; see [Egress](#egress) |
