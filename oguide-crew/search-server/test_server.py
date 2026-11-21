@@ -1009,7 +1009,7 @@ class RecordingOpener:
 class PerPersonTest(unittest.TestCase):
     """Each person's own O'Reilly access: the asker's context rides on gateway calls, descriptions say whose access."""
 
-    META = {"conversationId": "conv-1", "principalId": "p-abc", "timeZone": "UTC"}
+    META: ClassVar[dict[str, str]] = {"conversationId": "conv-1", "principalId": "p-abc", "timeZone": "UTC"}
 
     def call(self, catalog, name, arguments, meta):
         message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
