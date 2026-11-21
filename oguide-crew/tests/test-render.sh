@@ -557,6 +557,80 @@ for f in "${chart}"/fitness/expert/*.adl; do
     "$(grep -cF -- "$pattern" "${chart}/fitness/author-recent-work.adl" || true)"
 done
 
+# Each person's own O'Reilly access (perPerson): off by default and then nothing changes; on, the Crew
+# verifies O'Reilly tokens, a second MCPServer calls with the asker's token, descriptions say whose access.
+person="$(render --set perPerson.enabled=true)"
+person_only="$(render --set perPerson.enabled=true --set perPerson.keepShared=false)"
+personmcp() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"oreilly-person-mcp\") | $1"; }
+mcpnames() { yq -N 'select(.kind == "MCPServer") | .metadata.name' <<<"$1" | sort | tr '\n' ' ' | sed 's/ $//'; }
+check "perPerson is off by default" false "$(yq '.perPerson.enabled' "${chart}/values.yaml")"
+check "perPerson keepShared defaults to true" true "$(yq '.perPerson.keepShared' "${chart}/values.yaml")"
+check "perPerson off: no per-person server, no serviceTokens, no hash key, no relay" 0 \
+  "$(grep -cE 'oreilly-person-mcp|serviceTokens|hashKeySecretRef|callerCredential|OREILLY_PER_PERSON|OREILLY_ACCESS_NOTE' <<<"$out" || true)"
+check "perPerson off: the same MCP servers as before" "code-sandbox-mcp oreilly-mcp search-mcp workspace-mcp" "$(mcpnames "$out")"
+check "perPerson off: the library-search tools are unchanged" "find_by_author,find_released,find_title" "$(lib_tools "$out")"
+check "perPerson on: the Crew keeps its other access settings and adds the verifier" \
+  '{"allowAnonymous":false,"hashKeySecretRef":{"key":"hash-key","name":"kubemoot-hash-key"},"serviceTokens":[{"maxCacheSeconds":300,"name":"oreilly","passToTools":true,"subjectClaim":"upstream_claims.sub","verifyMethod":"McpInitialize","verifyURL":"https://api.oreilly.com/api/search/v1/mcp"}],"tokenReview":true}' \
+  "$(render --set perPerson.enabled=true --set crew.discussion.access.tokenReview=true --set crew.discussion.access.allowAnonymous=false | crewspec)"
+check "perPerson on: the Crew names the hash key Secret only" '{"key":"hash-key","name":"kubemoot-hash-key"}' \
+  "$(crewspec <<<"$person" | yq -o=json -I=0 '.hashKeySecretRef')"
+check "perPerson on: the hash key Secret is a value" '"my-hash"' \
+  "$(render --set perPerson.enabled=true --set perPerson.hashKeySecret.name=my-hash | crewspec | yq -o=json -I=0 '.hashKeySecretRef.name')"
+check "perPerson on: the verifier passes the token to tools and tries the Search MCP" '"oreilly|true|McpInitialize|https://api.oreilly.com/api/search/v1/mcp|upstream_claims.sub"' \
+  "$(crewspec <<<"$person" | yq '.serviceTokens[0] | [.name, .passToTools, .verifyMethod, .verifyURL, .subjectClaim] | join("|")' -o=json)"
+check "perPerson on: audiences render only when set" "null|[\"a\"]" \
+  "$(crewspec <<<"$person" | yq -o=json -I=0 '.serviceTokens[0].audiences')|$(render --set perPerson.enabled=true --set 'perPerson.verifier.audiences={a}' | crewspec | yq -o=json -I=0 '.serviceTokens[0].audiences')"
+check "perPerson on: both servers render beside the others" \
+  "code-sandbox-mcp oreilly-mcp oreilly-person-mcp search-mcp workspace-mcp" "$(mcpnames "$person")"
+check "perPerson on: the per-person server is Required for the oreilly verifier" '"Required|oreilly"' \
+  "$(personmcp '.spec.registry.callerCredential | .mode + "|" + .verifier' <<<"$person")"
+check "perPerson on: the per-person server is http and its primary endpoint is the Expert MCP" '"http|https://api.oreilly.com/api/expert/v1/mcp"' \
+  "$(personmcp '.spec.transport + "|" + .spec.externalEndpoint' <<<"$person")"
+check "perPerson on: on a 403 the gateway tries the Search MCP over https" '["https://api.oreilly.com/api/search/v1/mcp"]' \
+  "$(personmcp '.spec.registry.callerCredential.onForbidden' <<<"$person")"
+check "perPerson on: every onForbidden endpoint is https" 0 \
+  "$(personmcp '.spec.registry.callerCredential.onForbidden[]' <<<"$person" | tr -d '"' | grep -vc '^https://' || true)"
+check "perPerson on: the refusal names the O'Reilly account" '"O'"'"'Reilly"' "$(personmcp '.spec.registry.callerCredential.accountName' <<<"$person")"
+check "perPerson on: the endpoints are values" '"https://e.example.test/x|https://s.example.test/y"' \
+  "$(render --set perPerson.enabled=true --set oreilly.expert.endpoint=https://e.example.test/x --set oreilly.endpoint=https://s.example.test/y \
+     | personmcp '.spec.externalEndpoint + "|" + .spec.registry.callerCredential.onForbidden[0]')"
+check "perPerson on: the per-person server lists tools with the installer's Secret and holds no key" '"oreilly-mcp-auth"' \
+  "$(personmcp '.spec.registry.authSecretRef' <<<"$person")"
+check "perPerson on: each raw tool description says results reflect the asker's own access" "3" \
+  "$(personmcp '.spec.toolOverrides[].description' <<<"$person" | grep -c "reflect the asking person's own O'Reilly access")"
+check "perPerson on: the overrides name the three O'Reilly tools" "ask_oreilly_experts,get_oreilly_citation,search_oreilly_content" \
+  "$(personmcp '.spec.toolOverrides | map(.name) | sort | join(",")' <<<"$person" | tr -d '"')"
+check "perPerson on: the access sentence is a value" 3 \
+  "$(render --set perPerson.enabled=true --set perPerson.accessNote=NOTE-XYZ | personmcp '.spec.toolOverrides[].description' | grep -c 'NOTE-XYZ')"
+check "perPerson on: the search server relays context and holds no credential" '"Off|true"' \
+  "$(search '.spec.registry.callerCredential | .mode + "|" + (.relayContext | tostring)' <<<"$person")"
+check "perPerson on: the search server is told to relay and to describe whose access" "true|1" \
+  "$(search '.spec.env[] | select(.name == "OREILLY_PER_PERSON") | .value' <<<"$person" | tr -d '"')|$(search '.spec.env[] | select(.name == "OREILLY_ACCESS_NOTE") | .value' <<<"$person" | grep -c 'own O')"
+check "perPerson on: the Expert tools are offered to library-search" "ask_experts,find_by_author,find_released,find_title,get_citation" "$(lib_tools "$person")"
+check "perPerson on: no agent names a raw O'Reilly tool" 0 \
+  "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$person" | grep -cE '^(search_oreilly_content|ask_oreilly_experts|get_oreilly_citation)$' || true)"
+person_prompts="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$person")"
+check "perPerson on: no prompt rule names a tool of the per-person path or its credential" 0 \
+  "$(grep -cE 'ask_experts|get_citation|ask_oreilly_experts|get_oreilly_citation|callerCredential|onForbidden|serviceTokens' <<<"$person_prompts" || true)"
+check "perPerson on: the expert scenarios deploy" 3 \
+  "$(scenario_names "$person" | tr ',' '\n' | grep -cE '^(cited-technical-answer|quote-only-what-a-citation-holds|expert-refused-says-so)\.adl$' || true)"
+check "perPerson on: the key is still only a named Secret" 0 \
+  "$(render --set perPerson.enabled=true --set oreilly.auth.key=PLANTED-KEY-0002 | grep -c 'PLANTED-KEY-0002' || true)"
+check "perPerson on: the shared-key server still uses the shared key Secret" '"oreilly-mcp-auth"' "$(oreilly '.spec.registry.authSecretRef' <<<"$person")"
+check "perPerson on: the shared server is never Required" 0 "$(oreilly '.spec.registry.callerCredential' <<<"$person" | grep -vc '^null$' || true)"
+check "perPerson on, keepShared false: only the per-person server serves O'Reilly" \
+  "code-sandbox-mcp oreilly-person-mcp search-mcp workspace-mcp" "$(mcpnames "$person_only")"
+check "perPerson on, keepShared false: the search server declares no smoke input (no person asks)" null \
+  "$(search '.spec.smokeInputs' <<<"$person_only")"
+check "perPerson on, keepShared true: the search server keeps its smoke input" 1 \
+  "$(search '.spec.smokeInputs | length' <<<"$person")"
+check "perPerson on: a missing hash key Secret name fails the render" 1 \
+  "$(render_err --set perPerson.enabled=true --set perPerson.hashKeySecret.name= | grep -c 'perPerson.hashKeySecret.name is required' || true)"
+check "perPerson on: the chart lints" 0 "$(helm lint "$chart" --set perPerson.enabled=true >/dev/null 2>&1; echo $?)"
+check "perPerson on, keepShared false: the chart lints" 0 "$(helm lint "$chart" --set perPerson.enabled=true --set perPerson.keepShared=false >/dev/null 2>&1; echo $?)"
+check "the README documents each person's own access and its values" "1|1|1" \
+  "$(grep -c '^## Each person.s own O.Reilly access' "${chart}/README.md")|$(grep -cF '| `perPerson.enabled` | `false` |' "${chart}/README.md")|$(grep -cF '| `perPerson.keepShared` | `true` |' "${chart}/README.md")"
+
 # The README documents the values and the Expert option.
 readme_row() { grep -cF -- "$1" "${chart}/README.md" || true; }
 check "the README row for oreilly.endpoint shows the Search MCP default" 1 \

@@ -78,6 +78,42 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 
 **Never commit the key or put it in a values file.** The chart has no value for it, and a key passed with `--set` or in `-f my-values.yaml` is ignored and would still sit in your shell history or repository. Keep it only in the Secret, and treat anyone who can read Secrets in the crew or operator namespace as able to read it.
 
+## Each person's own O'Reilly access
+
+By default the crew calls O'Reilly with one subscriber key, whoever asks. With `perPerson.enabled=true` a person who asks through a chat app signed in to O'Reilly is verified by O'Reilly itself, and the crew's O'Reilly calls carry that person's own token, so each answer reflects what that person's account includes (Expert Intelligence or only the Search MCP). It is off by default and then nothing in the chart changes.
+
+```bash
+kubectl -n crew-oguide create secret generic kubemoot-hash-key \
+  --from-literal=hash-key="$(openssl rand -base64 32)"   # the same value in every door of the install
+helm upgrade --install oguide oci://ghcr.io/kubemoot/charts/oguide-crew \
+  --version <version> -n crew-oguide --set perPerson.enabled=true
+```
+
+Needs a Kubemoot operator that supports `Crew` `spec.discussion.access.serviceTokens` and `MCPServer` `registry.callerCredential`, and a chat app that signs people in to O'Reilly through the crew's door.
+
+With it on:
+
+- The Crew gets `access.serviceTokens` with one verifier named `oreilly`: the gateway tries a person's token against the O'Reilly Search MCP (`perPerson.verifier.verifyURL`, which accepts every member's token), reads the account id from `upstream_claims.sub`, and keeps the token in memory for the turn (`passToTools`). `access.hashKeySecretRef` names the installer's Secret above. The chart only names the Secret; it never holds the key.
+- A second MCPServer, `oreilly-person-mcp`, serves O'Reilly's tools with `callerCredential.mode: Required`: a call carries the asking person's token and nothing else, and with no token for the turn the call fails with a message the agent reports (the subscriber key is never used on it). Its primary endpoint is the Expert MCP (`oreilly.expert.endpoint`). When that answers 403 because the account lacks the Expert entitlement, the gateway tries the Search MCP (`oreilly.endpoint`, https) with the same token for the search tool; the Expert-only tools return O'Reilly's refusal as the tool result. The subscriber key (`oreilly.auth.secretName`) lists the tools at registration and is never sent on a call.
+- All three tools are always offered. `toolOverrides` on the per-person server and a note on the search server's own tools say in each description: "Results reflect the asking person's own O'Reilly access and what their account includes." (`perPerson.accessNote`). No prompt rule names a tool.
+- The agents reach O'Reilly through the search server as before. The server's MCPServer sets `callerCredential.relayContext`, so the gateway passes the asker's `conversationId` and `principalId` in the call's `_meta`, and the search server passes the same two keys back on its gateway calls. The five `find_*` searches and the Expert tools therefore run as the asking person too. Nothing else from `_meta` is passed on, and a model cannot set them (they are not tool arguments).
+- The Expert tools are offered whatever `oreilly.expert.enabled` says, and the Expert fitness scenarios deploy.
+
+**The shared-key server stays beside it** (`perPerson.keepShared`, default `true`) for the installer's own testing, such as fitness runs and `kmctl`, which have no O'Reilly sign-in. Both servers list the same O'Reilly tool names (`search_oreilly_content`, and with Expert `ask_oreilly_experts` and `get_oreilly_citation`), and the gateway routes a call by tool name alone, so with both registered it picks one of the two servers for a name and not always the same one. A call meant to be per person could then use the shared key, and a test call could be refused for want of a person. Until the gateway can scope a tool name to a server, use `perPerson.keepShared=false` wherever the result must be per person (it renders only the per-person server, and the search server then declares no smoke input because no person is asking). Keep `true` only on an installation where the shared-key path is what you are testing.
+
+| Value | Default | What it sets |
+|---|---|---|
+| `perPerson.enabled` | `false` | Turns on each person's own O'Reilly access (the Crew access block, the `oreilly-person-mcp` server, the relay and the descriptions) |
+| `perPerson.keepShared` | `true` | Keeps the shared-key `oreilly-mcp` server beside the per-person one. `false` renders only the per-person server |
+| `perPerson.verifier.name` | `oreilly` | The issuer name of the people O'Reilly vouches for. It is part of each person's id, so changing it changes every id |
+| `perPerson.verifier.verifyURL` | `https://api.oreilly.com/api/search/v1/mcp` | The endpoint a person's token is tried against |
+| `perPerson.verifier.subjectClaim` | `upstream_claims.sub` | The dotted path in the token's payload that names the person |
+| `perPerson.verifier.audiences` | `[]` | Values the token's `aud` must have one of; omitted when empty |
+| `perPerson.verifier.maxCacheSeconds` | `300` | How long an accepted token is remembered, never beyond its own expiry |
+| `perPerson.hashKeySecret.name`, `.secretKey` | `kubemoot-hash-key`, `hash-key` | The installer's Secret that holds the install's hash key |
+| `perPerson.accountName` | `O'Reilly` | How a refusal names the account to connect |
+| `perPerson.accessNote` | see `values.yaml` | The sentence added to each tool description |
+
 ## Expert Intelligence (optional)
 
 O'Reilly Expert Intelligence answers a specific technical question with grounded, citable passages from expert-authored content, where the catalog search returns only titles and links. It is a paid add-on: an O'Reilly account needs the Expert MCP entitlement (`xmcp`), and O'Reilly refuses every request to the Expert MCP of an account without it (HTTP 403), searches included. It is off by default; set `oreilly.expert.enabled=true` only with a key from an entitled account.

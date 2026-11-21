@@ -11,9 +11,9 @@ spec:
   description: {{ .Values.crew.description | quote }}
   discussion:
     enabled: {{ .Values.crew.discussion.enabled }}
-{{- with .Values.crew.discussion.access }}
+{{- with include "oguide-crew.access" . }}
     access:
-      {{- toYaml . | nindent 6 }}
+      {{- . | nindent 6 }}
 {{- end }}
 {{- with (.Values.network | default dict).allowedIngress }}
   network:

@@ -8,6 +8,11 @@ operator's bridge connects it to the gateway.
 Configuration comes from the environment:
   OREILLY_GATEWAY_URL        the crew's MCP gateway, which holds the O'Reilly key and forwards the search
   OREILLY_DEFAULT_TIMEZONE   IANA time zone whose date is "today" when a request carries none (default UTC)
+  OREILLY_PER_PERSON         "true" when each person's own O'Reilly access is on: every tool description gets
+                             OREILLY_ACCESS_NOTE appended, and the asker's conversationId and principalId, which
+                             the gateway relays in params._meta, are passed back on each gateway call so the
+                             gateway can use that person's own token for it (never set otherwise)
+  OREILLY_ACCESS_NOTE        the sentence appended to every tool description with OREILLY_PER_PERSON
   OREILLY_EXPERT             "true" when the gateway's O'Reilly server is the Expert MCP: this server then also
                              offers ask_experts and get_citation (default: off)
 
@@ -53,6 +58,8 @@ SEARCH_TOOL = "search_oreilly_content"
 ASK_TOOL = "ask_oreilly_experts"
 CITATION_TOOL = "get_oreilly_citation"
 MAX_QUESTION_CHARS = 1000
+RELAYED_META_KEYS = ("conversationId", "principalId")
+MAX_RELAYED_CHARS = 256
 NO_EXPERT_ACCESS = ("This O'Reilly account does not include Expert Intelligence (the Expert MCP entitlement), "
                     "so the Expert tools are refused. Nothing was retrieved; say so and do not answer from memory.")
 
@@ -158,7 +165,7 @@ class EntitlementError(CatalogError):
 
 def is_forbidden(text):
     """True when upstream text is O'Reilly's 403 (a refused account), however the gateway wrapped it."""
-    return bool(re.search(r"HTTP 403|xmcp|\bforbidden\b", str(text), re.IGNORECASE))
+    return bool(re.search(r"HTTP 403|xmcp|\bforbidden\b|refused this call", str(text), re.IGNORECASE))
 
 
 def utc_now():
@@ -325,13 +332,30 @@ def merge_unique(first, second):
 class GatewayCatalog:
     """The O'Reilly tools, called through the crew's MCP gateway (which holds the key)."""
 
-    def __init__(self, gateway_url, opener=None):
+    def __init__(self, gateway_url, opener=None, relay=False, context=None):
         self._base = gateway_url.rstrip("/")
         self._open = opener or urllib.request.urlopen
+        self._relay = relay
+        self._context = context or {}
+
+    def scoped(self, meta):
+        """A catalog whose gateway calls carry the asker's conversationId and principalId from meta.
+
+        Without relay (the default) this is the catalog itself and nothing is passed on. Only those two
+        keys, only as short text, are ever relayed; the gateway decides what they allow.
+        """
+        if not self._relay or not isinstance(meta, dict):
+            return self
+        context = {k: meta[k] for k in RELAYED_META_KEYS
+                   if isinstance(meta.get(k), str) and 0 < len(meta[k]) <= MAX_RELAYED_CHARS}
+        return GatewayCatalog(self._base, self._open, True, context)
 
     def call(self, tool, arguments):
         """Run one upstream tool and return the text of its reply."""
-        body = json.dumps({"arguments": arguments}).encode()
+        payload = {"arguments": arguments}
+        if self._context:
+            payload["_meta"] = self._context
+        body = json.dumps(payload).encode()
         request = urllib.request.Request(f"{self._base}/tools/{tool}/call", data=body, method="POST",
                                          headers={"Content-Type": "application/json"})
         try:
@@ -520,10 +544,15 @@ HANDLERS = {
 }
 
 
-def expert_listing():
+def with_note(description, note):
+    """The tool description with the access sentence appended, when there is one."""
+    return f"{description} {note}" if note and note not in description else description
+
+
+def expert_listing(note=""):
     return [{
         "name": t["name"],
-        "description": t["description"],
+        "description": with_note(t["description"], note),
         "inputSchema": {"type": "object", "properties": t["properties"], "required": t["required"]},
     } for t in EXPERT_TOOLS]
 
@@ -565,10 +594,10 @@ def call_expert(name, arguments, catalog):
         return text_result(f"The O'Reilly Expert tools could not answer: {err}", True)
 
 
-def tool_listing():
+def tool_listing(note=""):
     return [{
         "name": t["name"],
-        "description": t["description"],
+        "description": with_note(t["description"], note),
         "inputSchema": {
             "type": "object",
             "properties": {t["argument"]: {"type": "string", "description": t["argument_description"]}},
@@ -662,7 +691,13 @@ def error_reply(ident, code, text):
     return {"jsonrpc": "2.0", "id": ident, "error": {"code": code, "message": text}}
 
 
-def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None, expert=False):
+def scoped(catalog, meta):
+    """The catalog for one call: with relay on, the asker's context rides on its gateway calls."""
+    narrow = getattr(catalog, "scoped", None)
+    return narrow(meta) if narrow else catalog
+
+
+def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None, expert=False, note=""):
     """The reply to one JSON-RPC message, or None for a notification."""
     if not isinstance(message, dict):
         return error_reply(None, -32600, "a request is a JSON object")
@@ -677,25 +712,25 @@ def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None, ex
     elif method == "ping":
         result = {}
     elif method == "tools/list":
-        result = {"tools": tool_listing() + (expert_listing() if expert else [])}
+        result = {"tools": tool_listing(note) + (expert_listing(note) if expert else [])}
     elif method == "tools/call" and params.get("name") in HANDLERS:
         today, source = resolve_today(params.get("_meta"), default_zone, now_fn())
-        result = call_tool(params["name"], params.get("arguments"), catalog, today, source, recent,
-                           params.get("_meta"))
+        result = call_tool(params["name"], params.get("arguments"), scoped(catalog, params.get("_meta")),
+                           today, source, recent, params.get("_meta"))
     elif method == "tools/call" and expert and params.get("name") in EXPERT_BY_NAME:
-        result = call_expert(params["name"], params.get("arguments"), catalog)
+        result = call_expert(params["name"], params.get("arguments"), scoped(catalog, params.get("_meta")))
     else:
         return error_reply(ident, -32602 if method == "tools/call" else -32601, "cannot handle that request")
     return {"jsonrpc": "2.0", "id": ident, "result": result}
 
 
-def serve(catalog, stdin=sys.stdin, stdout=sys.stdout, default_zone="UTC", expert=False):
+def serve(catalog, stdin=sys.stdin, stdout=sys.stdout, default_zone="UTC", expert=False, note=""):
     recent = RecentCalls()
     for line in stdin:
         if not line.strip():
             continue
         try:
-            reply = handle(json.loads(line), catalog, default_zone, recent=recent, expert=expert)
+            reply = handle(json.loads(line), catalog, default_zone, recent=recent, expert=expert, note=note)
         except ValueError:
             reply = error_reply(None, -32700, "parse error")
         except Exception:  # noqa: BLE001 - one bad message never ends the process the bridge talks to
@@ -710,8 +745,10 @@ def main():
     if not gateway:
         sys.stderr.write("OREILLY_GATEWAY_URL must be set\n")
         return 2
-    serve(GatewayCatalog(gateway), default_zone=os.environ.get("OREILLY_DEFAULT_TIMEZONE", "UTC"),
-          expert=os.environ.get("OREILLY_EXPERT", "").lower() == "true")
+    per_person = os.environ.get("OREILLY_PER_PERSON", "").lower() == "true"
+    serve(GatewayCatalog(gateway, relay=per_person), default_zone=os.environ.get("OREILLY_DEFAULT_TIMEZONE", "UTC"),
+          expert=os.environ.get("OREILLY_EXPERT", "").lower() == "true",
+          note=os.environ.get("OREILLY_ACCESS_NOTE", "") if per_person else "")
     return 0
 
 

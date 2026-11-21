@@ -66,6 +66,38 @@ oreilly:
     # Only with secretKey api-key: the header that carries the key.
     header: ""
 
+# Each person's own O'Reilly access, off by default. On, a person who asks through a chat app
+# signed in to O'Reilly is verified by O'Reilly itself, and the crew's O'Reilly calls carry that
+# person's own token (what their account includes, Expert Intelligence or only the Search MCP)
+# instead of one subscriber key. Needs a Kubemoot operator with Crew access.serviceTokens and
+# MCPServer registry.callerCredential. The Expert tools are offered whatever oreilly.expert.enabled
+# says; the primary endpoint is oreilly.expert.endpoint and the fallback for a person without the
+# Expert entitlement is oreilly.endpoint.
+perPerson:
+  enabled: false
+  # Keep the shared-key server (oreilly-mcp) beside the per-person one, for the installer's own
+  # testing (fitness runs, kmctl). false renders only the per-person server. The gateway names a
+  # tool by its own name only, so two servers that list the same O'Reilly tool names overlap; see
+  # the README before leaving this true.
+  keepShared: true
+  # Who vouches for a person: O'Reilly's Search MCP accepts every member's token, so it is the
+  # endpoint the token is tried against. The account id is read from the token's payload.
+  verifier:
+    name: oreilly
+    verifyURL: https://api.oreilly.com/api/search/v1/mcp
+    subjectClaim: upstream_claims.sub
+    audiences: []
+    maxCacheSeconds: 300
+  # The Secret that holds the install's hash key. The installer creates it (the same value in
+  # every door of the install); this chart only names it.
+  hashKeySecret:
+    name: kubemoot-hash-key
+    secretKey: hash-key
+  # How a refusal names the account to connect.
+  accountName: "O'Reilly"
+  # Added to each tool's description.
+  accessNote: "Results reflect the asking person's own O'Reilly access and what their account includes."
+
 # The discussion workspace: the scratch data the agents of one discussion share (large tool
 # results stored by key). declareAccess puts Agent.spec.workspace.access on each agent:
 # write on the search agents (they store results and read none), read on the curator. The

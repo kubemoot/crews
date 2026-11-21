@@ -171,3 +171,29 @@ Usage: include "oguide-crew.image" (dict "root" $ "image" .Values.mcpServers.cod
 {{- printf "%s/%s" .root.Values.global.imageRegistry .image -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+"true" when the Expert tools are offered: with Expert Intelligence on, and with per-person
+O'Reilly access on (the per-person server's primary endpoint is the Expert MCP). Empty
+otherwise. Usage: if include "oguide-crew.expertOn" $
+*/}}
+{{- define "oguide-crew.expertOn" -}}
+{{- if or .Values.oreilly.expert.enabled .Values.perPerson.enabled -}}true{{- end -}}
+{{- end }}
+
+{{/*
+The Crew's discussion access with the per-person O'Reilly verifier added. Off, the value as
+given. On, serviceTokens holds one entry (the verifier the per-person MCPServer names) and
+hashKeySecretRef names the installer's Secret; the chart never holds a key.
+*/}}
+{{- define "oguide-crew.access" -}}
+{{- $access := deepCopy (.Values.crew.discussion.access | default dict) -}}
+{{- if .Values.perPerson.enabled -}}
+{{- $p := .Values.perPerson -}}
+{{- $v := dict "name" $p.verifier.name "verifyURL" (required "perPerson.verifier.verifyURL is required" $p.verifier.verifyURL) "verifyMethod" "McpInitialize" "subjectClaim" (required "perPerson.verifier.subjectClaim is required" $p.verifier.subjectClaim) "maxCacheSeconds" ($p.verifier.maxCacheSeconds | int) "passToTools" true -}}
+{{- with $p.verifier.audiences }}{{- $_ := set $v "audiences" . }}{{- end -}}
+{{- $_ := set $access "serviceTokens" (list $v) -}}
+{{- $_ := set $access "hashKeySecretRef" (dict "name" (required "perPerson.hashKeySecret.name is required: the Secret you create that holds the install's hash key" $p.hashKeySecret.name) "key" $p.hashKeySecret.secretKey) -}}
+{{- end -}}
+{{- if $access -}}{{- toYaml $access -}}{{- end -}}
+{{- end }}

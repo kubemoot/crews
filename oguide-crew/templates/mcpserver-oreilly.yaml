@@ -1,3 +1,4 @@
+{{- if or (not .Values.perPerson.enabled) .Values.perPerson.keepShared }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
@@ -36,3 +37,4 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     {{- with .Values.oreilly.auth.header }}
     authHeader: {{ . | quote }}
     {{- end }}
+{{- end }}

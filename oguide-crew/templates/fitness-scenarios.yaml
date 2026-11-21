@@ -16,7 +16,7 @@ metadata:
     kubemoot.ai/crew: {{ .Values.crew.name }}
     kubemoot.ai/fitness-kind: scenarios
 data:
-{{- $expert := .Values.oreilly.expert.enabled }}
+{{- $expert := include "oguide-crew.expertOn" $ }}
 {{- range $path, $bytes := .Files.Glob "fitness/*.{adl,md}" }}
 {{- /* The quote scenario asserts the crew declines, which is true only without the expert tools. */}}
 {{- if and (ne (base $path) "README.md") (not (and $expert (eq (base $path) "quote-passage-declined.adl"))) }}
