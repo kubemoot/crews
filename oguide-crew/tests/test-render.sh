@@ -56,8 +56,9 @@ check "the search server image is pinned by digest" 1 \
   "$(search '.spec.image' <<<"$out" | grep -cE '^"python@sha256:[0-9a-f]{64}"$' || true)"
 check "the search server runs the mounted code" '["python","/app/server.py"]' "$(search '.spec.command' <<<"$out")"
 check "the search server is stdio" '"stdio"' "$(search '.spec.transport' <<<"$out")"
-check "the endpoint defaults to O'Reilly's" '"https://api.oreilly.com/api/content-discovery/v1/mcp/"' \
+check "the endpoint defaults to the Search MCP, not the unlisted content-discovery one" '"https://api.oreilly.com/api/search/v1/mcp"' \
   "$(oreilly '.spec.externalEndpoint' <<<"$out")"
+check "no rendering names the unlisted content-discovery endpoint" 0 "$(grep -c 'content-discovery' <<<"$out" || true)"
 check "the endpoint is a value" '"https://mcp.example.test/mcp/"' \
   "$(render --set oreilly.endpoint=https://mcp.example.test/mcp/ | oreilly '.spec.externalEndpoint')"
 check "the raw server is an external endpoint with no deployment" '"http"|null' \
@@ -503,6 +504,71 @@ crewspec() { yq -N -o=json -I=0 "select(.kind == \"Crew\") | .spec.discussion.ac
 check "the crew sets no access by default" null "$(crewspec <<<"$out")"
 check "the access value renders" '{"allowAnonymous":false,"tokenReview":true}' \
   "$(render --set crew.discussion.access.tokenReview=true --set crew.discussion.access.allowAnonymous=false | crewspec)"
+
+# Expert Intelligence: off by default. Off, no Expert tool, endpoint, scenario or prompt rule renders;
+# on, the gateway's O'Reilly server is the Expert MCP, the search server offers the Expert tools, the
+# library-search agent lists them, the expert scenarios deploy, and the grounding rule is added.
+expert="$(render --set oreilly.expert.enabled=true)"
+lib_tools() { yq -N 'select(.kind == "Agent" and .metadata.name == "library-search") | .spec.enabledTools | sort | join(",")' <<<"$1"; }
+expert_env() { search '.spec.env[] | select(.name == "OREILLY_EXPERT") | .value' <<<"$1"; }
+scenario_names() { yq -N 'select(.kind == "ConfigMap" and .metadata.labels."kubemoot.ai/fitness-kind" == "scenarios") | .data | keys | join(",")' <<<"$1"; }
+check "Expert is off by default" false "$(yq '.oreilly.expert.enabled' "${chart}/values.yaml")"
+check "Expert off: library-search has no Expert tool" "find_by_author,find_released,find_title" "$(lib_tools "$out")"
+check "Expert off: the search server is not told to offer Expert tools" "" "$(expert_env "$out")"
+check "Expert off: no Expert tool or endpoint is rendered anywhere" 0 \
+  "$(grep -cE 'ask_experts|get_citation|ask_oreilly_experts|get_oreilly_citation|api/expert|xmcp' <<<"$out" || true)"
+check "Expert off: no expert scenario deploys" 0 "$(scenario_names "$out" | tr ',' '\n' | grep -cE '^(cited-technical-answer|quote-only-what-a-citation-holds|expert-refused-says-so)\.adl$' || true)"
+check "Expert off: the quote-declined scenario deploys" 1 "$(scenario_names "$out" | tr ',' '\n' | grep -cx 'quote-passage-declined.adl')"
+check "Expert off: the grounding module has no expert-citations rule" 0 "$(has catalog-grounding 'expert-citations')"
+check "Expert on: the gateway's O'Reilly server is the Expert MCP" '"https://api.oreilly.com/api/expert/v1/mcp"' \
+  "$(oreilly '.spec.externalEndpoint' <<<"$expert")"
+check "Expert on: the Expert endpoint is a value" '"https://expert.example.test/mcp"' \
+  "$(render --set oreilly.expert.enabled=true --set oreilly.expert.endpoint=https://expert.example.test/mcp | oreilly '.spec.externalEndpoint')"
+check "Expert on: the Search endpoint value is unused" '"https://api.oreilly.com/api/expert/v1/mcp"' \
+  "$(render --set oreilly.expert.enabled=true --set oreilly.endpoint=https://mcp.example.test/mcp/ | oreilly '.spec.externalEndpoint')"
+check "Expert on: the key is still only a named Secret" '"oreilly-mcp-auth"' "$(oreilly '.spec.registry.authSecretRef' <<<"$expert")"
+check "Expert on: library-search lists the Expert tools beside its search tools" \
+  "ask_experts,find_by_author,find_released,find_title,get_citation" "$(lib_tools "$expert")"
+check "Expert on: no agent names O'Reilly's raw tools, which would collide on the gateway" 0 \
+  "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$expert" | grep -cE '^(search_oreilly_content|ask_oreilly_experts|get_oreilly_citation)$' || true)"
+check "Expert on: no other agent gains an Expert tool" 0 \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name != "library-search") | .spec.enabledTools[]' <<<"$expert" | grep -cE '^(ask_experts|get_citation)$' || true)"
+check "Expert on: the search server is told to offer the Expert tools" '"true"' "$(expert_env "$expert")"
+check "Expert on: the expert scenarios deploy" 3 \
+  "$(scenario_names "$expert" | tr ',' '\n' | grep -cE '^(cited-technical-answer|quote-only-what-a-citation-holds|expert-refused-says-so)\.adl$' || true)"
+check "Expert on: the quote-declined scenario is left out" 0 "$(scenario_names "$expert" | tr ',' '\n' | grep -cx 'quote-passage-declined.adl' || true)"
+check "Expert on: the other scenarios still deploy" "$count" \
+  "$(scenario_names "$expert" | tr ',' '\n' | grep -c '.adl' | awk -v n=3 '{print $1 - n + 1}')"
+all_expert="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$expert")"
+check "Expert on: grounding ties a claim to a returned passage and cites nothing a tool did not return" "1|1" \
+  "$(grep -cF 'is made only from a passage an expert tool returned in this turn' <<<"$all_expert" || true)|$(grep -cF 'NEVER cite, quote, or attribute a passage, a title, or a link that an expert tool did not return' <<<"$all_expert" || true)"
+check "Expert on: the metadata-only and decline-to-quote rules are replaced, not contradicted" 0 \
+  "$(grep -cE 'holds no text|cannot read inside|returns no text from inside any content|metadata and nothing more|you know its metadata and nothing else|DECLINE that part plainly' <<<"$all_expert" || true)"
+check "Expert on: no prompt rule names an Expert tool (the tools describe themselves)" 0 \
+  "$(grep -cE 'ask_experts|get_citation|ask_oreilly_experts|get_oreilly_citation' <<<"$all_expert" || true)"
+check "Expert on: the chart lints" 0 "$(helm lint "$chart" --set oreilly.expert.enabled=true >/dev/null 2>&1; echo $?)"
+check "Expert on: the same links rule holds in every expert scenario" "$(find "${chart}/fitness/expert" -name '*.adl' | wc -l | tr -d ' ')" \
+  "$(grep -c 'does NOT CONTAIN "http"\|ttps://learning\\.oreilly\\.com/' "${chart}"/fitness/expert/*.adl | grep -vc ':0$' || true)"
+# The expert scenarios' link pattern is the one every other scenario uses.
+for f in "${chart}"/fitness/expert/*.adl; do
+  pattern="$(sed -n 's/^ASSERT(synthesis matches "\(.*\)" at least 1 times)$/\1/p' "$f")"
+  [ -n "$pattern" ] || continue
+  check "$(basename "$f") uses the reader-link pattern of the other scenarios" 1 \
+    "$(grep -cF -- "$pattern" "${chart}/fitness/author-recent-work.adl" || true)"
+done
+
+# The README documents the values and the Expert option.
+readme_row() { grep -cF -- "$1" "${chart}/README.md" || true; }
+check "the README row for oreilly.endpoint shows the Search MCP default" 1 \
+  "$(grep -cF '| `oreilly.endpoint` | `https://api.oreilly.com/api/search/v1/mcp` |' "${chart}/README.md" || true)"
+check "the README row for oreilly.expert.enabled says it is off" 1 "$(grep -cF '| `oreilly.expert.enabled` | `false` |' "${chart}/README.md" || true)"
+check "the README row for oreilly.expert.endpoint shows the Expert MCP" 1 \
+  "$(grep -cF '| `oreilly.expert.endpoint` | `https://api.oreilly.com/api/expert/v1/mcp` |' "${chart}/README.md" || true)"
+check "the README names the entitlement and the 403 behavior" "1|1" \
+  "$(readme_row 'Expert MCP entitlement' | awk '{print ($1 >= 1) ? 1 : 0}')|$(readme_row 'does not include Expert Intelligence')"
+check "the README no longer names the unlisted content-discovery endpoint" 0 "$(readme_row 'content-discovery')"
+check "the README says the three expert scenarios are in fitness/expert" "$(find "${chart}/fitness/expert" -name '*.adl' | wc -l | tr -d ' ')" \
+  "$(grep -cF 'three more are in `fitness/expert/`' "${chart}/README.md" | awk '{print ($1 == 1) ? 3 : 0}')"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

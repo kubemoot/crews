@@ -1,0 +1,15 @@
+DESCRIPTION Expert band (run it against a key WITHOUT the Expert MCP entitlement), a refused account is reported plainly and nothing is answered from memory.
+
+DEFINE CONST QUESTION AS "What do O'Reilly's experts say about the saga pattern for distributed transactions?"
+
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(synthesis does NOT CONTAIN "http" AND "](" AND "oreilly.com/book/")
+
+ASSERT(DEFER synthesis REFLECTS "The answer says plainly that the O'Reilly library could not be used for this question, because the account does not include Expert Intelligence or because the tools were refused or returned nothing. It states no recommendation as coming from O'Reilly experts, names no book, video, author, or link, and gives no answer from general knowledge presented as the library's. (the constant is a plain statement of the failure with no invented citation.)")

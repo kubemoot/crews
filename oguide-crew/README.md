@@ -9,7 +9,7 @@ O'guide is a Kubemoot crew for O'Reilly subscribers who want to find their way a
   - the O'Reilly MCP server, which the chart registers as an external MCPServer on the crew's gateway (O'Reilly hosts it; nothing is deployed for it), the crew's search server (see [The search tools](#the-search-tools)), and the workspace read-ops MCP server, which the chart deploys;
   - a Secret with your own O'Reilly key (see [Add your O'Reilly key](#add-your-oreilly-key));
   - NATS JetStream, and outbound HTTPS from the MCP gateway to `api.oreilly.com`. No database.
-- **What it does not do:** it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'guide does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
+- **What it does not do:** unless Expert Intelligence is on (see [Expert Intelligence](#expert-intelligence-optional)), it cannot read inside the content. The O'Reilly catalog search returns metadata and links, never text from a book, video, or course, so O'guide does not quote, summarize, or explain the content; it sends you to the right item and says so when asked for more. It never answers from model memory: every item comes from the catalog search in that turn, and when the search is unavailable, fails, or finds nothing, the answer says the O'Reilly catalog could not be searched, or found nothing, and lists no titles. It stores no O'Reilly content, ships no key, and does not work without a subscriber's key.
 
 ## Add your O'Reilly key
 
@@ -78,12 +78,32 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 
 **Never commit the key or put it in a values file.** The chart has no value for it, and a key passed with `--set` or in `-f my-values.yaml` is ignored and would still sit in your shell history or repository. Keep it only in the Secret, and treat anyone who can read Secrets in the crew or operator namespace as able to read it.
 
+## Expert Intelligence (optional)
+
+O'Reilly Expert Intelligence answers a specific technical question with grounded, citable passages from expert-authored content, where the catalog search returns only titles and links. It is a paid add-on: an O'Reilly account needs the Expert MCP entitlement (`xmcp`), and O'Reilly refuses every request to the Expert MCP of an account without it (HTTP 403), searches included. It is off by default; set `oreilly.expert.enabled=true` only with a key from an entitled account.
+
+```bash
+helm upgrade --install oguide oci://ghcr.io/kubemoot/charts/oguide-crew \
+  --version <version> -n crew-oguide --set oreilly.expert.enabled=true
+```
+
+With it on:
+
+- The gateway's O'Reilly server points at `oreilly.expert.endpoint` instead of `oreilly.endpoint`. The Expert MCP serves the same search tool, so the five search tools work unchanged.
+- The search server offers two more tools, `ask_experts` (a technical question, with optional author, date range, result count and product filters; returns snippets, each with a title, authors, date, chapter, preview and reader link) and `get_citation` (the full source text of one snippet that `ask_experts` returned). The library-search agent lists them beside its search tools. They are named differently from O'Reilly's own `ask_oreilly_experts` and `get_oreilly_citation` so that they never collide with the raw tools on the gateway.
+- Tool knowledge is in the tool descriptions, not in prompt rules. The crew's prompts change only in behavior: the metadata-only statements and the decline-to-quote rules give way to one rule, kept in `catalog-grounding` where every agent reads it: a claim about what content says is made only from a passage an expert tool returned in that turn, with that passage's title and link, and nothing is cited that a tool did not return.
+- The fitness scenarios in `fitness/expert/` are added to the `oguide-fitness` ConfigMap, and `quote-passage-declined.adl` (which asserts the crew declines to quote) is left out.
+
+**Why the search server wraps the Expert tools.** The agents already reach O'Reilly only through the search server, because the gateway has no per-caller allow-list and the raw tool stays out of the agents' tool lists. The Expert tools follow the same route. The search server can then turn O'Reilly's refusal into one plain tool result that the agent can report, and the gateway needs no second O'Reilly server whose tool names would collide with the first.
+
+**An account without the entitlement.** O'Reilly answers 403 with `The 'xmcp' (Expert MCP) permission is required.` The search server returns that as an error tool result (`isError: true`), never a crash: "This O'Reilly account does not include Expert Intelligence (the Expert MCP entitlement), so the Expert tools are refused. Nothing was retrieved; say so and do not answer from memory." The same message answers a catalog search, because O'Reilly refuses those too. If the Expert MCP refuses the gateway's tool discovery, the gateway lists no tools for it and the searches fail; set `oreilly.expert.enabled` back to `false` to return to the Search MCP.
+
 ## What it deploys
 
 | Agent | Role | Tools |
 |---|---|---|
 | oguide-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
-| library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author` |
+| library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author`, `find_title`; with Expert on, also `ask_experts` and `get_citation` |
 | events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled`, and `execute_code` (time-zone conversion and date arithmetic with GNU `date`) |
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | workspace read tools and `workspace_query` |
 | goose-curator (optional) | A seat run by goose that searches the catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
@@ -92,7 +112,7 @@ Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulin
 
 ## The search tools
 
-The model never builds a catalog search. The search server (`search-server/server.py`, plain Python, no dependencies) offers five tools, each with one text argument, and builds every filter, the item counts (25, and 50 for an author's books), and the order itself. It calls the raw `search_oreilly_content` tool through the crew's gateway (the gateway's tool endpoint, as agents do), so the key, the argument coercion, and the call log stay in the gateway. The agents' tool lists name only the five tools below; the gateway has no per-caller allow-list today, so keeping the raw tool out of the agents' `enabledTools` is what keeps them from calling it.
+The model never builds a catalog search. The search server (`search-server/server.py`, plain Python, no dependencies) offers five tools, each with one text argument, and builds every filter, the item counts (25, and 50 for an author's books), and the order itself. It calls the raw `search_oreilly_content` tool through the crew's gateway (the gateway's tool endpoint, as agents do), so the key, the argument coercion, and the call log stay in the gateway. The agents' tool lists name only the five tools below (and, with Expert on, the two Expert tools after them); the gateway has no per-caller allow-list today, so keeping the raw tool out of the agents' `enabledTools` is what keeps them from calling it.
 
 | Tool | Argument | Returns |
 |---|---|---|
@@ -135,7 +155,9 @@ helm upgrade --install oguide \
 
 | Value | Default | What it sets |
 |---|---|---|
-| `oreilly.endpoint` | `https://api.oreilly.com/api/content-discovery/v1/mcp/` | The O'Reilly MCP server |
+| `oreilly.endpoint` | `https://api.oreilly.com/api/search/v1/mcp` | The O'Reilly Search MCP server, open to every O'Reilly member |
+| `oreilly.expert.enabled` | `false` | Turns on [Expert Intelligence](#expert-intelligence-optional): the gateway's O'Reilly server becomes the Expert MCP, and the library-search agent gets `ask_experts` and `get_citation`. Needs an account with the Expert MCP entitlement |
+| `oreilly.expert.endpoint` | `https://api.oreilly.com/api/expert/v1/mcp` | The O'Reilly Expert MCP server, used in place of `oreilly.endpoint` when `oreilly.expert.enabled` is `true` |
 | `oreilly.auth.secretName` | `oreilly-mcp-auth` | The Secret that holds your key |
 | `oreilly.auth.secretKey` | `bearer-token` | The key in that Secret: `bearer-token` (sent as `Authorization: Bearer`) or `api-key` |
 | `oreilly.auth.header` | empty | With `api-key` only: the header that carries it |
@@ -198,12 +220,14 @@ egress:
 
 ## Fitness
 
-`fitness/` holds eight scenarios: recent material, an author's recent work and what is coming next, a learning path, a second learning path whose answer must be built from the results the search found, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `oguide-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
+`fitness/` holds eight scenarios (three more are in `fitness/expert/`, see below): recent material, an author's recent work and what is coming next, a learning path, a second learning path whose answer must be built from the results the search found, live events, an author's recent work, a request to quote a passage, which the crew declines, and a question the catalog has nothing for, whose answer must say so and name no title, date, or link. Their references name no title, so a catalog that changes does not fail them. Every other scenario also checks, without the judge, that each link in the answer starts with `https://learning.oreilly.com/`, so an answer with a title or link from model memory fails. The check is strict: the word "http" anywhere else in an answer fails it too. The chart deploys them as one ConfigMap, `oguide-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`; nothing runs until someone starts a run. Assemble them into one suite with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
 ```bash
 python3 scripts/build-suite.py oguide-crew/fitness \
   --namespace crew-oguide --crew-ref oguide --name oguide-smoke --iterations 1
 ```
+
+With `oreilly.expert.enabled=true`, `fitness/expert/` holds three more, which the chart adds to the same ConfigMap only then: a technical question answered with each claim tied to a returned citation, a request to quote met only with text a citation holds, and a refused account (run it against a key without the Expert MCP entitlement) reported plainly with nothing answered from memory. The quote scenario above is left out of the ConfigMap when Expert is on. Build their suite with `scripts/build-suite.py oguide-crew/fitness/expert`.
 
 The `REFLECTS` assertions need the [fitness crew](../kubemoot-fitness-crew/README.md).
 

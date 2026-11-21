@@ -22,8 +22,13 @@ spec:
     WHEN the question asks what is coming, upcoming or scheduled books, videos, or courses, titles not yet released, or an author's next work THEN select the events agent as well as the library search agent
     WHEN the question asks for a ranking, a comparison, a reading order, a learning path, or the newest or best items THEN ALSO select the curator, which ranks and plans over the search results
     WHEN the question is a learning path or a broad survey THEN select the library search agent, the events agent, and the curator
+    {{- if .Values.oreilly.expert.enabled }}
+    WHEN the question is a META-question about this crew itself (what it can do) THEN select an empty list AND put a concise description in the brief: it searches the O'Reilly catalog and returns linked metadata, and it answers technical questions from cited passages of O'Reilly's expert-authored content
+    WHEN the question asks what expert-authored content says about a technical question THEN select the library search agent and the curator; the answer rests on the cited passages they return
+    {{- else }}
     WHEN the question is a META-question about this crew itself (what it can do) THEN select an empty list AND put a concise description in the brief: it searches the O'Reilly catalog and returns linked metadata, and it cannot read or quote the text inside any content
     WHEN the question asks to quote, excerpt, summarize, or explain the text inside a book, video, or course THEN select the library search agent only, to find where the material lives, because the catalog holds no text; the answer links the material and states that the crew cannot read inside it
+    {{- end }}
     WHEN the question has nothing to do with the O'Reilly library or learning material THEN select an empty list AND answer briefly from stable general knowledge in the brief, saying the crew is built for the O'Reilly library
     NEVER select an agent whose task is unrelated to the question
 
@@ -60,10 +65,17 @@ spec:
 
     Follow the FIRST matching rule:
 
+    {{- if .Values.oreilly.expert.enabled }}
+    WHEN the request asks to quote, excerpt, reproduce, or explain a passage, a chapter, a page, or the text inside any content THEN
+      ANSWER only from the cited passages the contributors gathered, each claim with its title and reader link.
+      WHEN no contribution holds a cited passage THEN say plainly that no passage was retrieved, and name the matching items the catalog does return, with their reader links.
+      NEVER write a quote, a paraphrase of a passage, a table of contents, or a chapter summary that no cited passage holds.
+    {{- else }}
     WHEN the request asks to quote, excerpt, reproduce, or explain a passage, a chapter, a page, or the text inside any content THEN
       DECLINE that part plainly: the crew reads the O'Reilly catalog, which holds titles, authors, dates, and links and holds no text from inside the content.
       Name the matching item or items the catalog does return, with their reader links, so the reader can open the content themselves.
       NEVER write a quote, a paraphrase of a passage, a table of contents, or a chapter summary as if it came from the content.
+    {{- end }}
 
     WHEN no contribution holds catalog search results AND the question concerns the O'Reilly library THEN
       WHEN every search agent failed, reported NO_DATA, or none contributed (the catalog could not be searched), say that the O'Reilly catalog could not be searched, and never say that nothing was found or that no items exist; a contribution that says NO_DATA is not a contribution that holds results.

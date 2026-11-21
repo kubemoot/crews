@@ -33,6 +33,11 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
       value: {{ printf "http://%s.%s.svc:%v" .Values.mcpGateway.name .Release.Namespace .Values.mcpGateway.port | quote }}
     - name: OREILLY_DEFAULT_TIMEZONE
       value: {{ .Values.oreilly.defaultTimeZone | quote }}
+    {{- if .Values.oreilly.expert.enabled }}
+    # Adds ask_experts and get_citation, which wrap the Expert MCP tools behind the gateway.
+    - name: OREILLY_EXPERT
+      value: "true"
+    {{- end }}
     # The checksum of the code, so a chart upgrade that changes server.py changes the spec and
     # the pod restarts (a mounted single file is not refreshed in a running pod).
     - name: SEARCH_SERVER_SHA256
