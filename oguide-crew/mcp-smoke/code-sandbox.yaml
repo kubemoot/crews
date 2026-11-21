@@ -1,0 +1,9 @@
+# Test call for the code sandbox: one harmless bash program, the same time-zone conversion
+# the events-scout rule teaches (2026-11-20 15:00 EST is 2026-11-21 05:00 JST). It changes
+# nothing and reaches nothing.
+smokeInputs:
+  - name: execute_code
+    arguments:
+      language: "bash"
+      code: 'TZ=Asia/Tokyo date -d "2026-11-20 15:00 EST" "+%F %R %Z"'
+    timeout: 15s

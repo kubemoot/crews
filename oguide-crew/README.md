@@ -84,11 +84,11 @@ A working key gives an answer that lists items with `learning.oreilly.com` links
 |---|---|---|
 | oguide-coordinator | Plans the turn, convenes the agents a question needs, and writes the answer with a link for every item | none |
 | library-search | Finds released books, videos, courses, and other recorded content on a topic, or one author's work | `find_released`, `find_by_author` |
-| events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled` |
+| events-scout | Finds upcoming live events and live courses on a topic, with every session date, and books, videos, and courses announced for release | `find_live_events`, `find_scheduled`, and `execute_code` (time-zone conversion and date arithmetic with GNU `date`) |
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | workspace read tools and `workspace_query` |
 | goose-curator (optional) | A seat run by goose that searches the catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
 
-Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the workspace read-ops MCPServer that lets the curator read large search results, and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the workspace read-ops MCPServer that lets the curator read large search results, the code sandbox MCPServer (Kubemoot's `code-sandbox` image; no credentials, no workspace volume, egress denied by a NetworkPolicy) that events-scout calls for time-zone conversion and date arithmetic, and the fitness scenarios ConfigMap.
 
 ## The search tools
 
@@ -143,6 +143,11 @@ helm upgrade --install oguide \
 | `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
+| `global.imageRegistry` | `ghcr.io/kubemoot` | Registry prefix for the Kubemoot image the chart pins (`code-sandbox`); an image value that contains a `/` is used as written |
+| `mcpServers.codeSandbox.enabled` | `true` | Deploys the code sandbox and gives events-scout `execute_code`. `false` removes the server, its NetworkPolicy, and the tool |
+| `mcpServers.codeSandbox.image` | `code-sandbox:0.0.0` | The code sandbox image; the `0.0.0` tag is stamped at build with Kubemoot's released version |
+| `mcpServers.codeSandbox.runtimeClassName` | empty | The RuntimeClass to run the sandbox pod under, for example `gvisor`; needs `transport: http` |
+| `mcpServers.codeSandbox.transport` | `stdio` | `stdio` (through the operator's bridge sidecar) or `http` (Streamable HTTP, no bridge) |
 | `nats.url` | `nats://nats.nats.svc.cluster.local:4222` | NATS JetStream for the discussion workspace |
 | `curator.workspaceQuery` | `true` | Gives the curator `workspace_query` beside `workspace_head`, `workspace_tail` and `workspace_grep` (read-only SQL over stored search results); offered only when the Kubemoot operator's `workspace.queryEngine` is `sqlite` or `duckdb` |
 | `workspace.declareAccess` | `true` | Sets `spec.workspace.access` on each agent: `write` on the search agents (they store large results and read none), `read` on the curator; the coordinator declares nothing. `false` renders no `workspace` field and no `disabledTools`, for an operator whose Agent CRD has no `spec.workspace`; the agents still list the new tool names. The operator grants the workspace tools the access allows, so the curator also gains `workspace_list` and `workspace_describe`; `curator.workspaceQuery=false` renders `disabledTools: [workspace_query]`. The curator on `read` stores none of its own tool results, so they come back inline and may be cut. Needs a workspace server that serves `workspace_head`, `workspace_tail` and `workspace_grep` |

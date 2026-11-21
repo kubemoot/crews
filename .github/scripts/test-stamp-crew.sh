@@ -48,7 +48,7 @@ for crew in "${crews[@]}"; do
 done
 check "the pilot crews pin Kubemoot images as placeholders" "code-sandbox scheduling-mcp workspace-access" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "O'guide pins no Kubemoot image (its workspace server selects the operator's)" "" \
+check "O'guide pins the code sandbox (its workspace server selects the operator's image)" "code-sandbox" \
   "$(rl_image_placeholders "${repo}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
@@ -128,12 +128,14 @@ copy_crew homelab-pilot-crew
 KUBEMOOT_PINS=newest stamp "${root}/homelab-pilot-crew" 0.47.2-rc.3 && status=0 || status=$?
 check "refuses an unknown KUBEMOOT_PINS" 1 "$((status != 0))"
 
-# O'guide pins no Kubemoot image: its workspace server selects the operator's with
-# kubemootImage, so it stamps without a Kubemoot remote.
+# O'guide pins one Kubemoot image, the code sandbox; its workspace server selects the
+# operator's with kubemootImage. The stamp reads Kubemoot's tags for the sandbox only.
 copy_crew oguide-crew
-KUBEMOOT_REMOTE="${root}/missing.git" stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
+stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'guide candidate stamp succeeds" 0 "$status"
-check "O'guide renders no Kubemoot-built image" 0 "$(rendered_images oguide-crew | grep -c '^ghcr.io/kubemoot/' || true)"
+check "O'guide renders Kubemoot's newest code-sandbox, and no other Kubemoot image" "1|1" \
+  "$(rendered_images oguide-crew | grep -cx 'ghcr.io/kubemoot/code-sandbox:0.20.0')|$(rendered_images oguide-crew | grep -c '^ghcr.io/kubemoot/' || true)"
+check "O'guide renders no 0.0.0 Kubemoot image" 0 "$(rendered_images oguide-crew | grep -cE 'kubemoot/[a-z-]+:0\.0\.0' || true)"
 check "O'guide workspace server selects kubemootImage workspaceAccess" 1 \
   "$(helm template t "${root}/oguide-crew" | grep -cx '  kubemootImage: workspaceAccess')"
 check "O'guide keeps the search server's Python image pinned by digest, unstamped" 1 \

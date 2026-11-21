@@ -108,7 +108,7 @@ check "values.yaml holds no key value" "" \
 # The MCP gateway registers this release's MCPServers.
 check "the gateway selects this release" '{"app.kubernetes.io/instance":"t"}' \
   "$(yq -N -o=json -I=0 'select(.kind == "MCPGateway") | .spec.mcpServerSelector.matchLabels' <<<"$out")"
-check "all three MCPServers carry the release label" "t t t" \
+check "all four MCPServers carry the release label" "t t t t" \
   "$(yq -N 'select(.kind == "MCPServer") | .metadata.labels."app.kubernetes.io/instance"' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
 check "no pull secret by default" null "$(yq -N 'select(.kind == "MCPGateway") | .spec.imagePullSecrets' <<<"$out")"
 check "a pull secret is a value" '[{"name":"p"}]' \
@@ -153,7 +153,7 @@ has() { grep -cF -- "$2" <<<"$(module "$1")" || true; }
 
 
 check "library search leaves scheduled releases to the events agent" 1 "$(has library-search-system 'the events agent searches those and you do not')"
-check "the search agents get the fixed tools only" "events-scout=find_live_events,find_scheduled library-search=find_by_author,find_released,find_title" \
+check "the search agents get the fixed tools only, and events-scout also the sandbox's execute_code" "events-scout=execute_code,find_live_events,find_scheduled library-search=find_by_author,find_released,find_title" \
   "$(yq -N 'select(.kind == "Agent" and (.metadata.name == "library-search" or .metadata.name == "events-scout")) | .metadata.name + "=" + (.spec.enabledTools | sort | join(","))' <<<"$out" | sort | paste -sd' ')"
 check "the curator reads the workspace only" 0 \
   "$(yq -N 'select(.kind == "Agent" and .metadata.name == "curator") | .spec.enabledTools[]' <<<"$out" | grep -vcE '^workspace_(head|tail|grep|query)$' || true)"
@@ -464,13 +464,39 @@ check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the 
 check "every MCPServer has a spec.description" "" \
   "$(yq -N 'select(.kind == "MCPServer") | select((.spec.description // "") == "") | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
 
-# Tool smoke inputs: only the search server declares calls, and they are the read-only searches.
-check "only search-mcp declares smoke inputs" "search-mcp" \
-  "$(yq -N 'select(.kind == "MCPServer" and ((.spec.smokeInputs // []) | length) > 0) | .metadata.name' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
+# Tool smoke inputs: the search server declares the read-only searches, the code sandbox one harmless date call.
+check "search-mcp and code-sandbox-mcp declare smoke inputs" "code-sandbox-mcp search-mcp" \
+  "$(yq -N 'select(.kind == "MCPServer" and ((.spec.smokeInputs // []) | length) > 0) | .metadata.name' <<<"$out" | sort | tr '\n' ' ' | sed 's/ $//')"
 check "search-mcp smoke calls find_released with a topic and a 30s timeout" '[{"arguments":{"topic":"kubernetes"},"name":"find_released","timeout":"30s"}]' \
   "$(search '.spec.smokeInputs' <<<"$out")"
-check "every smoke input names a search tool that reads" "" \
-  "$(yq -N 'select(.kind == "MCPServer") | .spec.smokeInputs // [] | .[].name' <<<"$out" | grep -v -E '^find_(released|scheduled|by_author|title|live_events)$' | tr '\n' ' ' | sed 's/ $//')"
+check "every search smoke input names a search tool that reads" "" \
+  "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.smokeInputs // [] | .[].name' <<<"$out" | grep -v -E '^find_(released|scheduled|by_author|title|live_events)$' | tr '\n' ' ' | sed 's/ $//')"
+
+# The code sandbox: events-scout's date arithmetic and time-zone conversion run in it with GNU date.
+sandbox() { yq -N -o=json -I=0 "select(.kind == \"MCPServer\" and .metadata.name == \"code-sandbox-mcp\") | $1" <<<"${2:-$out}"; }
+check "the code sandbox smoke is one harmless bash date call" '[{"arguments":{"code":"TZ=Asia/Tokyo date -d \"2026-11-20 15:00 EST\" \"+%F %R %Z\"","language":"bash"},"name":"execute_code","timeout":"15s"}]' \
+  "$(sandbox '.spec.smokeInputs')"
+check "the code sandbox image is pinned under the Kubemoot registry" '"ghcr.io/kubemoot/code-sandbox:0.0.0"' "$(sandbox '.spec.image')"
+check "a full image reference is used as written" '"reg.test/x/code-sandbox:1.2.3"' \
+  "$(sandbox '.spec.image' "$(render --set mcpServers.codeSandbox.image=reg.test/x/code-sandbox:1.2.3)")"
+check "the code sandbox has no runtimeClassName by default" null "$(sandbox '.spec.runtimeClassName // null')"
+check "the code sandbox takes a runtimeClassName" '"gvisor"' \
+  "$(sandbox '.spec.runtimeClassName' "$(render --set mcpServers.codeSandbox.runtimeClassName=gvisor)")"
+check "the code sandbox runs through the bridge by default" '["/usr/bin/tini","-s","--","/usr/local/bin/code-sandbox"]' "$(sandbox '.spec.command')"
+check "the http transport lists no command" 'http|null' \
+  "$(sandbox '.spec.transport' "$(render --set mcpServers.codeSandbox.transport=http)" | tr -d '"')|$(sandbox '.spec.command // null' "$(render --set mcpServers.codeSandbox.transport=http)")"
+check "an unknown sandbox transport fails the render" 1 "$(render_err --set mcpServers.codeSandbox.transport=grpc | grep -c 'must be stdio or http' || true)"
+check "the code sandbox holds no credentials, volume, or sidecar" "null|null|null" \
+  "$(sandbox '.spec.sidecars // null')|$(sandbox '.spec.emptyDirVolumes // null')|$(sandbox '.spec.secretVolumes // null')"
+check "the code sandbox egress is denied by default" '{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"code-sandbox-mcp"}},"policyTypes":["Egress"]}' \
+  "$(yq -N -o=json -I=0 'select(.kind == "NetworkPolicy" and .metadata.name == "code-sandbox-egress") | .spec' <<<"$out")"
+check "events-scout has execute_code and a date rule" "1|1" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "events-scout") | .spec.enabledTools[]' <<<"$out" | grep -cx execute_code)|$(has events-scout-system 'THEN call execute_code with language bash and GNU date, never Python')"
+check "library-search keeps no sandbox tool and no date rule" "0|0" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "library-search") | .spec.enabledTools[]' <<<"$out" | grep -cx execute_code || true)|$(has library-search-system 'execute_code')"
+off="$(render --set mcpServers.codeSandbox.enabled=false)"
+check "with the sandbox off: no server, no policy, no execute_code" "0|0|0" \
+  "$(yq -N 'select(.metadata.name == "code-sandbox-mcp" or .metadata.name == "code-sandbox-egress") | .metadata.name' <<<"$off" | grep -c . || true)|$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$off" | grep -cx execute_code || true)|$(yq -N 'select(.kind == "NetworkPolicy") | .metadata.name' <<<"$off" | grep -c . || true)"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"
