@@ -158,3 +158,16 @@ that runs first in every CrewFitnessSuite calls each listed tool with its input.
 {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Resolve a Kubemoot image reference. A bare "name:tag" is prefixed with global.imageRegistry;
+a reference that already names a registry (contains "/") is used as written.
+Usage: include "oguide-crew.image" (dict "root" $ "image" .Values.mcpServers.codeSandbox.image)
+*/}}
+{{- define "oguide-crew.image" -}}
+{{- if contains "/" .image -}}
+{{- .image -}}
+{{- else -}}
+{{- printf "%s/%s" .root.Values.global.imageRegistry .image -}}
+{{- end -}}
+{{- end }}

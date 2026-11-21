@@ -1,3 +1,9 @@
+global:
+  # Registry prefix for the Kubemoot images this chart pins (code-sandbox:<tag> becomes
+  # <imageRegistry>/code-sandbox:<tag>). An image value that already contains a "/" is
+  # used as written.
+  imageRegistry: ghcr.io/kubemoot
+
 crew:
   name: oguide
   description: "O'guide: finds, compares, ranks and links O'Reilly library material (books, videos, courses, live events) through the O'Reilly catalog search"
@@ -91,6 +97,23 @@ nats:
   url: "nats://nats.nats.svc.cluster.local:4222"
 
 mcpServers:
+  codeSandbox:
+    enabled: true
+    # Kubemoot code-sandbox (kubemoot/code-sandbox): runs the bash or Python an agent
+    # writes with no stdin, a process-group time limit, and capped output. events-scout uses
+    # it for time-zone conversion and date arithmetic with GNU date. The pod holds no
+    # credentials and the chart denies its egress. The 0.0.0 tag is stamped at build with
+    # Kubemoot's latest released code-sandbox version.
+    image: "code-sandbox:0.0.0"
+    # The RuntimeClass to run the code sandbox pod under, for example gvisor. Empty runs it
+    # under the cluster's default runtime. Needs a Kubemoot operator that supports MCPServer
+    # runtime classes and the runtime installed on the nodes.
+    runtimeClassName: ""
+    # How the gateway reaches the code sandbox: stdio (through the operator's bridge
+    # sidecar) or http (the sandbox serves MCP over Streamable HTTP itself, with no bridge;
+    # required under a sandboxed runtime such as gvisor, where the bridge's FIFOs are not
+    # shared between containers).
+    transport: stdio
   workspace:
     # The workspace-access MCP server. The old mcpServers.artifactReadOps.queryMemory and .resources
     # values still apply for one release.

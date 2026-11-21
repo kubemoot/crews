@@ -1,0 +1,19 @@
+{{- if .Values.mcpServers.codeSandbox.enabled }}
+# Default deny for the code sandbox pod's egress. The sandbox runs programs a model wrote
+# and needs no outbound connection (no bus, no DNS, no API server): date arithmetic and
+# time-zone conversion run on the image alone. With no egress rule, model-written code
+# reaches nothing. Ingress is untouched, so the gateway still reaches the server.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: code-sandbox-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: code-sandbox-mcp
+  policyTypes:
+    - Egress
+{{- end }}

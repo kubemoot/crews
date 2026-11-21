@@ -17,7 +17,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "even
     - general
   triageSummary: "Finds upcoming O'Reilly live events, live training, workshops, and conference sessions on a topic, with every session date and the reader link, and books, videos, and courses announced for release."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, events-scout-system]
-  enabledTools: [find_scheduled, find_live_events]
+  enabledTools: [find_scheduled, find_live_events{{ if .Values.mcpServers.codeSandbox.enabled }}, execute_code{{ end }}]
   discussKeywords:
     - live
     - event

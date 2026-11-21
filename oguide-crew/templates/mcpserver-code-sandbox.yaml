@@ -1,0 +1,66 @@
+{{- if .Values.mcpServers.codeSandbox.enabled }}
+{{- $transport := .Values.mcpServers.codeSandbox.transport | default "stdio" }}
+{{- if not (has $transport (list "stdio" "http")) }}
+{{- fail (printf "mcpServers.codeSandbox.transport must be stdio or http, got %q" $transport) }}
+{{- end }}
+{{- $port := 3000 }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: code-sandbox-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "code-sandbox-mcp") }}
+  description: "Runs a short bash or Python program an agent writes, inside an isolated pod with a time limit and capped output, and returns stdout, stderr, and the exit code. Here it converts time zones and does date arithmetic with GNU date."
+  {{- include "oguide-crew.smokeInputs" (dict "root" $ "name" "code-sandbox") }}
+  # Kubemoot code-sandbox: the agent writes a short program, the server runs it inside THIS
+  # pod (no stdin, a time limit that kills the whole process group, capped output) and
+  # returns stdout, stderr and the exit code. O'guide uses it for time-zone conversion and
+  # date arithmetic with GNU date, so there is no workspace volume and no materializer
+  # sidecar: nothing is staged into the pod. Tools: execute_code and validate_code.
+  image: {{ include "oguide-crew.image" (dict "root" $ "image" .Values.mcpServers.codeSandbox.image) | quote }}
+  transport: {{ $transport }}
+  {{- if eq $transport "http" }}
+  # The server listens on the port itself (Streamable HTTP at /mcp), so the operator adds no
+  # bridge. No explicit command: the image entrypoint runs the server under tini.
+  healthPath: /healthz
+  readinessPath: /readyz
+  {{- else }}
+  # Pure stdio: the operator adds the bridge sidecar (port is the bridge's TCP port). The
+  # bridge runs in exec mode, so the start command is explicit. tini reaps processes a
+  # killed program leaves behind.
+  command:
+    - "/usr/bin/tini"
+    - "-s"
+    - "--"
+    - "/usr/local/bin/code-sandbox"
+  {{- end }}
+  port: {{ $port }}
+  replicas: 1
+  {{- with .Values.mcpServers.codeSandbox.runtimeClassName }}
+  runtimeClassName: {{ . | quote }}
+  {{- end }}
+  # No cluster credentials: the pod computes only and uses the namespace's default
+  # service account, which has no RBAC bound.
+  env:
+    # Below the gateway's 30 s tool-call timeout, so a program that runs too long comes
+    # back as the sandbox's own "stopped" result, not a gateway error.
+    - name: EXECUTION_TIMEOUT
+      value: "25"
+    {{- if eq $transport "http" }}
+    - name: MCP_TRANSPORT
+      value: "http"
+    - name: PORT
+      value: {{ $port | quote }}
+    {{- end }}
+  capabilities:
+    - compute
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+{{- end }}
