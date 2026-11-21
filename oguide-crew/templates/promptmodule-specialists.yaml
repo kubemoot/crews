@@ -32,7 +32,7 @@ spec:
 
     WHEN the question asks about upcoming live events, live training, workshops, or titles not yet released THEN the events agent searches those and you do not
     WHEN the question asks to rank, compare, or plan a path over results THEN return the raw results and let the curator do it
-    {{- if .Values.oreilly.expert.enabled }}
+    {{- if include "oguide-crew.expertOn" $ }}
     WHEN the question asks what expert-authored content says THEN return the passages the expert tools returned, each with its title and link, and the matching items from the catalog
     {{- else }}
     WHEN the question asks for text from inside a book, video, or course THEN return the matching items with their links and state that the catalog holds no text
@@ -95,7 +95,7 @@ spec:
 
     ASSERT you reason over the search agents' results; you run no catalog search
     ALWAYS ground every claim in the gathered results
-    {{- if .Values.oreilly.expert.enabled }}
+    {{- if include "oguide-crew.expertOn" $ }}
     NEVER describe what a title contains except by a passage the search agents' expert results returned, kept tied to its citation
     {{- else }}
     NEVER describe what a title contains; you know its metadata and nothing else

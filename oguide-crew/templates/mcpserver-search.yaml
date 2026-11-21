@@ -7,7 +7,9 @@ metadata:
     {{- include "oguide-crew.labels" . | nindent 4 }}
 spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "search-mcp") }}
   description: "The crew's fixed searches of the O'Reilly catalog (released titles, scheduled titles, by author, by title, live events), with the dates, counts, and order set for the agents."
+  {{- if or (not .Values.perPerson.enabled) .Values.perPerson.keepShared }}
   {{- include "oguide-crew.smokeInputs" (dict "root" $ "name" "search") }}
+  {{- end }}
   # The crew's search server (search-server/server.py): five fixed searches of the O'Reilly
   # catalog (find_released, find_scheduled, find_by_author, find_title, find_live_events), each taking one
   # text argument. It builds every date filter, the item count, and the order itself, and
@@ -33,10 +35,18 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
       value: {{ printf "http://%s.%s.svc:%v" .Values.mcpGateway.name .Release.Namespace .Values.mcpGateway.port | quote }}
     - name: OREILLY_DEFAULT_TIMEZONE
       value: {{ .Values.oreilly.defaultTimeZone | quote }}
-    {{- if .Values.oreilly.expert.enabled }}
+    {{- if include "oguide-crew.expertOn" $ }}
     # Adds ask_experts and get_citation, which wrap the Expert MCP tools behind the gateway.
     - name: OREILLY_EXPERT
       value: "true"
+    {{- end }}
+    {{- if .Values.perPerson.enabled }}
+    # Appends the per-person access sentence to every tool description and passes the asker's
+    # conversationId and principalId on to the gateway.
+    - name: OREILLY_PER_PERSON
+      value: "true"
+    - name: OREILLY_ACCESS_NOTE
+      value: {{ .Values.perPerson.accessNote | quote }}
     {{- end }}
     # The checksum of the code, so a chart upgrade that changes server.py changes the spec and
     # the pod restarts (a mounted single file is not refreshed in a running pod).
@@ -46,6 +56,16 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
       value: "1"
     - name: PYTHONUNBUFFERED
       value: "1"
+  {{- if .Values.perPerson.enabled }}
+  # The search server calls the gateway for each tool call it serves. relayContext keeps the
+  # asking person's conversationId and principalId in the _meta the gateway forwards to this
+  # server, so the server can pass them back and the gateway can use that person's own O'Reilly
+  # access for the inner call. This server holds no credential of its own (mode Off).
+  registry:
+    callerCredential:
+      mode: Off
+      relayContext: true
+  {{- end }}
   capabilities:
     - library-search
     - catalog

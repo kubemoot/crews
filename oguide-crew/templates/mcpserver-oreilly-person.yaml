@@ -1,0 +1,44 @@
+{{- if .Values.perPerson.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: MCPServer
+metadata:
+  name: oreilly-person-mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "oguide-crew.labels" . | nindent 4 }}
+spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "oreilly-person-mcp") }}
+  description: "O'Reilly search and Expert Intelligence, called with the token of the person who asked. A call carries that person's own O'Reilly token and never the subscriber key."
+  # The Expert MCP is the primary endpoint. When it answers 403 to a person whose account has no
+  # Expert entitlement, the gateway tries the Search MCP with the same token for the search tool;
+  # the Expert-only tools return the refusal as the tool result. No deployment is created.
+  externalEndpoint: {{ required "oreilly.expert.endpoint is required" .Values.oreilly.expert.endpoint | quote }}
+  transport: http
+  capabilities:
+    - library-search
+    - catalog
+  registry:
+    enabled: true
+    categories:
+      - library
+    # Lists the tools at registration and is never sent on a call in mode Required. It is the
+    # installer's own Secret, the same one the shared-key server uses; the chart never holds a key.
+    authSecretRef: {{ include "oguide-crew.authSecretName" . | quote }}
+    {{- with .Values.oreilly.auth.header }}
+    authHeader: {{ . | quote }}
+    {{- end }}
+    callerCredential:
+      mode: Required
+      verifier: {{ .Values.perPerson.verifier.name | quote }}
+      onForbidden:
+        - {{ required "oreilly.endpoint is required (the Search MCP, the fallback)" .Values.oreilly.endpoint | quote }}
+      accountName: {{ .Values.perPerson.accountName | quote }}
+  # Each description says whose access the result reflects. This is tool knowledge, kept in the
+  # tool's own description.
+  toolOverrides:
+    - name: search_oreilly_content
+      description: {{ printf "Keyword search of the O'Reilly catalog. Returns metadata and reader links, no text from inside the content. %s" .Values.perPerson.accessNote | quote }}
+    - name: ask_oreilly_experts
+      description: {{ printf "Ask O'Reilly's expert-authored library a specific technical question and get grounded, citable snippets. %s" .Values.perPerson.accessNote | quote }}
+    - name: get_oreilly_citation
+      description: {{ printf "Retrieve the full citable source text of one snippet that ask_oreilly_experts returned. %s" .Values.perPerson.accessNote | quote }}
+{{- end }}

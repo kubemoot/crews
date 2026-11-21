@@ -22,7 +22,7 @@ spec:
     WHEN the question asks what is coming, upcoming or scheduled books, videos, or courses, titles not yet released, or an author's next work THEN select the events agent as well as the library search agent
     WHEN the question asks for a ranking, a comparison, a reading order, a learning path, or the newest or best items THEN ALSO select the curator, which ranks and plans over the search results
     WHEN the question is a learning path or a broad survey THEN select the library search agent, the events agent, and the curator
-    {{- if .Values.oreilly.expert.enabled }}
+    {{- if include "oguide-crew.expertOn" $ }}
     WHEN the question is a META-question about this crew itself (what it can do) THEN select an empty list AND put a concise description in the brief: it searches the O'Reilly catalog and returns linked metadata, and it answers technical questions from cited passages of O'Reilly's expert-authored content
     WHEN the question asks what expert-authored content says about a technical question THEN select the library search agent and the curator; the answer rests on the cited passages they return
     {{- else }}
@@ -65,7 +65,7 @@ spec:
 
     Follow the FIRST matching rule:
 
-    {{- if .Values.oreilly.expert.enabled }}
+    {{- if include "oguide-crew.expertOn" $ }}
     WHEN the request asks to quote, excerpt, reproduce, or explain a passage, a chapter, a page, or the text inside any content THEN
       ANSWER only from the cited passages the contributors gathered, each claim with its title and reader link.
       WHEN no contribution holds a cited passage THEN say plainly that no passage was retrieved, and name the matching items the catalog does return, with their reader links.

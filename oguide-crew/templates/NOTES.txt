@@ -1,1 +1,8 @@
 {{ include "oguide-crew.workspaceDeprecations" . }}
+{{- if and .Values.perPerson.enabled .Values.perPerson.keepShared }}
+
+Each person's own O'Reilly access is on and the shared-key server is kept beside it
+(perPerson.keepShared). Both list the same O'Reilly tool names and the gateway routes a call by
+tool name, so a call may reach either. Set perPerson.keepShared=false where the result must be
+per person.
+{{- end }}

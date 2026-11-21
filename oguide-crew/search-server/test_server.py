@@ -11,6 +11,7 @@ import os
 import socket
 import threading
 import unittest
+import unittest.mock
 import urllib.error
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import ClassVar
@@ -992,6 +993,119 @@ class ExpertToolsTest(unittest.TestCase):
         with self.assertRaises(server.CatalogError) as caught:
             server.content_of(reply)
         self.assertNotIsInstance(caught.exception, server.EntitlementError)
+
+
+class RecordingOpener:
+    """A urlopen stand-in that records each request body and answers a search with no items."""
+
+    def __init__(self):
+        self.bodies = []
+
+    def __call__(self, request, timeout):
+        self.bodies.append(json.loads(request.data))
+        return io.BytesIO(json.dumps({"isError": False, "content": json.dumps({"search_results": []})}).encode())
+
+
+class PerPersonTest(unittest.TestCase):
+    """Each person's own O'Reilly access: the asker's context rides on gateway calls, descriptions say whose access."""
+
+    META = {"conversationId": "conv-1", "principalId": "p-abc", "timeZone": "UTC"}
+
+    def call(self, catalog, name, arguments, meta):
+        message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                   "params": {"name": name, "arguments": arguments, "_meta": meta}}
+        return server.handle(message, catalog, now_fn=lambda: NOW, expert=True)
+
+    def test_a_search_relays_conversation_and_principal_to_the_gateway(self):
+        opener = RecordingOpener()
+        catalog = server.GatewayCatalog("http://gw", opener=opener, relay=True)
+        self.call(catalog, "find_title", {"title": "x"}, self.META)
+        self.assertEqual({"conversationId": "conv-1", "principalId": "p-abc"}, opener.bodies[0]["_meta"])
+
+    def test_an_expert_call_relays_them_too(self):
+        opener = RecordingOpener()
+        catalog = server.GatewayCatalog("http://gw", opener=opener, relay=True)
+        self.call(catalog, "ask_experts", {"question": "q"}, self.META)
+        self.assertEqual({"conversationId": "conv-1", "principalId": "p-abc"}, opener.bodies[0]["_meta"])
+
+    def test_nothing_is_relayed_unless_per_person_is_on(self):
+        opener = RecordingOpener()
+        catalog = server.GatewayCatalog("http://gw", opener=opener)
+        self.call(catalog, "find_title", {"title": "x"}, self.META)
+        self.assertNotIn("_meta", opener.bodies[0])
+
+    def test_only_the_two_keys_are_relayed_and_only_as_short_text(self):
+        opener = RecordingOpener()
+        catalog = server.GatewayCatalog("http://gw", opener=opener, relay=True)
+        meta = {"conversationId": "c" * 300, "principalId": "p-1", "authorization": "Bearer X", "timeZone": "UTC"}
+        self.call(catalog, "find_title", {"title": "x"}, meta)
+        self.assertEqual({"principalId": "p-1"}, opener.bodies[0]["_meta"])
+        for bad in ({"principalId": 5}, {"principalId": ""}, {"principalId": ["a"]}, None, "text"):
+            self.assertEqual({}, server.GatewayCatalog("http://gw", relay=True).scoped(bad)._context)
+
+    def test_a_model_argument_cannot_set_the_relayed_context(self):
+        opener = RecordingOpener()
+        catalog = server.GatewayCatalog("http://gw", opener=opener, relay=True)
+        self.call(catalog, "find_title", {"title": "x", "principalId": "someone-else"}, {"timeZone": "UTC"})
+        self.assertNotIn("_meta", opener.bodies[0])
+        self.assertNotIn("someone-else", json.dumps(opener.bodies[0]))
+
+    def test_a_call_does_not_keep_the_previous_askers_context(self):
+        opener = RecordingOpener()
+        catalog = server.GatewayCatalog("http://gw", opener=opener, relay=True)
+        self.call(catalog, "find_title", {"title": "one"}, self.META)
+        self.call(catalog, "find_title", {"title": "two"}, {"conversationId": "conv-2", "principalId": "p-2"})
+        self.assertEqual("conv-2", opener.bodies[1]["_meta"]["conversationId"])
+        self.assertEqual("p-2", opener.bodies[1]["_meta"]["principalId"])
+
+    def test_a_fake_catalog_without_relay_still_works(self):
+        catalog = FakeCatalog([book("B", "2026-01-01")])
+        result = self.call(catalog, "find_title", {"title": "B"}, self.META)["result"]
+        self.assertFalse(result["isError"])
+
+    def test_every_description_gets_the_access_sentence(self):
+        note = "Results reflect the asking person's own O'Reilly access."
+        reply = server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, FakeCatalog(), expert=True,
+                              note=note)
+        tools = reply["result"]["tools"]
+        self.assertEqual(7, len(tools))
+        for tool in tools:
+            self.assertEqual(1, tool["description"].count(note), tool["name"])
+
+    def test_no_note_leaves_the_descriptions_unchanged(self):
+        plain = server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, FakeCatalog(), expert=True)
+        self.assertEqual(server.tool_listing() + server.expert_listing(), plain["result"]["tools"])
+
+    def test_the_gateways_refusal_text_is_the_plain_entitlement_result(self):
+        refusal = ("O'Reilly refused this call: HTTP 403. The asker's O'Reilly account does not include "
+                   "this tool.")
+        reply = json.dumps({"isError": True, "content": refusal})
+        catalog = server.GatewayCatalog("http://gw", opener=lambda *a, **k: io.BytesIO(reply.encode()), relay=True)
+        result = self.call(catalog, "ask_experts", {"question": "q"}, self.META)["result"]
+        self.assertTrue(result["isError"])
+        self.assertEqual(server.NO_EXPERT_ACCESS, result["content"][0]["text"])
+
+    def test_main_turns_relay_and_the_note_on_from_the_environment(self):
+        seen = {}
+
+        def fake_serve(catalog, **kwargs):
+            seen["catalog"], seen["kwargs"] = catalog, kwargs
+
+        env = {"OREILLY_GATEWAY_URL": "http://gw", "OREILLY_PER_PERSON": "true", "OREILLY_ACCESS_NOTE": "N."}
+        original = server.serve
+        server.serve = fake_serve
+        try:
+            with unittest.mock.patch.dict(os.environ, env, clear=True):
+                self.assertEqual(0, server.main())
+            self.assertEqual("N.", seen["kwargs"]["note"])
+            self.assertEqual({"conversationId": "c"},
+                             seen["catalog"].scoped({"conversationId": "c"})._context)
+            with unittest.mock.patch.dict(os.environ, {"OREILLY_GATEWAY_URL": "http://gw"}, clear=True):
+                self.assertEqual(0, server.main())
+            self.assertEqual("", seen["kwargs"]["note"])
+            self.assertEqual({}, seen["catalog"].scoped({"conversationId": "c"})._context)
+        finally:
+            server.serve = original
 
 
 if __name__ == "__main__":

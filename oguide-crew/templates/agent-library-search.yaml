@@ -17,7 +17,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "agents" "name" "libr
     - general
   triageSummary: "Finds O'Reilly books, videos, courses, audiobooks, and certifications on a topic or by an author or publisher, with titles, dates, page counts or durations, and reader links."
   promptRefs: [discussion-protocol, catalog-grounding, response-style, tooler-discipline, library-search-system]
-  enabledTools: [find_released, find_by_author, find_title{{ if .Values.oreilly.expert.enabled }}, ask_experts, get_citation{{ end }}]
+  enabledTools: [find_released, find_by_author, find_title{{ if include "oguide-crew.expertOn" $ }}, ask_experts, get_citation{{ end }}]
   discussKeywords:
     - oreilly
     - book
