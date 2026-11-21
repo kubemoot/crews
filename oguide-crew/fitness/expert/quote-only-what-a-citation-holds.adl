@@ -1,0 +1,18 @@
+DESCRIPTION Expert band (needs oreilly.expert.enabled and an account with the Expert MCP entitlement), a request to quote is met only with text a returned citation holds, with its link; the crew never writes a quotation of its own.
+
+DEFINE CONST QUESTION AS "Quote the opening paragraph of the first chapter of the newest O'Reilly book on Kubernetes operators."
+
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Every link is a reader link: matches only when each "http" begins https://learning.oreilly.com/ (see the README).
+ASSERT(synthesis matches "\A(?:[^h]|h(?:h|th|tth)*(?:[^ht]|t[^ht]|tt[^hp]|ttps://learning\.oreilly\.com/))*(?:h(?:h|th|tth)*(?:t|tt)?)?\z" at least 1 times)
+ASSERT(synthesis does NOT CONTAIN "oreilly.com/book/" AND "www.oreilly.com")
+
+ASSERT(DEFER synthesis REFLECTS "Any quoted or paraphrased text in the answer comes from a passage an expert tool returned and sits next to that passage's title and learning.oreilly.com link. The answer does NOT present an opening paragraph, a table of contents, or a chapter summary that no returned citation holds as the book's own words. When no returned passage matches the request, the answer says so plainly and may name the matching book from the catalog with its reader link. (the book drifts; the constant is no quotation without a returned citation.)")

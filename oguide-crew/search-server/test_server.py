@@ -886,5 +886,113 @@ class MainTest(unittest.TestCase):
                     os.environ[k] = v
 
 
+class RecordingCatalog:
+    """Answers Expert tool calls with a prepared text, or raises a prepared error, and records them."""
+
+    def __init__(self, text="{}", error=None):
+        self.text, self.error, self.calls = text, error, []
+
+    def call(self, tool, arguments):
+        self.calls.append((tool, arguments))
+        if self.error:
+            raise self.error
+        return self.text
+
+
+def ask(catalog, name, arguments, expert=True):
+    message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
+    return server.handle(message, catalog, expert=expert)
+
+
+class ExpertToolsTest(unittest.TestCase):
+    def test_the_expert_tools_are_listed_only_when_expert_is_on(self):
+        listing = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        off = [t["name"] for t in server.handle(listing, FakeCatalog())["result"]["tools"]]
+        on = [t["name"] for t in server.handle(listing, FakeCatalog(), expert=True)["result"]["tools"]]
+        self.assertEqual(5, len(off))
+        self.assertEqual(["ask_experts", "get_citation"], on[5:])
+        self.assertTrue({"find_released", "find_title"} <= set(off))
+
+    def test_the_tools_use_names_that_do_not_collide_with_the_upstream_tools(self):
+        names = {t["name"] for t in server.EXPERT_TOOLS} | {t["name"] for t in server.TOOLS}
+        self.assertFalse(names & {server.SEARCH_TOOL, server.ASK_TOOL, server.CITATION_TOOL})
+
+    def test_an_expert_call_is_refused_when_expert_is_off(self):
+        out = ask(RecordingCatalog(), "ask_experts", {"question": "q"}, expert=False)
+        self.assertEqual(-32602, out["error"]["code"])
+
+    def test_a_question_goes_upstream_with_its_filters(self):
+        catalog = RecordingCatalog('{"results": {"results": []}}')
+        out = ask(catalog, "ask_experts", {"question": " What is a fixture? ", "author": "A. Author",
+                                           "max_results": 3, "junk": "dropped", "context": None})
+        self.assertEqual([("ask_oreilly_experts", {"question": "What is a fixture?", "author": "A. Author",
+                                                   "max_results": 3})], catalog.calls)
+        self.assertFalse(out["result"]["isError"])
+        self.assertEqual('{"results": {"results": []}}', out["result"]["content"][0]["text"])
+
+    def test_a_citation_goes_upstream_by_product_and_offset(self):
+        catalog = RecordingCatalog("snippet text")
+        out = ask(catalog, "get_citation", {"product_id": "9781098139575", "offset": 662})
+        self.assertEqual([("get_oreilly_citation", {"product_id": "9781098139575", "offset": 662})], catalog.calls)
+        self.assertEqual("snippet text", out["result"]["content"][0]["text"])
+
+    def test_malformed_arguments_are_errors_and_call_nothing(self):
+        for name, arguments in (("ask_experts", {}), ("ask_experts", {"question": "  "}),
+                                ("ask_experts", {"question": "x" * 1001}), ("ask_experts", {"question": 5}),
+                                ("ask_experts", {"question": "q", "max_results": "3"}),
+                                ("ask_experts", {"question": "q", "max_results": True}),
+                                ("get_citation", {"product_id": "1"}), ("get_citation", {"offset": 1}),
+                                ("get_citation", {"product_id": ["1"], "offset": [1]}),
+                                ("ask_experts", ["q"])):
+            catalog = RecordingCatalog()
+            result = ask(catalog, name, arguments)["result"]
+            self.assertTrue(result["isError"], (name, arguments))
+            self.assertEqual([], catalog.calls)
+
+    def test_an_account_without_the_entitlement_gets_a_plain_tool_result(self):
+        catalog = RecordingCatalog(error=server.EntitlementError(server.NO_EXPERT_ACCESS))
+        for name, arguments in (("ask_experts", {"question": "q"}),
+                                ("get_citation", {"product_id": "1", "offset": 0})):
+            result = ask(catalog, name, arguments)["result"]
+            self.assertTrue(result["isError"])
+            self.assertIn("does not include Expert Intelligence", result["content"][0]["text"])
+
+    def test_a_gateway_reply_carrying_the_403_body_is_the_same_plain_result(self):
+        body = ("Error: HTTP 403: {\"error\":\"forbidden\",\"error_description\":"
+                "\"The 'xmcp' (Expert MCP) permission is required.\"}")
+        reply = json.dumps({"isError": True, "content": body})
+        catalog = server.GatewayCatalog("http://gw", opener=lambda *a, **k: io.BytesIO(reply.encode()))
+        result = ask(catalog, "ask_experts", {"question": "q"})["result"]
+        self.assertTrue(result["isError"])
+        self.assertEqual(server.NO_EXPERT_ACCESS, result["content"][0]["text"])
+        self.assertNotIn("xmcp", result["content"][0]["text"])
+
+    def test_an_http_403_from_the_gateway_is_the_same_plain_result(self):
+        def opener(request, timeout):
+            raise urllib.error.HTTPError(request.full_url, 403, "no", {}, None)
+        catalog = server.GatewayCatalog("http://gw", opener=opener)
+        result = ask(catalog, "get_citation", {"product_id": "1", "offset": 0})["result"]
+        self.assertEqual(server.NO_EXPERT_ACCESS, result["content"][0]["text"])
+
+    def test_a_search_on_a_refused_account_says_the_same_and_does_not_crash(self):
+        catalog = FakeCatalog(error=server.EntitlementError(server.NO_EXPERT_ACCESS))
+        result = server.call_tool("find_released", {"topic": "x"}, catalog, TODAY)
+        self.assertTrue(result["isError"])
+        self.assertEqual(server.NO_EXPERT_ACCESS, result["content"][0]["text"])
+
+    def test_another_upstream_failure_is_an_error_naming_the_expert_tools(self):
+        catalog = RecordingCatalog(error=server.CatalogError("the gateway answered HTTP 502"))
+        result = ask(catalog, "ask_experts", {"question": "q"})["result"]
+        self.assertTrue(result["isError"])
+        self.assertIn("Expert tools could not answer", result["content"][0]["text"])
+        self.assertNotIn("Expert Intelligence", result["content"][0]["text"])
+
+    def test_an_unrelated_failure_is_not_taken_for_a_refusal(self):
+        reply = json.dumps({"isError": True, "content": "Error: HTTP 500: upstream down"})
+        with self.assertRaises(server.CatalogError) as caught:
+            server.content_of(reply)
+        self.assertNotIsInstance(caught.exception, server.EntitlementError)
+
+
 if __name__ == "__main__":
     unittest.main()

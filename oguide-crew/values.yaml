@@ -34,12 +34,21 @@ network:
 # tool-calling is enough; with a range of sizes, the coordinator and the curator lean
 # to the large model and the search agents to medium.
 
-# The O'Reilly MCP server that O'Reilly provides to its subscribers. It offers one tool, a
-# keyword search of the catalog that returns metadata (title, authors, dates, page count or
-# duration, a reader link) and no text from inside the content. The crew's gateway calls it
+# The O'Reilly MCP server that O'Reilly provides to its subscribers. The Search MCP offers one
+# tool, a keyword search of the catalog that returns metadata (title, authors, dates, page count
+# or duration, a reader link) and no text from inside the content. The crew's gateway calls it
 # with the subscriber key; the crew's search server reaches it only through the gateway.
 oreilly:
-  endpoint: https://api.oreilly.com/api/content-discovery/v1/mcp/
+  endpoint: https://api.oreilly.com/api/search/v1/mcp
+  # O'Reilly Expert Intelligence, off by default. It needs an O'Reilly account with the Expert
+  # MCP entitlement (xmcp); O'Reilly refuses every request of an account without it (HTTP 403),
+  # searches included, so turn it on only with an entitled key. On, the gateway's O'Reilly server
+  # is the Expert MCP (`expert.endpoint` replaces `endpoint`; it serves the same search tool) and
+  # the crew's search server also offers ask_experts and get_citation, which the library-search
+  # agent uses to answer from cited passages of expert-authored content.
+  expert:
+    enabled: false
+    endpoint: https://api.oreilly.com/api/expert/v1/mcp
   # The IANA time zone whose date is "today" when a request carries no date or time zone of
   # its own (see the README). The date matters here, not the time of day.
   defaultTimeZone: UTC

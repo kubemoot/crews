@@ -12,7 +12,16 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
   # gateway calls the endpoint with the subscriber key from the Secret below. Only the
   # crew's search server (templates/mcpserver-search.yaml) calls this raw tool: the agents'
   # tool lists name the search server's tools and never this one.
+  {{- /*
+  With oreilly.expert.enabled the endpoint is the Expert MCP, which serves the same search
+  tool plus ask_oreilly_experts and get_oreilly_citation. The agents' tool lists never name
+  these raw tools; the search server wraps them (templates/mcpserver-search.yaml).
+  */}}
+  {{- if .Values.oreilly.expert.enabled }}
+  externalEndpoint: {{ required "oreilly.expert.endpoint is required" .Values.oreilly.expert.endpoint | quote }}
+  {{- else }}
   externalEndpoint: {{ required "oreilly.endpoint is required" .Values.oreilly.endpoint | quote }}
+  {{- end }}
   transport: http
   capabilities:
     - library-search

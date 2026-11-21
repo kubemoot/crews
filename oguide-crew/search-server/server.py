@@ -8,6 +8,8 @@ operator's bridge connects it to the gateway.
 Configuration comes from the environment:
   OREILLY_GATEWAY_URL        the crew's MCP gateway, which holds the O'Reilly key and forwards the search
   OREILLY_DEFAULT_TIMEZONE   IANA time zone whose date is "today" when a request carries none (default UTC)
+  OREILLY_EXPERT             "true" when the gateway's O'Reilly server is the Expert MCP: this server then also
+                             offers ask_experts and get_citation (default: off)
 
 The server holds no key. It calls the raw search tool through the gateway's tool endpoint
 (POST <gateway>/tools/search_oreilly_content/call), as agents do.
@@ -48,6 +50,11 @@ NAME_SUFFIXES = frozenset({"jr", "sr", "ii", "iii", "iv"})
 MIN_ITEMS_FOR_NAMED_AUTHOR = 3
 MAX_ARGUMENT_CHARS = 300
 SEARCH_TOOL = "search_oreilly_content"
+ASK_TOOL = "ask_oreilly_experts"
+CITATION_TOOL = "get_oreilly_citation"
+MAX_QUESTION_CHARS = 1000
+NO_EXPERT_ACCESS = ("This O'Reilly account does not include Expert Intelligence (the Expert MCP entitlement), "
+                    "so the Expert tools are refused. Nothing was retrieved; say so and do not answer from memory.")
 
 TOOLS = [
     {
@@ -96,8 +103,62 @@ TOOLS = [
 ]
 
 
+EXPERT_TOOLS = [
+    {
+        "name": "ask_experts",
+        "upstream": ASK_TOOL,
+        "description": "Ask O'Reilly's expert-authored library a specific technical question and get back "
+                       "grounded, citable snippets (each with product_id, offset, the book or video title, "
+                       "authors, publication date, chapter, a snippet preview and a learning.oreilly.com link). "
+                       "It returns passages to cite, not a list of titles; every claim made from them must "
+                       "name the item and link it returned. Results reflect the asking account's O'Reilly "
+                       "access. Use find_released or find_by_author to browse the catalog instead.",
+        "properties": {
+            "question": {"type": "string", "description": "The technical question, in plain words"},
+            "context": {"type": "string", "description": "What the asker is working on or trying to achieve"},
+            "author": {"type": "string", "description": "Restrict results to works by this author"},
+            "published_after": {"type": "string",
+                                "description": "Only results published on or after this date (YYYY-MM-DD)"},
+            "published_before": {"type": "string",
+                                 "description": "Only results published on or before this date (YYYY-MM-DD)"},
+            "max_results": {"type": "integer", "minimum": 1, "maximum": 20,
+                            "description": "Most results to return, 1 to 20 (default 10)"},
+            "within_product_id": {"type": "string",
+                                  "description": "Restrict the search to one item, by a returned product_id"},
+        },
+        "required": ["question"],
+        "text": ["question", "context", "author", "published_after", "published_before", "within_product_id"],
+    },
+    {
+        "name": "get_citation",
+        "upstream": CITATION_TOOL,
+        "description": "Retrieve the full, citable source text of one snippet that ask_experts returned. "
+                       "Only a product_id and offset from an ask_experts result in this conversation work; "
+                       "any other pair is refused.",
+        "properties": {
+            "product_id": {"type": "string",
+                           "description": "The product_id of the snippet, from an ask_experts result"},
+            "offset": {"type": "integer", "minimum": 0,
+                       "description": "The offset of the snippet, from the same result"},
+        },
+        "required": ["product_id", "offset"],
+        "text": ["product_id"],
+    },
+]
+EXPERT_BY_NAME = {t["name"]: t for t in EXPERT_TOOLS}
+
+
 class CatalogError(Exception):
     """The O'Reilly catalog could not be searched. The message is written for the model to read."""
+
+
+class EntitlementError(CatalogError):
+    """O'Reilly refused the account: it does not carry the Expert MCP entitlement (HTTP 403)."""
+
+
+def is_forbidden(text):
+    """True when upstream text is O'Reilly's 403 (a refused account), however the gateway wrapped it."""
+    return bool(re.search(r"HTTP 403|xmcp|\bforbidden\b", str(text), re.IGNORECASE))
 
 
 def utc_now():
@@ -262,16 +323,16 @@ def merge_unique(first, second):
 
 
 class GatewayCatalog:
-    """The O'Reilly catalog search, called through the crew's MCP gateway (which holds the key)."""
+    """The O'Reilly tools, called through the crew's MCP gateway (which holds the key)."""
 
     def __init__(self, gateway_url, opener=None):
-        self._url = f"{gateway_url.rstrip('/')}/tools/{SEARCH_TOOL}/call"
+        self._base = gateway_url.rstrip("/")
         self._open = opener or urllib.request.urlopen
 
-    def search(self, arguments):
-        """Run one catalog search and return its result items as a list of dicts."""
+    def call(self, tool, arguments):
+        """Run one upstream tool and return the text of its reply."""
         body = json.dumps({"arguments": arguments}).encode()
-        request = urllib.request.Request(self._url, data=body, method="POST",
+        request = urllib.request.Request(f"{self._base}/tools/{tool}/call", data=body, method="POST",
                                          headers={"Content-Type": "application/json"})
         try:
             with self._open(request, timeout=TIMEOUT_SECONDS) as response:
@@ -279,12 +340,18 @@ class GatewayCatalog:
         except urllib.error.HTTPError as err:
             code = err.code
             err.close()
+            if code == 403:
+                raise EntitlementError(NO_EXPERT_ACCESS) from None
             raise CatalogError(f"the gateway answered HTTP {code}") from None
         except (urllib.error.URLError, http.client.HTTPException, OSError, TimeoutError) as err:
             raise CatalogError(f"the gateway is unreachable ({type(err).__name__})") from None
         if len(raw) > MAX_REPLY_BYTES:
             raise CatalogError("the gateway answered with more than this server reads")
-        return items_from(raw.decode("utf-8", "replace"))
+        return content_of(raw.decode("utf-8", "replace"))
+
+    def search(self, arguments):
+        """Run one catalog search and return its result items as a list of dicts."""
+        return items_in(self.call(SEARCH_TOOL, arguments))
 
 
 def short(text):
@@ -292,15 +359,27 @@ def short(text):
     return " ".join(str(text).split())[:MAX_UPSTREAM_MESSAGE_CHARS]
 
 
-def items_from(text):
-    """The result items in a gateway tool reply {"isError": bool, "content": "<tool text>"}."""
+def content_of(text):
+    """The tool text in a gateway tool reply {"isError": bool, "content": "<tool text>"}."""
     try:
         reply = json.loads(text)
         content, failed = reply["content"], bool(reply.get("isError"))
     except (ValueError, KeyError, TypeError, AttributeError):
         raise CatalogError("the gateway answered in a shape this server does not know") from None
+    if failed and is_forbidden(content):
+        raise EntitlementError(NO_EXPERT_ACCESS)
     if failed:
         raise CatalogError(f"the gateway said: {short(content)}")
+    return content
+
+
+def items_from(text):
+    """The result items in a gateway tool reply."""
+    return items_in(content_of(text))
+
+
+def items_in(content):
+    """The result items in the text of a catalog search."""
     try:
         results = json.loads(content)["search_results"]
     except (ValueError, KeyError, TypeError, AttributeError):
@@ -441,6 +520,51 @@ HANDLERS = {
 }
 
 
+def expert_listing():
+    return [{
+        "name": t["name"],
+        "description": t["description"],
+        "inputSchema": {"type": "object", "properties": t["properties"], "required": t["required"]},
+    } for t in EXPERT_TOOLS]
+
+
+def expert_arguments(tool, arguments):
+    """The upstream arguments for an Expert tool, or a reason the call is malformed."""
+    if not isinstance(arguments, dict):
+        return None, f"{tool['name']} needs its arguments as an object"
+    sent = {}
+    for key, value in arguments.items():
+        spec = tool["properties"].get(key)
+        if spec is None or value is None:
+            continue
+        if key in tool["text"]:
+            if not isinstance(value, str) or not value.strip() or len(value) > MAX_QUESTION_CHARS:
+                return None, f"{key} must be text of at most {MAX_QUESTION_CHARS} characters"
+            sent[key] = value.strip()
+        elif isinstance(value, bool) or not isinstance(value, int):
+            return None, f"{key} must be a whole number"
+        else:
+            sent[key] = value
+    missing = [k for k in tool["required"] if k not in sent]
+    if missing:
+        return None, f"{tool['name']} needs {', '.join(missing)}"
+    return sent, ""
+
+
+def call_expert(name, arguments, catalog):
+    """A tools/call result for an Expert tool: O'Reilly's passages as returned, or an error to read."""
+    tool = EXPERT_BY_NAME[name]
+    sent, problem = expert_arguments(tool, arguments)
+    if sent is None:
+        return text_result(problem, True)
+    try:
+        return text_result(catalog.call(tool["upstream"], sent))
+    except EntitlementError as err:
+        return text_result(str(err), True)
+    except CatalogError as err:
+        return text_result(f"The O'Reilly Expert tools could not answer: {err}", True)
+
+
 def tool_listing():
     return [{
         "name": t["name"],
@@ -525,6 +649,8 @@ def call_tool(name, arguments, catalog, today, source="the default time zone UTC
         if recent:
             recent.remember(key, payload)
         return text_result(json.dumps(payload, ensure_ascii=False))
+    except EntitlementError as err:
+        return text_result(str(err), True)
     except CatalogError as err:
         return text_result(f"The O'Reilly catalog could not be searched: {err}", True)
     except (KeyError, TypeError, ValueError, AttributeError):
@@ -536,7 +662,7 @@ def error_reply(ident, code, text):
     return {"jsonrpc": "2.0", "id": ident, "error": {"code": code, "message": text}}
 
 
-def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None):
+def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None, expert=False):
     """The reply to one JSON-RPC message, or None for a notification."""
     if not isinstance(message, dict):
         return error_reply(None, -32600, "a request is a JSON object")
@@ -551,23 +677,25 @@ def handle(message, catalog, default_zone="UTC", now_fn=utc_now, recent=None):
     elif method == "ping":
         result = {}
     elif method == "tools/list":
-        result = {"tools": tool_listing()}
+        result = {"tools": tool_listing() + (expert_listing() if expert else [])}
     elif method == "tools/call" and params.get("name") in HANDLERS:
         today, source = resolve_today(params.get("_meta"), default_zone, now_fn())
         result = call_tool(params["name"], params.get("arguments"), catalog, today, source, recent,
                            params.get("_meta"))
+    elif method == "tools/call" and expert and params.get("name") in EXPERT_BY_NAME:
+        result = call_expert(params["name"], params.get("arguments"), catalog)
     else:
         return error_reply(ident, -32602 if method == "tools/call" else -32601, "cannot handle that request")
     return {"jsonrpc": "2.0", "id": ident, "result": result}
 
 
-def serve(catalog, stdin=sys.stdin, stdout=sys.stdout, default_zone="UTC"):
+def serve(catalog, stdin=sys.stdin, stdout=sys.stdout, default_zone="UTC", expert=False):
     recent = RecentCalls()
     for line in stdin:
         if not line.strip():
             continue
         try:
-            reply = handle(json.loads(line), catalog, default_zone, recent=recent)
+            reply = handle(json.loads(line), catalog, default_zone, recent=recent, expert=expert)
         except ValueError:
             reply = error_reply(None, -32700, "parse error")
         except Exception:  # noqa: BLE001 - one bad message never ends the process the bridge talks to
@@ -582,7 +710,8 @@ def main():
     if not gateway:
         sys.stderr.write("OREILLY_GATEWAY_URL must be set\n")
         return 2
-    serve(GatewayCatalog(gateway), default_zone=os.environ.get("OREILLY_DEFAULT_TIMEZONE", "UTC"))
+    serve(GatewayCatalog(gateway), default_zone=os.environ.get("OREILLY_DEFAULT_TIMEZONE", "UTC"),
+          expert=os.environ.get("OREILLY_EXPERT", "").lower() == "true")
     return 0
 
 

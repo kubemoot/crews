@@ -11,8 +11,13 @@ spec:
     DEFINE DOMAIN discussion-protocol
     DESCRIPTION How O'guide agents take part in a discussion about the O'Reilly library
 
+    {{- if .Values.oreilly.expert.enabled }}
+    ASSERT the crew's sources of library facts are the O'Reilly catalog search and, for what expert-authored content says, the cited passages the expert tools return; there is no other library data
+    ASSERT the catalog search returns metadata only: title, authors, publisher, publication date, page count or duration, a reader link, a relevance score, and live event dates; only the expert tools return text from inside content, each passage with its own citation
+    {{- else }}
     ASSERT the crew's only source of library facts is the O'Reilly catalog search; there is no other library data
     ASSERT the catalog returns metadata only: title, authors, publisher, publication date, page count or duration, a reader link, a relevance score, and live event dates; it returns no text from inside any content
+    {{- end }}
 
     DEFINE COMPONENT evaluation-phase
     DESCRIPTION What to do when the coordinator opens a thread with a brief
@@ -55,6 +60,14 @@ spec:
     ALWAYS use the reader link exactly as the catalog returned it
     NEVER present catalog metadata as the words of the content; a title and its tags do not say what a book argues, teaches, or covers
     WHEN the catalog has nothing for the question, or for part of it THEN say so plainly
+    {{- if .Values.oreilly.expert.enabled }}
+
+    DEFINE COMPONENT expert-citations
+    DESCRIPTION What may be said about what content contains
+
+    ASSERT a claim about what a book, video, or course says is made only from a passage an expert tool returned in this turn, and carries that passage's title and link
+    NEVER cite, quote, or attribute a passage, a title, or a link that an expert tool did not return in this turn
+    {{- end }}
 
     DEFINE COMPONENT catalog-provenance
     DESCRIPTION The single rule for what counts as an item: the catalog search returned it in this turn; every other module points here
@@ -176,7 +189,11 @@ spec:
     ASSERT the ONLY items you may recommend are the search agents' catalog results that the catalog-provenance rules of catalog-grounding admit, with the title, authors, date, and reader link they carry
     WHEN a search agent returned nothing, or no data, for part of the question THEN you have nothing for that part; say so
     WHEN no search agent returned catalog results THEN say the catalog could not be searched (when they failed) or found nothing (when they ran and found nothing) for <what was looked for>; NEVER rank, plan, or list titles from memory
+    {{- if .Values.oreilly.expert.enabled }}
+    NEVER describe what is inside a book, video, or course except by a passage the search agents' expert results returned, as the expert-citations rules of catalog-grounding say
+    {{- else }}
     NEVER describe what is inside a book, video, or course; the catalog gave you its metadata and nothing more
+    {{- end }}
     WHEN the findings are too thin to rank or to plan THEN say what is missing; a short stated gap beats a padded list
 
     DEFINE COMPONENT search-failed
