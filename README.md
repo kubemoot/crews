@@ -13,7 +13,7 @@ Each subdirectory is an independently versioned Helm chart for a Kubemoot agent 
 
 | Crew | What it is | Chart |
 |---|---|---|
-| [homelab-pilot-crew](./homelab-pilot-crew/) | Answers cluster operators' questions about their Kubernetes cluster, its observability stack, its GPUs, and optionally Proxmox VE; the reference crew for the others. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` |
+| [homelab-pilot-crew](./homelab-pilot-crew/) | Answers cluster operators' questions about their Kubernetes cluster, its observability stack, its accelerators, and optionally Proxmox VE; the reference crew for the others. | `oci://ghcr.io/kubemoot/charts/homelab-pilot-crew` |
 | [kubemoot-fitness-crew](./kubemoot-fitness-crew/) | Scores crews' fitness-scenario answers against a reference (the `REFLECTS` assertion); install it once per cluster if you run fitness suites. | `oci://ghcr.io/kubemoot/charts/kubemoot-fitness-crew` |
 | [oguide-crew](./oguide-crew/) | O'guide finds, ranks, and links O'Reilly library material for subscribers, as catalog metadata with reader links; bring your own O'Reilly key. | `oci://ghcr.io/kubemoot/charts/oguide-crew` |
 
