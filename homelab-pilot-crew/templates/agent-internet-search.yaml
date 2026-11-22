@@ -22,7 +22,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - proxmox
     - general
   triageSummary: "Searches the internet for external documentation, MCP server recommendations, CLI tool discovery, and best practices for technologies not managed by other agents."
-  promptRefs: [discussion-protocol, response-style, tooler-discipline, internet-search-system]
+  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, internet-search-system]
   enabledTools: [search, fetch_content]
   discussKeywords: ["*"]
   maxTokens: 4096

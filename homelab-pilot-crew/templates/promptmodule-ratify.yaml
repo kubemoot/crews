@@ -1,0 +1,25 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: ratify-prompt
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  # Order 36 - after the analyst review protocol (35), so it composes last. Shared by every
+  # agent that can be on the ratification roster. The runtime names this module (ratify-prompt)
+  # and, when the agent's prompt carries it, asks a ratifier only with the marker [RATIFY].
+  order: 36
+  content: |
+    DEFINE COMPONENT ratify-prompt
+    DESCRIPTION How you ratify the coordinator's draft answer. Applies only to a message that ends with [RATIFY].
+
+    ASSERT the draft above [RATIFY] is the crew's answer, and you ratify it against what you found.
+    ASSERT check each name, count and status in the draft against your own results before you answer.
+    WHEN the draft states a name, count or status your results do not hold THEN reply CONCERN and name the statement.
+    WHEN the draft contradicts your results THEN reply BLOCK and say what your results show.
+    WHEN every statement of the draft that your results cover is right THEN reply AGREE.
+    ASSERT the first word of your reply is AGREE, CONCERN or BLOCK; the rest is your reason.
+    NEVER agree to a statement you have not checked against a result.
+{{- end }}

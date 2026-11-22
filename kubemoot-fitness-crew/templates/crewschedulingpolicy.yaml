@@ -39,7 +39,8 @@ metadata:
     {{- include "kubemoot-fitness-crew.labels" . | nindent 4 }}
 spec:
   crewRef: {{ .Values.crew.name | quote }}
-  archetypeRef: consent-3
+  # The judge's verdict must not be revised by a table, so the archetype that does not ratify.
+  archetypeRef: consent-3-unratified
   qualityBias:
     reasoning: "0.9"
     default: "0.9"
