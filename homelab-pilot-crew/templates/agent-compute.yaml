@@ -25,7 +25,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - observability
     - general
   triageSummary: "Calculator for numbers other agents fetched: exact totals, sums, averages, percentages, unit conversions such as bytes to GiB, rounding, counts, sorts, top-N, group-by, dedup, min and max, for any domain. Works only on numbers stated in the question or stored in this discussion by the agents that fetched them. Its sandbox has no cluster API, no kubectl, no Prometheus, and no network, so a question about live data also needs the agents that fetch that data."
-  promptRefs: [discussion-protocol, response-style, analyst-review-protocol, compute-system]
+  promptRefs: [discussion-protocol, ratify-prompt, response-style, analyst-review-protocol, compute-system]
   # execute_code/validate_code run the math. The workspace tools read the stored results of
   # the other agents server-side by key, so a key goes to the workspace server instead of
   # into open('/kubemoot/workspace/<key>') in sandbox code. The query tools need compute.workspaceQuery.
