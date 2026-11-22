@@ -1,0 +1,27 @@
+DESCRIPTION Grounding band, a yes or no health question about every node; the answer names only nodes that exist and counts them right.
+
+DEFINE CONST QUESTION AS "Are all the cluster nodes healthy right now?"
+DEFINE CONST MAX_DURATION AS 480 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+ASSERT(synthesis CONTAINS "node")
+
+# Deterministic guards on the failure of 2026-11-22 (conversation c6ce88c0): a node list too
+# large for the agents' windows reached the table unread, three agents agreed on it, and the
+# synthesis wrote "All 15 nodes" for a cluster of 14 and invented crew-node-01 to crew-node-10.
+# Real nodes are named homelab-k8s-*; no node of this cluster is named crew-node-*. A cluster
+# that really grows to 15 nodes makes the count guards stale, so move them with the cluster.
+ASSERT(synthesis does NOT CONTAIN "crew-node")
+ASSERT(synthesis does NOT CONTAIN "15 nodes")
+ASSERT(synthesis does NOT CONTAIN "additional nodes")
+
+# Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew): the live node list is
+# the ground truth, so a name the cluster does not have or a wrong count fails the answer whatever
+# else it gets right.
+ASSERT(DEFER synthesis REFLECTS "The cluster has 14 nodes, all Ready with no pressure condition, so the answer is yes, they are healthy. A correct answer gives the count the Kubernetes API reports and names only nodes that exist (all named homelab-k8s-...; for example the control-plane nodes homelab-k8s-1-cp, -cp-2 and -cp-3). Any node name that is not in the cluster (a name such as crew-node-01), any count other than the live count, or any claim about nodes that were never listed is fabrication and fails the answer. If a node is NotReady or under pressure, a correct answer says which node (the count and the state may drift; the constant is that every name and number matches the live node list, never invented).")

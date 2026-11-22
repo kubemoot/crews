@@ -204,7 +204,7 @@ Each description restates what the parameter does in the server's own source at 
 
 ## Fitness
 
-`fitness/` holds 76 scenarios in ADL (`*.adl`), grouped by prefix: smoke, single-domain Kubernetes, GPU, observability, and Proxmox questions, cross-domain (`xdomain-*`, `multi-tool-*`), judgment, constraint-following, and trap questions (`gotcha-*`, `partial-answerable-*`). Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
+`fitness/` holds 77 scenarios in ADL (`*.adl`), grouped by prefix: smoke, single-domain Kubernetes, GPU, observability, and Proxmox questions, cross-domain (`xdomain-*`, `multi-tool-*`), judgment, constraint-following, and trap questions (`gotcha-*`, `partial-answerable-*`), and grounding questions whose every name and number is checked against the live cluster (`k8s-nodes-health-grounded`: it asks "Are all the cluster nodes healthy right now?" and fails on a node name the cluster does not have or a wrong count). Scenarios that use `DEFER synthesis REFLECTS` need the [kubemoot-fitness-crew](../kubemoot-fitness-crew/) judge installed.
 
 The chart deploys the scenarios with the crew as one ConfigMap, `homelab-pilot-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`. CrewForge and the dashboard list them from it; nothing runs until someone starts a run.
 
@@ -214,6 +214,17 @@ Run a scenario with `kmctl fitness run`, or apply a `CrewFitness` resource with 
 python3 scripts/build-suite.py homelab-pilot-crew/fitness \
   --namespace crew-homelab-pilot --crew-ref homelab-pilot --name baseline-n10 --iterations 10
 ```
+
+To run only the node-health grounding scenario (before and after a Kubemoot release that ratifies the answer, on the same crew), build a suite from that one file and run it with the same iteration count each time:
+
+```bash
+mkdir -p /tmp/one && cp homelab-pilot-crew/fitness/k8s-nodes-health-grounded.adl /tmp/one/
+python3 scripts/build-suite.py /tmp/one --namespace crew-homelab-pilot --crew-ref homelab-pilot \
+  --name nodes-grounded --iterations 10 > /tmp/nodes-grounded.yaml
+kubectl apply -f /tmp/nodes-grounded.yaml && kmctl fitness run nodes-grounded -n crew-homelab-pilot
+```
+
+The inline guards fail an iteration that names `crew-node` or counts `15 nodes`; the deferred judge fails any node name the cluster does not have and any count other than the live one. Compare the fail rate of the two runs, and read the failing iterations' syntheses, not only the score.
 
 ## Placement policy
 
