@@ -41,8 +41,9 @@ bias="$(csp '.spec.qualityBias')"
 [ "$bias" = '{"reasoning":"0.9","default":"0.9"}' ] || fail "qualityBias changed: $bias"
 echo "PASS: qualityBias leans to the largest model"
 
-# The judge's verdict is not put to a table: its policy names the archetype that does not ratify.
-[ "$(csp '.spec.archetypeRef')" = '"consent-3-unratified"' ] || fail "the judge must use the archetype that does not ratify: $(csp '.spec.archetypeRef')"
+# The judge's verdict is not put to a table: consent-3 ships with ratify.enabled false, and the
+# crew must not opt in with an archetype that ratifies.
+[ "$(csp '.spec.archetypeRef')" = '"consent-3"' ] || fail "the judge must use consent-3, which ships with ratification off: $(csp '.spec.archetypeRef')"
 echo "PASS: the judge's archetype does not ratify"
 
 # Every phase requires only reasoning and states no explicit preference, so the size
