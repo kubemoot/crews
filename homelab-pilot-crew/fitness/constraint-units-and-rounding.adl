@@ -12,12 +12,12 @@ ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 ASSERT(synthesis CONTAINS "GiB")
 
-# Deterministic, drift-tolerant ground truth: real k8s node memory capacity is ~266 GiB
-# (about 259 GiB allocatable) across all 13 nodes. The observed failure FABRICATED "384 GiB" by deriving capacity
+# Deterministic guard: the live node memory total depends on the live node count; see the reference.
+# The observed failure FABRICATED "384 GiB" by deriving capacity
 # from only 3 control-plane nodes (128 x 3). Forbid that specific false total; the live
 # figure drifts but 384 is simply wrong.
 ASSERT(synthesis does NOT CONTAIN "384")
 
 # Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
 # the synthesis against this ground truth on method and honesty, not specific values.
-ASSERT(DEFER synthesis REFLECTS "Every node exposes its memory capacity in live state, so total cluster memory and total requested memory ARE computable; claiming node memory is unavailable is wrong. A correct answer sums allocatable memory across all nodes, sums requested memory, expresses both in whole-number GiB, and derives the percentage requested. The real total capacity is currently about 266 GiB (about 259 GiB allocatable) across the 13 nodes; a figure like 384 GiB (derived from only the 3 control-plane nodes) is fabricated. Correct unit conversion, rounding, and the derived ratio are scored, and the figures must be internally consistent and not invented. (The exact totals drift; the constant is computing them from every node's live capacity.)")
+ASSERT(DEFER synthesis REFLECTS "Every node exposes its memory capacity in live state, so total cluster memory and total requested memory ARE computable; claiming node memory is unavailable is wrong. A correct answer sums memory across every node the live cluster lists (the live node count, whatever it is, including a node that is NotReady or cordoned unless the answer says it excluded it), sums requested memory, expresses both in whole-number GiB, and derives the percentage requested. The totals are graded against the live node capacities and pod requests at the time of the question, not a fixed figure; a total derived from only a subset of nodes without saying so (for example only the 3 control-plane nodes, giving a figure like 384 GiB) is fabricated. Correct unit conversion, rounding, and the derived ratio are scored, and the figures must be internally consistent and consistent with the live data.")

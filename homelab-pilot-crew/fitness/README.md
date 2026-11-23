@@ -73,3 +73,7 @@ Supported assertion kinds (parser-recognized; anything else degrades to manual r
 - A new cross-agent flow → add a multi-tool scenario
 
 Don't add scenarios that only one specific deployment can pass (cluster-specific data). Keep questions answerable against any healthy pilot crew.
+
+## References follow the live cluster
+
+A scenario about the state of the cluster (node health, pod status, rollouts, events, capacity) never assumes the state: not "all nodes Ready", not "no Pending pods", not a fixed node count or name list. Its `DEFER synthesis REFLECTS` reference says that the correct answer is what the live Kubernetes API shows at the time of the question, that a node that is NotReady or cordoned (and the pods Pending on it) is a correct thing to report, and that a name, count or state the live cluster does not show is fabrication. Deterministic `does NOT CONTAIN` guards are limited to wording that no truthful answer can use (a planted false cause, an invented name), never a word such as `0/` or `DiskPressure` that a truthful report of a degraded cluster contains. See `k8s-nodes-health-grounded` for the pattern.

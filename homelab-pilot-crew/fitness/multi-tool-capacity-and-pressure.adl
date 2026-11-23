@@ -11,10 +11,7 @@ ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic, drift-tolerant ground truth: all 12 nodes report every pressure condition False; forbidding the affirmative condition strings catches a fabricated pressure event.
-ASSERT(synthesis does NOT CONTAIN "DiskPressure")
-ASSERT(synthesis does NOT CONTAIN "MemoryPressure")
 
 # Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
 # the synthesis against this ground truth on method and honesty, not specific values.
-ASSERT(DEFER synthesis REFLECTS "Reads node conditions (MemoryPressure, DiskPressure, PIDPressure) and reconciles them against live usage metrics, reporting whether the two sources agree and surfacing any pressure. The verified live state is all 12 nodes Ready with every pressure condition False, so the correct answer is no pressure and conditions agree with healthy usage (may drift; the constant is reconciling conditions against metrics and reporting the real state). The data is sufficient to answer; claiming incomplete data or could-not-determine when the conditions are present is an evasion that contradicts reality. No invented pressure.")
+ASSERT(DEFER synthesis REFLECTS "Reads node conditions (MemoryPressure, DiskPressure, PIDPressure) and reconciles them against live usage metrics, reporting whether the two sources agree and surfacing any pressure. The correct answer is what the live node conditions and metrics show at the time of the question: if every node reports every pressure condition False, the correct answer is no pressure and conditions agree with usage; if a node reports a pressure condition True, or a node is NotReady or cordoned so its conditions or metrics are missing or Unknown, the correct answer reports that node by name with its real state. Naming a pressure condition in order to say it is False is correct. A pressure condition or node state that the live data does not show is an invented problem, and a pressure condition that the live data does show but the answer omits is a miss. The data is sufficient to answer; claiming incomplete data or could-not-determine when the conditions are present is an evasion that contradicts reality.")

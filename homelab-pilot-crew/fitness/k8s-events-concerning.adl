@@ -12,10 +12,7 @@ ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic, drift-tolerant ground truth: no OOMKilled or DiskPressure events exist now; forbidding these strings catches the common fabricated alarms without over-constraining the churny summary.
-ASSERT(synthesis does NOT CONTAIN "OOMKilled")
-ASSERT(synthesis does NOT CONTAIN "DiskPressure")
 
 # Reference-grounded quality, deferred LLM judge (FitnessCrew) scores the
 # synthesis 0.0-1.0 against this ground truth from cluster-ground-truth-baseline.md.
-ASSERT(DEFER synthesis REFLECTS "Checks cluster-wide Warning-level Kubernetes events over the window and summarizes the most concerning. A recurring Warning currently exists: flux-system imagerepository/homelab-pilot reporting 'ReadOperationFailed scan failed ... NOT_FOUND repository homelab/pilot not found', which fires persistently. The specific warning may drift, but the durable point is that the events query returns real Warnings and the correct method surfaces them. A sound answer reports the actual recurring warning (or whatever genuine Warnings are present) with a coherent summary; a confident all-clear of no Warning events built on an empty or NO_DATA result misses the live recurring warning. No fabricated events.")
+ASSERT(DEFER synthesis REFLECTS "Checks cluster-wide Warning-level Kubernetes events over the window and summarizes the most concerning. The correct answer is whatever Warning events the live events API holds in the window at the time of the question: it reports the real recurring or recent Warnings it finds (for example a failing image repository scan, a node reporting NotReady or becoming unschedulable, FailedScheduling for a pod, or a container restart) with the object, reason and message as the live events show them, and ranks them by concern. When the window holds no Warning events, the correct answer is a plain none. A confident all-clear built on an empty or NO_DATA query result when real Warnings exist misses them, and an event, object, reason or count that the live events do not show is fabrication.")
