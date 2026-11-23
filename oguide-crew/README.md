@@ -116,6 +116,100 @@ With it on:
 | `perPerson.accountName` | `O'Reilly` | How a refusal names the account to connect |
 | `perPerson.accessNote` | see `values.yaml` | The sentence added to each tool description |
 
+## Use O'guide from a chat app
+
+This section covers only what is specific to O'guide. Installing the chat app, the
+`ENDPOINTS: custom,agents` setting, model endpoints, creating an agent and troubleshooting are
+on the Kubemoot [LibreChat page](https://kubemoot.org/docs/integrations/librechat/), and the
+steps below apply to any chat app that signs in through the crew liaison.
+
+1. **Turn on per-person access** in this chart, as in the section above:
+   `--set perPerson.enabled=true`, with the `kubemoot-hash-key` Secret.
+2. **Expose the crew liaison's door at its own hostname,** and turn on its sign-in front, in the
+   Kubemoot chart values. The hostname is the address people sign in at and the chat app calls:
+
+   ```yaml
+   liaison:
+     expose:
+       enabled: true
+       hostname: oguide.example.org
+     auth:
+       serviceTokens:
+         - name: oreilly
+           verifyURL: https://api.oreilly.com/api/search/v1/mcp
+           verifyMethod: McpInitialize
+           subjectClaim: upstream_claims.sub
+           maxCacheSeconds: 300
+           passToTools: true
+           authorize: AnyAccepted
+       hashKeySecret:
+         name: kubemoot-hash-key     # the same value as in the crew namespace
+     signIn:
+       enabled: true
+       publicURL: https://oguide.example.org
+       upstream:
+         authorizeURL: https://api.oreilly.com/api/search/v1/authorize
+         tokenURL: https://api.oreilly.com/api/search/v1/token
+         clientId: <your client id from step 3>
+       sealKeySecret:
+         name: liaison-signin-seal
+       allowedRedirectHosts:
+         - librechat.example.org     # the chat app's host; localhost is always allowed
+   ```
+
+   Both Secrets are yours to create and never go in a values file: `kubemoot-hash-key` holds one
+   random value that the liaison and the crew share, and `liaison-signin-seal` holds a line
+   `id:base64key` with a key from `openssl rand -base64 32`. The hostname must reach the
+   liaison and nothing in front of it may require its own login: the liaison's sign-in protects
+   the door.
+3. **Register the door with O'Reilly as an OAuth client.** O'Reilly's MCP authorization server
+   accepts dynamic client registration for a public client, with no approval step and no secret.
+   Register once, with the door's callback as the redirect address, and keep the returned
+   `client_id` as `signIn.upstream.clientId` (it must stay the same, because O'Reilly binds
+   refresh tokens to it):
+
+   ```bash
+   curl -sS -X POST https://api.oreilly.com/api/search/v1/register \
+     -H 'Content-Type: application/json' \
+     -d '{"client_name": "O'"'"'guide", "redirect_uris": ["https://oguide.example.org/oauth/callback"],
+          "token_endpoint_auth_method": "none",
+          "grant_types": ["authorization_code", "refresh_token"],
+          "response_types": ["code"], "scope": "openid offline_access"}'
+   ```
+
+   The response holds the `client_id`; it is not a secret. O'Reilly publishes no way to delete
+   a registered client, so register the production hostname once rather than experimenting.
+   A tool that cannot use dynamic registration can ask O'Reilly for static client credentials.
+4. **Add the door to the chat app.** In `librechat.yaml`:
+
+   ```yaml
+   mcpServers:
+     oguide:
+       type: streamable-http
+       url: https://oguide.example.org/mcp
+       title: "O'guide"
+       description: "Finds, compares and explains O'Reilly books, videos, courses and live events, with your own O'Reilly access."
+       requiresOAuth: true
+       timeout: 180000
+       initTimeout: 30000
+   ```
+
+   Nothing else is configured for the sign-in: the chat app finds it from the door's 401, and
+   each person signs in to O'Reilly once. The sign-in starts when the person opens the MCP panel
+   and clicks Authenticate on `oguide`, not from a chat question; a browser already signed in to
+   oreilly.com approves without a login page. The liaison log then shows "sign-in started",
+   "sign-in completed" and an upstream token call with status 200.
+5. **Give the agent instructions that keep the model from answering from memory.** Add the
+   `oguide` tools to an agent and use:
+
+   > You answer questions about O'Reilly books, videos, courses and live events. Always ask
+   > the O'guide tools; never answer from your own knowledge, and never name an author, title,
+   > date or link that a tool did not return. If a tool fails or returns nothing, say so.
+
+A reply with invented authors means the model skipped the tool. A real answer lists items with
+`learning.oreilly.com` links, shows a tool step in the chat, and appears as a new thread in the
+Kubemoot dashboard's Moot, owned by the person's O'Reilly identity.
+
 ## Expert Intelligence (optional)
 
 O'Reilly Expert Intelligence answers a specific technical question with grounded, citable passages from expert-authored content, where the catalog search returns only titles and links. It is a paid add-on: an O'Reilly account needs the Expert MCP entitlement (`xmcp`), and O'Reilly refuses every request to the Expert MCP of an account without it (HTTP 403), searches included. It is off by default; set `oreilly.expert.enabled=true` only with a key from an entitled account.
