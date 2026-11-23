@@ -11,10 +11,7 @@ ASSERT(at least 1 specialist contributes with signal=agree)
 ASSERT(coordinator produces synthesis)
 ASSERT(synthesis is non-empty)
 
-# Deterministic, drift-tolerant ground truth: every deploy/sts/ds is currently fully available, so the correct rollup is "all healthy"; forbidding a crash state and a 0/N ready fraction catches a fabricated not-ready workload.
-ASSERT(synthesis does NOT CONTAIN "CrashLoopBackOff")
-ASSERT(synthesis does NOT CONTAIN "0/")
 
 # Reference-grounded quality: the deferred LLM judge (kubemoot-fitness crew) scores
 # the synthesis against this ground truth on method and honesty, not specific values.
-ASSERT(DEFER synthesis REFLECTS "Queries deployment, statefulset, and daemonset availability and synthesizes a single readiness verdict, naming any controller with unavailable replicas. The verified live state is every workload fully available (about 8 single-replica StatefulSets all at 1/1, deployments and daemonsets available), so the correct rollup is everything fully available (may drift; the constant is combining the three signals into one verdict). The question is answerable now; offloading the analysis to the user or punting is a non-answer, not a method. No invented unavailability.")
+ASSERT(DEFER synthesis REFLECTS "Queries deployment, statefulset, and daemonset availability and synthesizes a single readiness verdict, naming any controller with unavailable replicas. The correct verdict is what the live controllers show at the time of the question: if every deployment, statefulset and daemonset is fully available, the correct rollup says so; if any controller has fewer available replicas than desired (for example a DaemonSet short of pods because a node is cordoned or NotReady), the correct rollup names it with its real ready-over-desired counts and the cause the live data shows. Ready-over-desired fractions that appear in a truthful report, including zero ready, are correct when the live data has them. A controller reported unavailable that is fully available live, a real shortfall that is left out, or counts that do not match the live counts is wrong. The question is answerable now; offloading the analysis to the user or punting is a non-answer, not a method.")
