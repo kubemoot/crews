@@ -1,0 +1,406 @@
+[
+ {
+  "name": "released: kubernetes operators",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "kubernetes operators"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "released: vector databases",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "vector databases"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "released: agentic AI",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "agentic AI"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "released: software architecture",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "software architecture"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "released: observability",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "observability"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "released: zzzxqj nothing here",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "zzzxqj nothing here"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "scheduled: generative AI",
+  "tool": "find_scheduled",
+  "arguments": {
+   "topic": "generative AI"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "scheduled: platform engineering",
+  "tool": "find_scheduled",
+  "arguments": {
+   "topic": "platform engineering"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "scheduled: rust",
+  "tool": "find_scheduled",
+  "arguments": {
+   "topic": "rust"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "released: a topic that names an author",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "Neal Ford forthcoming"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "scheduled: a topic that names an author",
+  "tool": "find_scheduled",
+  "arguments": {
+   "topic": "Neal Ford"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: Neal Ford",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "Neal Ford"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: Mark Richards",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "Mark Richards"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: Bruce Hopkins",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "Bruce Hopkins"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: Sam Newman",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "Sam Newman"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: Ford, Neal",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "Ford, Neal"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: Zoe M\u00fcller",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "Zoe M\u00fcller"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "author: J",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": "J"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "title: Fundamentals of Software Architecture",
+  "tool": "find_title",
+  "arguments": {
+   "title": "Fundamentals of Software Architecture"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "title: Architecture as Code",
+  "tool": "find_title",
+  "arguments": {
+   "title": "Architecture as Code"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "title: Designing Data-Intensive Applications",
+  "tool": "find_title",
+  "arguments": {
+   "title": "Designing Data-Intensive Applications"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "title: Kubernetes Patterns",
+  "tool": "find_title",
+  "arguments": {
+   "title": "Kubernetes Patterns"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "live: agentic AI",
+  "tool": "find_live_events",
+  "arguments": {
+   "topic": "agentic AI"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "live: Kubernetes",
+  "tool": "find_live_events",
+  "arguments": {
+   "topic": "Kubernetes"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "live: Neal Ford",
+  "tool": "find_live_events",
+  "arguments": {
+   "topic": "Neal Ford"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "date: from the request date only",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "python"
+  },
+  "meta": {
+   "requestDate": "2026-01-15"
+  }
+ },
+ {
+  "name": "date: from the local time only",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "python"
+  },
+  "meta": {
+   "localDateTime": "2026-03-02T23:30:00"
+  }
+ },
+ {
+  "name": "date: from the time zone only",
+  "tool": "find_scheduled",
+  "arguments": {
+   "topic": "python"
+  },
+  "meta": {
+   "timeZone": "Asia/Tokyo"
+  }
+ },
+ {
+  "name": "date: no meta, the default zone",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "go"
+  }
+ },
+ {
+  "name": "date: a malformed requestDate falls back",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "go"
+  },
+  "meta": {
+   "requestDate": "tomorrow",
+   "timeZone": "Mars/Base"
+  }
+ },
+ {
+  "name": "refused: an empty argument",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "   "
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "refused: the wrong argument name",
+  "tool": "find_released",
+  "arguments": {
+   "name": "x"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "refused: an argument that is not text",
+  "tool": "find_by_author",
+  "arguments": {
+   "name": [
+    "a"
+   ]
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "refused: an argument over 300 characters",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "refused: an unknown tool",
+  "tool": "search_oreilly_content",
+  "arguments": {
+   "query": "x"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York"
+  }
+ },
+ {
+  "name": "repeat: the same search again",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "observability"
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York",
+   "threadId": "t1"
+  }
+ },
+ {
+  "name": "repeat: the same search again, other spacing",
+  "tool": "find_released",
+  "arguments": {
+   "topic": "Observability "
+  },
+  "meta": {
+   "requestDate": "2026-11-23",
+   "timeZone": "America/New_York",
+   "threadId": "t1"
+  }
+ }
+]
