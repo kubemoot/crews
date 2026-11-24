@@ -118,10 +118,10 @@ With it on:
 
 ## Use O'guide from a chat app
 
-This section covers only what is specific to O'guide. Installing the chat app, the
-`ENDPOINTS: custom,agents` setting, model endpoints, creating an agent and troubleshooting are
-on the Kubemoot [LibreChat page](https://kubemoot.org/docs/integrations/librechat/), and the
-steps below apply to any chat app that signs in through the crew liaison.
+Claude Desktop is the chat app we use and describe: the Kubemoot
+[Claude Desktop page](https://kubemoot.org/docs/integrations/claude-desktop/) covers adding the
+connector. Any chat app that speaks MCP with OAuth sign-in to remote servers can reach a crew
+through the crew liaison. This section covers what is specific to O'guide.
 
 1. **Turn on per-person access** in this chart, as in the section above:
    `--set perPerson.enabled=true`, with the `kubemoot-hash-key` Secret.
@@ -154,7 +154,8 @@ steps below apply to any chat app that signs in through the crew liaison.
        sealKeySecret:
          name: liaison-signin-seal
        allowedRedirectHosts:
-         - librechat.example.org     # the chat app's host; localhost is always allowed
+         - claude.ai
+         - claude.com                # Claude's hosts; localhost is always allowed
    ```
 
    Both Secrets are yours to create and never go in a values file: `kubemoot-hash-key` holds one
@@ -180,35 +181,15 @@ steps below apply to any chat app that signs in through the crew liaison.
    The response holds the `client_id`; it is not a secret. O'Reilly publishes no way to delete
    a registered client, so register the production hostname once rather than experimenting.
    A tool that cannot use dynamic registration can ask O'Reilly for static client credentials.
-4. **Add the door to the chat app.** In `librechat.yaml`:
+4. **Add the door to Claude Desktop.** In the sidebar choose Plugins (some versions call it
+   Customize), then Connectors, then Add custom connector. Enter `https://oguide.example.org/mcp`
+   as the URL, set Authentication to Sign in now and OAuth client to Register automatically, then
+   choose Connect and sign in to O'Reilly once. A browser already signed in to oreilly.com approves
+   without a login page. The liaison log then shows "sign-in started", "sign-in completed" and an
+   upstream token call with status 200.
 
-   ```yaml
-   mcpServers:
-     oguide:
-       type: streamable-http
-       url: https://oguide.example.org/mcp
-       title: "O'guide"
-       description: "Finds, compares and explains O'Reilly books, videos, courses and live events, with your own O'Reilly access."
-       requiresOAuth: true
-       timeout: 180000
-       initTimeout: 30000
-   ```
-
-   Nothing else is configured for the sign-in: the chat app finds it from the door's 401, and
-   each person signs in to O'Reilly once. The sign-in starts when the person opens the MCP panel
-   and clicks Authenticate on `oguide`, not from a chat question; a browser already signed in to
-   oreilly.com approves without a login page. The liaison log then shows "sign-in started",
-   "sign-in completed" and an upstream token call with status 200.
-5. **Give the agent instructions that keep the model from answering from memory.** Add the
-   `oguide` tools to an agent and use:
-
-   > You answer questions about O'Reilly books, videos, courses and live events. Always ask
-   > the O'guide tools; never answer from your own knowledge, and never name an author, title,
-   > date or link that a tool did not return. If a tool fails or returns nothing, say so.
-
-A reply with invented authors means the model skipped the tool. A real answer lists items with
-`learning.oreilly.com` links, shows a tool step in the chat, and appears as a new thread in the
-Kubemoot dashboard's Moot, owned by the person's O'Reilly identity.
+A real answer lists items with `learning.oreilly.com` links, shows a tool step in the chat, and
+appears as a new thread in the Kubemoot dashboard's Moot, owned by the person's O'Reilly identity.
 
 ## Expert Intelligence (optional)
 
