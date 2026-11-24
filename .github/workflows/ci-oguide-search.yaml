@@ -53,7 +53,11 @@ jobs:
 
       - name: Run tests
         working-directory: oguide-crew/search-server-go
-        run: go test -race -coverprofile=coverage.out ./...
+        # The race detector needs cgo and a C compiler; the in-cluster runners have neither.
+        run: |
+          race=""
+          if [ "$(go env CGO_ENABLED)" = 1 ] && command -v "$(go env CC)" >/dev/null; then race=-race; fi
+          go test ${race:+"$race"} -coverprofile=coverage.out ./...
 
       # The image packages this tested binary; the build pod does not compile again.
       - name: Build the static binary
