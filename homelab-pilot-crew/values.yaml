@@ -10,6 +10,11 @@ crew:
   description: AI-powered homelab infrastructure consultation crew
   discussion:
     enabled: true
+    # Who may ask this crew (Crew spec.discussion.access, kubemoot docs/concepts/who-is-asking.md).
+    # Empty keeps today's behavior: anonymous callers are accepted. For example
+    # {tokenReview: true, allowAnonymous: false} makes every caller send a Kubernetes token
+    # with get on this Crew (the Homelab Pilot server sends its ServiceAccount token).
+    access: {}
   # How Kubemoot places this crew's model calls: algorithm, learned (where each call
   # is predicted to finish soonest), or shadow (algorithm places; learned is logged
   # beside it). Empty inherits the cluster default (KubemootConfig).

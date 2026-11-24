@@ -62,6 +62,7 @@ jobs:
           bash .github/scripts/test-fitness-scenarios.sh
           bash homelab-pilot-crew/tests/test-domains.sh
           bash homelab-pilot-crew/tests/test-placement-policy.sh
+          bash homelab-pilot-crew/tests/test-access.sh
           bash homelab-pilot-crew/tests/test-prompt-tools.sh
           bash homelab-pilot-crew/tests/test-rbac.sh
           bash kubemoot-fitness-crew/tests/test-render.sh
