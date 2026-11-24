@@ -49,23 +49,18 @@ The tests port every case of the Python `test_server.py` (dates, ordering, names
 the gateway client, the Expert tools, per-person relay) and add the Go-only ones (JSON-RPC over a
 pipe, panics, ordered decoding, the credential rule).
 
-## How the asker's ids reach the server (checked against Kubemoot main)
+## How the asker's ids reach the server
 
 With `OREILLY_PER_PERSON` the server passes `conversationId` and `principalId` from the call's
 `_meta` back on its gateway calls, so the gateway can lease that person's token for the inner
-`search_oreilly_content` call. The agent runtime puts both in `_meta`, and the MCPServer CRD has
-`registry.callerCredential.relayContext`, but the gateway keeps them in the `_meta` it forwards only
-for a server in mode `Required` (`CallerCredentialCaller`, reached only for servers in
-`callerCredentials`, which holds `Required` servers). The search server is mode `Off` with
-`relayContext: true`, so its `_meta` is cut to `timeZone`, `localDateTime`, `requestDate` and
-`workspacePrefix` (`RequesterMeta.sanitize`) and the ids never arrive. Today, then, an inner call
-carries no person and a `Required` per-person server answers "no account connected".
-
-Kubemoot change that would carry them: in `McpClientManager`, keep a server's caller-credential
-config when `relayContext` is true even in mode `Off`, and have `forwardRequest(serverId, original,
-caller)` add the two ids to the forwarded `_meta` for such a server (the existing `withContext`).
-Until then the server falls back safely: with per-person on, a search that names no person is never
-remembered or answered from memory.
+`search_oreilly_content` call. The agent runtime puts both in `_meta`. The search server is mode
+`Off` with `registry.callerCredential.relayContext: true`, and the gateway keeps the two ids in the
+`_meta` it forwards to a server with `relayContext`, in mode `Off` as in mode `Required`. The server
+keeps its own credential; the ids are handles, never a token. This needs a Kubemoot gateway and
+operator with that support (kubemoot PR "relayContext forwards the asking person's ids to a server
+in mode Off"). Without it the ids are cut from `_meta`, an inner call carries no person, and a
+`Required` per-person server answers "no account connected"; the server then falls back safely: with
+per-person on, a search that names no person is never remembered or answered from memory.
 
 ## Differences from the Python server
 
