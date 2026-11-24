@@ -1,5 +1,6 @@
 DESCRIPTION Discovery band: enumerate the Job and CronJob surface and report last-run status honestly.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "List the CronJobs and recent Jobs in the cluster, and note any that failed on their last run."
 DEFINE CONST MAX_DURATION AS 480 seconds
 

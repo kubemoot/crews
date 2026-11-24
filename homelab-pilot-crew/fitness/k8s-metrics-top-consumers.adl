@@ -1,5 +1,6 @@
 DESCRIPTION Live-metric band, rank top pods by memory via the metrics API; real pod names, correct ranking, no fabrication.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "What are the top 5 pods by memory consumption across the cluster right
   now?"
 DEFINE CONST MAX_DURATION AS 480 seconds

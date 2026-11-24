@@ -1,5 +1,6 @@
 DESCRIPTION Cross-domain discovery band, running Proxmox VMs with node assignment and resource usage; real VMs, no fabrication.
 
+DEFINE CONST TIERS AS "smoke standard"
 DEFINE CONST QUESTION AS "List the running VMs on the Proxmox cluster with their assigned nodes and
   current resource usage."
 DEFINE CONST MAX_DURATION AS 300 seconds

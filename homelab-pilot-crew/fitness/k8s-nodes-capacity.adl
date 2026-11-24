@@ -1,5 +1,6 @@
 DESCRIPTION Discovery band, list nodes with roles/capacity/Ready condition; real node identities, no invented nodes.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "List the Kubernetes nodes with their roles, CPU and memory capacity, and
   current Ready condition."
 DEFINE CONST MAX_DURATION AS 480 seconds

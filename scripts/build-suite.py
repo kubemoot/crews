@@ -16,14 +16,21 @@ Usage (from the repository root):
         > /tmp/baseline-suite.yaml
     kubectl apply -f /tmp/baseline-suite.yaml
 
-Every committed scenario is included; nothing is silently dropped. The scenario
+Every committed scenario is included; nothing is silently dropped. With --tier smoke
+or --tier standard only the scenarios that name the tier in DEFINE CONST TIERS are
+included (full, the default, is every scenario). The scenario
 count is printed to stderr so a run cannot quietly cover fewer than expected,
 and a directory with no scenarios is an error rather than an empty suite.
 """
 import argparse
 import os
+import re
 import sys
 
+TIERS = ("smoke", "standard", "full")
+# The tiers a scenario may name in DEFINE CONST TIERS AS "...". Full is every scenario and needs no label.
+LABELLED_TIERS = ("smoke", "standard")
+TIERS_LINE = re.compile(r'^DEFINE CONST TIERS AS "([^"]*)"', re.MULTILINE)
 SCENARIO_EXTENSIONS = (".adl", ".md")
 DOCUMENTATION_FILE = "README.md"
 CONTENT_INDENT = 8
@@ -45,6 +52,29 @@ def scenarios(fitness_dir):
         with open(os.path.join(fitness_dir, fn), encoding="utf-8") as f:
             out.append((os.path.splitext(fn)[0], f.read().rstrip("\n")))
     return out
+
+
+def scenario_tiers(content):
+    """The tiers a scenario names in its TIERS constant, in the order written."""
+    m = TIERS_LINE.search(content)
+    return re.split(r"[ ,]+", m.group(1).strip().lower()) if m and m.group(1).strip() else []
+
+
+def select_tier(scn, tier):
+    """The scenarios that belong to tier. Full is all of them; otherwise a scenario
+    belongs when it names the tier. A label this script does not know is an error,
+    not a silent omission, so a typo cannot shrink a tier."""
+    if tier == "full":
+        return list(scn)
+    chosen = []
+    for ref, content in scn:
+        words = scenario_tiers(content)
+        for word in words:
+            if word not in LABELLED_TIERS:
+                raise ValueError(f"scenario {ref} names unknown tier {word!r} (known: {', '.join(LABELLED_TIERS)})")
+        if tier in words:
+            chosen.append((ref, content))
+    return chosen
 
 
 def indent(text, spaces):
@@ -104,6 +134,9 @@ def parse_args(argv):
     ap.add_argument("--description", default="", type=single_line, help="suite purpose/scope (spec.description)")
     ap.add_argument("--per-iteration-timeout", default="10m")
     ap.add_argument("--artifact-retention", default="720h")
+    ap.add_argument("--tier", choices=TIERS, default="full",
+                    help="the scenarios to include: those naming this tier in DEFINE CONST TIERS, "
+                         "or every scenario for full (default)")
     return ap.parse_args(argv)
 
 
@@ -115,6 +148,14 @@ def main(argv=None):
     scn = scenarios(args.fitness_dir)
     if not scn:
         print(f"error: no .adl or .md scenarios in {args.fitness_dir}", file=sys.stderr)
+        return 1
+    try:
+        scn = select_tier(scn, args.tier)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if not scn:
+        print(f"error: no scenario in {args.fitness_dir} names tier {args.tier}", file=sys.stderr)
         return 1
     print(f"assembling {len(scn)} scenarios x {args.iterations} = "
           f"{len(scn) * args.iterations} runs", file=sys.stderr)

@@ -1,5 +1,6 @@
 DESCRIPTION Discovery band: enumerate NetworkPolicies and report the gap (namespaces with no isolation).
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "Which namespaces have NetworkPolicies defined, and which have none?"
 DEFINE CONST MAX_DURATION AS 480 seconds
 

@@ -1,5 +1,6 @@
 DESCRIPTION Discovery band, enumerate the real Helm releases across all namespaces; a one-namespace answer or 'none' is wrong, no invented releases.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "Which Helm releases are deployed across all namespaces and what are their
   current versions?"
 DEFINE CONST MAX_DURATION AS 300 seconds

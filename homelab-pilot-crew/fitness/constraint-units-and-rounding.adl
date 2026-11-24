@@ -1,5 +1,6 @@
 DESCRIPTION Constraint band: unit conversion, a rounding rule, and a derived percentage; format discipline under arithmetic.
 
+DEFINE CONST TIERS AS "smoke standard"
 DEFINE CONST QUESTION AS "Report total cluster memory capacity and total memory requested, both in GiB rounded to whole numbers, and the percentage requested."
 DEFINE CONST MAX_DURATION AS 480 seconds
 

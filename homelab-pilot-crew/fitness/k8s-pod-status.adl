@@ -1,5 +1,6 @@
 DESCRIPTION Health-scan band, namespace-scoped pod health; honest 'all healthy' when true, no fabrication.
 
+DEFINE CONST TIERS AS "smoke standard"
 DEFINE CONST QUESTION AS "Are all pods healthy in the kube-system namespace? List any that are not
   Running."
 DEFINE CONST MAX_DURATION AS 480 seconds
