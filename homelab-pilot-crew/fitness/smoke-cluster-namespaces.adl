@@ -1,5 +1,6 @@
 DESCRIPTION Smoke/discovery band, basic namespace enumeration; gateway reachable, discovery works, real names.
 
+DEFINE CONST TIERS AS "smoke standard"
 DEFINE CONST QUESTION AS "What namespaces exist in the Kubernetes cluster?"
 DEFINE CONST MAX_DURATION AS 300 seconds
 

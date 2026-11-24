@@ -1,5 +1,6 @@
 DESCRIPTION Concept/RAG band, conceptual accuracy on Deployment vs StatefulSet incl. storage/networking implications; coordinator-answerable, no fabrication.
 
+DEFINE CONST TIERS AS "smoke"
 DEFINE CONST QUESTION AS "Explain the differences between a Kubernetes Deployment and a StatefulSet.
   Include when to use each and the implications for storage and networking."
 DEFINE CONST MAX_DURATION AS 300 seconds

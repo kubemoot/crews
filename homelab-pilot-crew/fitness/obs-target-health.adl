@@ -1,5 +1,6 @@
 DESCRIPTION Observability band: query target liveness (the up metric) and report down targets honestly.
 
+DEFINE CONST TIERS AS "smoke"
 DEFINE CONST QUESTION AS "Are all of Prometheus's scrape targets currently up, and if any are down, which jobs do they belong to?"
 DEFINE CONST MAX_DURATION AS 480 seconds
 

@@ -1,5 +1,6 @@
 DESCRIPTION Behavior band, a non-question greeting; respond warmly and offer help, reach consensus without fabricating cluster claims or refusing.
 
+DEFINE CONST TIERS AS "smoke"
 DEFINE CONST QUESTION AS "Hello world"
 DEFINE CONST MAX_DURATION AS 300 seconds
 

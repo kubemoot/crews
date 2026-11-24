@@ -1,5 +1,6 @@
 DESCRIPTION Constraint band: honor a count cap, ranking order, exact column shape, and 'nothing else'.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "Give me exactly the top 5 namespaces by pod count, as a two-column table of namespace and count, highest first, and nothing else."
 DEFINE CONST MAX_DURATION AS 480 seconds
 

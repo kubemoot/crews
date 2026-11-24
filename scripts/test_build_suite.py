@@ -185,5 +185,82 @@ class MainTest(unittest.TestCase):
             build_suite.parse_args(argv)
 
 
+class TierTest(unittest.TestCase):
+    SCN = (
+        ("a", 'DEFINE CONST TIERS AS "smoke standard"\nDEFINE CONST QUESTION AS "q"'),
+        ("b", 'DEFINE CONST TIERS AS "standard"'),
+        ("c", 'DEFINE CONST TIERS AS "Smoke, standard"'),
+        ("d", 'DEFINE CONST QUESTION AS "q"'),
+    )
+
+    def test_tiers_of_a_scenario(self):
+        self.assertEqual(build_suite.scenario_tiers(self.SCN[0][1]), ["smoke", "standard"])
+        self.assertEqual(build_suite.scenario_tiers(self.SCN[2][1]), ["smoke", "standard"])
+        self.assertEqual(build_suite.scenario_tiers("DESCRIPTION none"), [])
+        self.assertEqual(build_suite.scenario_tiers('DEFINE CONST TIERS AS ""'), [])
+
+    def test_select_each_tier(self):
+        def names(tier):
+            return [ref for ref, _ in build_suite.select_tier(self.SCN, tier)]
+
+        self.assertEqual(names("smoke"), ["a", "c"])
+        self.assertEqual(names("standard"), ["a", "b", "c"])
+        self.assertEqual(names("full"), ["a", "b", "c", "d"])
+
+    def test_an_unknown_label_is_refused_not_dropped(self):
+        for tier in ("smoke", "standard"):
+            with self.subTest(tier=tier), self.assertRaises(ValueError) as ctx:
+                build_suite.select_tier([("x", 'DEFINE CONST TIERS AS "smok"')], tier)
+            self.assertIn("unknown tier 'smok'", str(ctx.exception))
+        with self.assertRaises(ValueError):
+            build_suite.select_tier([("x", 'DEFINE CONST TIERS AS "full"')], "smoke")
+
+    def test_full_ignores_labels(self):
+        self.assertEqual(len(build_suite.select_tier([("x", 'DEFINE CONST TIERS AS "nonsense"')], "full")), 1)
+
+
+class MainTierTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = self._tmp.name
+        write(self.dir, "a.adl", 'DEFINE CONST TIERS AS "smoke standard"\n')
+        write(self.dir, "b.adl", 'DEFINE CONST TIERS AS "standard"\n')
+        write(self.dir, "c.adl", "DESCRIPTION untagged\n")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_tier_includes_only_its_scenarios(self):
+        code, out, err = run_main([self.dir] + BASE_ARGS + ["--tier", "smoke"])
+        self.assertEqual(code, 0)
+        self.assertEqual(err, "assembling 1 scenarios x 2 = 2 runs\n")
+        self.assertIn("    - testRef: a\n", out)
+        self.assertNotIn("testRef: b", out)
+
+    def test_default_is_every_scenario(self):
+        code, _out, err = run_main([self.dir] + BASE_ARGS)
+        self.assertEqual(code, 0)
+        self.assertEqual(err, "assembling 3 scenarios x 2 = 6 runs\n")
+
+    def test_a_tier_nothing_names_is_an_error(self):
+        for name in ("a.adl", "b.adl"):
+            os.remove(os.path.join(self.dir, name))
+        code, out, err = run_main([self.dir] + BASE_ARGS + ["--tier", "smoke"])
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("names tier smoke", err)
+
+    def test_an_unknown_label_is_an_error(self):
+        write(self.dir, "d.adl", 'DEFINE CONST TIERS AS "smok"\n')
+        code, out, err = run_main([self.dir] + BASE_ARGS + ["--tier", "standard"])
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("unknown tier 'smok'", err)
+
+    def test_an_unknown_tier_is_refused_by_the_parser(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            build_suite.parse_args([self.dir] + BASE_ARGS + ["--tier", "weekly"])
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            build_suite.parse_args([self.dir] + BASE_ARGS + ["--tier", ""])
+
+
 if __name__ == "__main__":
     unittest.main()

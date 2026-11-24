@@ -76,5 +76,46 @@ maps="$(scenario_maps "$(render "${root}/chart")")"
 check "an empty fitness/ renders the ConfigMap" "${crew_names[homelab-pilot-crew]}-fitness" "$(yq -N '.metadata.name' <<<"$maps")"
 check "an empty fitness/ holds no scenario" 0 "$(yq -N '.data // {} | length' <<<"$maps")"
 
+# Tiers: a scenario names the tiers it belongs to in DEFINE CONST TIERS AS "smoke standard". The
+# operator reads the label from the ConfigMap's scenarios, so a typo would shrink a tier or stop a
+# suite, and a changed tier would make runs of that tier incomparable. Checked on the rendered ConfigMap.
+# tier_members <manifests> <tier>: the scenarios (file names without extension) that name the tier, sorted.
+tier_members() {
+  local key
+  while read -r key; do
+    if yq -N ".data.\"${key}\"" <<<"$(scenario_maps "$1")" | grep -E '^DEFINE CONST TIERS AS ' | grep -qwF -- "$2"; then
+      echo "${key%.*}"
+    fi
+  done < <(yq -N '.data | keys | .[]' <<<"$(scenario_maps "$1")") | sort
+}
+# tier_words <manifests>: every word of every TIERS label, sorted and unique.
+tier_words() {
+  local key
+  while read -r key; do
+    yq -N ".data.\"${key}\"" <<<"$(scenario_maps "$1")" | sed -n 's/^DEFINE CONST TIERS AS "\(.*\)"$/\1/p' | tr ', ' '\n'
+  done < <(yq -N '.data | keys | .[]' <<<"$(scenario_maps "$1")") | sed '/^$/d' | sort -u
+}
+
+pilot="$(render "${repo}/homelab-pilot-crew")"
+check "the pilot's TIERS labels use only smoke and standard" "smoke standard" "$(tier_words "$pilot" | tr '\n' ' ' | sed 's/ $//')"
+# The standard tier is the 16 gate scenarios, as it was before tiers existed, so past results stay comparable.
+check "the pilot's standard tier is the 16 gate scenarios" \
+  "constraint-exclude-system-ns constraint-format-scoped-list constraint-topn-table constraint-units-and-rounding gotcha-false-attribution-restart k8s-configmap-secret-inventory k8s-daemonset-coverage k8s-helm-releases k8s-jobs-cronjobs k8s-metrics-top-consumers k8s-networkpolicy-coverage k8s-nodes-capacity k8s-pod-errors-clusterwide k8s-pod-status proxmox-vm-list smoke-cluster-namespaces" \
+  "$(tier_members "$pilot" standard | tr '\n' ' ' | sed 's/ $//')"
+smoke="$(tier_members "$pilot" smoke)"
+smoke_count="$(grep -c . <<<"$smoke" || true)"
+check "the pilot's smoke tier has 6 to 10 scenarios" yes "$([ "$smoke_count" -ge 6 ] && [ "$smoke_count" -le 10 ] && echo yes || echo no)"
+# Each path a smoke run exists to take has a scenario that takes it.
+check "pilot smoke: a gotcha question" yes "$(grep -q '^gotcha-' <<<"$smoke" && echo yes || echo no)"
+check "pilot smoke: a concept question answered with no live tool" yes "$(grep -q -- '-concept-' <<<"$smoke" && echo yes || echo no)"
+check "pilot smoke: a question that engages the compute agent" yes "$(grep -q '^constraint-' <<<"$smoke" && echo yes || echo no)"
+check "pilot smoke: a second tool domain (Proxmox)" yes "$(grep -q '^proxmox-' <<<"$smoke" && echo yes || echo no)"
+check "pilot smoke: a Prometheus question" yes "$(grep -q '^obs-' <<<"$smoke" && echo yes || echo no)"
+check "pilot smoke: a question no specialist answers" yes "$(grep -q '^smoke-greeting$' <<<"$smoke" && echo yes || echo no)"
+for chart in kubemoot-fitness-crew oguide-crew; do
+  words="$(tier_words "$(render "${repo}/${chart}")" | grep -vxE 'smoke|standard' || true)"
+  check "${chart} TIERS labels use only smoke and standard" "" "$words"
+done
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all fitness-scenario tests passed"

@@ -1,5 +1,6 @@
 DESCRIPTION Constraint band: a compound exclusion filter (literal plus prefix) plus a composite key format and sort.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "List the deployments in every namespace except kube-system and any namespace starting with kube-, one per line as namespace/deployment-name, sorted by namespace."
 DEFINE CONST MAX_DURATION AS 480 seconds
 

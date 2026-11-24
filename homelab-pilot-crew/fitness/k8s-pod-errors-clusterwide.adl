@@ -1,5 +1,6 @@
 DESCRIPTION Health-scan band, cluster-wide non-Running/Completed pods with reasons; honest 'all healthy' when true, no fabricated failures.
 
+DEFINE CONST TIERS AS "standard"
 DEFINE CONST QUESTION AS "List any pods across all namespaces that are not in a Running or Completed
   state, and note the reason for each."
 DEFINE CONST MAX_DURATION AS 480 seconds
