@@ -11,6 +11,10 @@ spec:
   description: {{ .Values.crew.description | quote }}
   discussion:
     enabled: {{ .Values.crew.discussion.enabled }}
+{{- with (.Values.crew.discussion.access | default dict) }}
+    access:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
 {{- with (.Values.network | default dict).allowedIngress }}
   network:
     allowedIngress:
