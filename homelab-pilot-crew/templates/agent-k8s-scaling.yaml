@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - kubernetes
   triageSummary: "Answers how workloads scale and what each namespace is allowed: HPA current, desired, minimum, and maximum replicas and their metric targets, VPA recommendations, ResourceQuota hard limits and used amounts per namespace, and LimitRange container defaults.{{ if (include "homelab-pilot-crew.writeOn" $) }} Also scales a workload's replicas when asked.{{ end }}"
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, k8s-scaling-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-scaling-system]
   enabledTools: [resources_list, resources_get{{ if (include "homelab-pilot-crew.writeOn" $) }}, resources_scale{{ end }}, pods_top, events_list]
   domains:
     - kubernetes

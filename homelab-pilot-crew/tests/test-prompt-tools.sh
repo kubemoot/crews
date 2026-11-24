@@ -289,6 +289,31 @@ check "a retrieval failure makes only its own part unknown" 1 "$(grep -c 'makes 
 check "the coordinator answers the parts the gathered data answers" 1 "$(grep -c 'answer first every part' <<<"$coord")"
 check "no unscoped rule makes the whole answer unknown" 0 "$(grep -c 'means the answer is UNKNOWN' <<<"$coord" || true)"
 
+# peer-verification: off by default (no module, no reference); on adds the module and lists it
+# right after discussion-protocol in every agent that uses discussion-protocol.
+pv_refs() { yq -N 'select(.kind == "Agent") | .spec.promptRefs | join(",")' <<<"$1"; }
+check "peer-verification is off by default: no module" 0 \
+  "$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "peer-verification") | .metadata.name' <<<"$out" | grep -c . || true)"
+check "peer-verification is off by default: no agent lists it" 0 "$(pv_refs "$out" | grep -c 'peer-verification' || true)"
+pv_on="$(render --set discussion.peerVerification.enabled=true)"
+pv_module="$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "peer-verification") | .spec.content' <<<"$pv_on")"
+check "peer-verification on: the module renders" 1 "$(grep -c 'DEFINE COMPONENT peer-verification' <<<"$pv_module")"
+check "peer-verification names no agent's tool" 0 "$(grep -cEw "$vocab" <<<"$pv_module" || true)"
+check "peer-verification has no Markdown headings" 0 "$(grep -c '^#' <<<"$pv_module" || true)"
+for word in CONCERN NEVER ALWAYS; do
+  check "peer-verification carries $word" yes "$(has "$pv_module" "$word")"
+done
+with_dp="$(pv_refs "$pv_on" | grep -c 'discussion-protocol' || true)"
+check "peer-verification on: every agent with discussion-protocol lists it right after" "$with_dp" \
+  "$(pv_refs "$pv_on" | grep -c 'discussion-protocol,peer-verification,' || true)"
+check "peer-verification on: the coordinator is untouched" 0 \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "t-coordinator") | .spec.promptRefs[]' <<<"$pv_on" | grep -c 'peer-verification' || true)"
+# Switching it on changes nothing but the module and the references.
+strip() { yq -N 'select(.kind != "PromptModule" or .metadata.name != "peer-verification") | (select(.kind == "Agent") | .spec.promptRefs) |= map(select(. != "peer-verification"))' <<<"$1"; }
+check "peer-verification on: the rest of the render is unchanged" "$(strip "$out")" "$(strip "$pv_on")"
+check "peer-verification on: modules name only the agent's own tools" 0 \
+  "$(bash "$checker" "$chart" --set discussion.peerVerification.enabled=true >/dev/null 2>&1; echo $?)"
+
 # The tool names themselves are checked against what each server lists (CI runs this script).
 bash "$chart/tests/test-server-tools.sh" || failures=$((failures + 1))
 

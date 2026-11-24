@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - kubernetes
   triageSummary: "Answers which Helm releases are installed and at what versions: release name, namespace, chart name and chart version, app version, revision, and deployed or failed status.{{ if (include "homelab-pilot-crew.writeOn" $) }} Also installs a chart or uninstalls a release when asked.{{ end }}"
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, k8s-helm-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-helm-system]
   # The Kubernetes MCP server always loads its helm toolset. helm_list reads release
   # state from Secrets, so it answers only with kubernetesAccess.secretRead.namespaces and fails as
   # forbidden without it; resources_list then lists Flux HelmRelease objects, as the

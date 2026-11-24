@@ -24,7 +24,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - observability
   triageSummary: "Answers how a GPU metric trended over time: usage spikes, averages over an hour or a day, peaks, and comparisons across windows, with metric metadata for units. Not current state, not scrape health."
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, nvidia-gpu-history-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, nvidia-gpu-history-system]
   enabledTools: [execute_range_query, get_metric_metadata]
   domains:
     - gpu

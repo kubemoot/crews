@@ -15,6 +15,15 @@ crew:
   # beside it). Empty inherits the cluster default (KubemootConfig).
   placementPolicy: ""
 
+# Behavior rules every agent at the table follows in a discussion.
+discussion:
+  # peerVerification adds the peer-verification PromptModule to every agent that uses
+  # discussion-protocol: an agent agrees with a peer's number or name only after checking
+  # it against the stored result it came from. Off by default; switch it on for the B arm
+  # of an A/B measurement.
+  peerVerification:
+    enabled: false
+
 # Namespaces whose pods may reach this crew's discussion gateway when the operator
 # generates network policies (Crew spec.network.allowedIngress). Each entry is a
 # Kubernetes namespace label selector. Empty: only the crew's own namespace and the
