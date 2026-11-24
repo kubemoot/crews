@@ -130,8 +130,8 @@ check "the Go search server resources are values" '{"limits":{"cpu":"200m","memo
 check "the Go engine changes only the search server" "" \
   "$(diff <(yq -N 'select(.metadata.name != "search-mcp" and .metadata.name != "oguide-search-server")' <<<"$out") \
     <(yq -N 'select(.metadata.name != "search-mcp")' <<<"$goout") || true)"
-check "the Go engine fails the render on the unstamped placeholder" 1 \
-  "$(render_err --set mcpServers.search.engine=go | grep -c 'unstamped placeholder' || true)"
+check "the unpackaged chart renders the placeholder with engine go, as it does for the other images" '"ghcr.io/kubemoot/oguide-search:0.0.0"' \
+  "$(render --set mcpServers.search.engine=go | search '.spec.image')"
 check "the Go engine fails the render on a tag" 1 \
   "$(render_err --set mcpServers.search.engine=go --set mcpServers.search.go.image=oguide-search:1.2.3 | grep -c 'pinned by digest' || true)"
 check "the Go engine fails the render on an empty image" 1 \

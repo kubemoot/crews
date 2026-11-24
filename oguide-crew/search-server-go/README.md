@@ -49,22 +49,42 @@ The tests port every case of the Python `test_server.py` (dates, ordering, names
 the gateway client, the Expert tools, per-person relay) and add the Go-only ones (JSON-RPC over a
 pipe, panics, ordered decoding, the credential rule).
 
+## How the asker's ids reach the server (checked against Kubemoot main)
+
+With `OREILLY_PER_PERSON` the server passes `conversationId` and `principalId` from the call's
+`_meta` back on its gateway calls, so the gateway can lease that person's token for the inner
+`search_oreilly_content` call. The agent runtime puts both in `_meta`, and the MCPServer CRD has
+`registry.callerCredential.relayContext`, but the gateway keeps them in the `_meta` it forwards only
+for a server in mode `Required` (`CallerCredentialCaller`, reached only for servers in
+`callerCredentials`, which holds `Required` servers). The search server is mode `Off` with
+`relayContext: true`, so its `_meta` is cut to `timeZone`, `localDateTime`, `requestDate` and
+`workspacePrefix` (`RequesterMeta.sanitize`) and the ids never arrive. Today, then, an inner call
+carries no person and a `Required` per-person server answers "no account connected".
+
+Kubemoot change that would carry them: in `McpClientManager`, keep a server's caller-credential
+config when `relayContext` is true even in mode `Off`, and have `forwardRequest(serverId, original,
+caller)` add the two ids to the forwarded `_meta` for such a server (the existing `withContext`).
+Until then the server falls back safely: with per-person on, a search that names no person is never
+remembered or answered from memory.
+
 ## Differences from the Python server
 
 - The repeat memory keys on the asking person (`principalId`) as well as the thread, so one person's
-  repeated search is never answered with another person's results.
+  repeated search is never answered with another person's results. With `OREILLY_PER_PERSON` on, a
+  search whose `_meta` names no person is neither remembered nor answered from memory.
 - Arguments of the Expert tools are checked in name order, not the caller's order.
 - Output JSON is compact; the gateway address never carries a user name or password.
 - An item with a malformed date, session list, or relevance score fails the search as a whole.
 
-## Image
+## Image and release
 
 The "CI O'guide Search Server" workflow tests and lints the module, builds a static binary
-(`.github/scripts/go-build-static.sh`), and on main packages it with Paketo buildpacks (the
-Procfile buildpack, run image `run-static`) as `crews/oguide-search:<sha>` in Harbor. The binary is
-`/workspace/oguide-search`, started directly with no shell. Nothing in the module or the image holds
-a version: versions live in git tags, and the chart's `mcpServers.search.go.image` is pinned by
-digest.
+(`.github/scripts/go-build-static.sh`), and packages it with Paketo buildpacks (the Procfile
+buildpack, run image `run-static`) as `crews/oguide-search:<commit>` in Harbor. The binary is
+`/workspace/oguide-search`, started directly with no shell. Nothing in the module, the image, or git
+holds a version or a digest. The oguide-crew release workflow calls it on every push to main, tags the
+build with the chart's version, and stamps the chart with its digest; Publish Release copies the image
+to the release registry by digest with the chart's final (see the chart README).
 
 ## Comparing it with the Python server
 

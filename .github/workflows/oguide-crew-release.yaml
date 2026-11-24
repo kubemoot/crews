@@ -33,7 +33,14 @@ env:
   CHART_PATH: oguide-crew
 
 jobs:
+  # The Go search server: tested, linted, and built into Harbor as crews/oguide-search:<sha>.
+  # The release below tags that build with the chart's version and stamps its digest into the chart.
+  image:
+    uses: ./.github/workflows/ci-oguide-search.yaml
+    secrets: inherit
+
   release:
+    needs: image
     runs-on: homelab-runners
     permissions:
       contents: write # pushes the release candidate tag
@@ -61,13 +68,32 @@ jobs:
         with:
           version: 'v3.14.0'
 
-      # Git holds 0.0.0 for the chart version and for every Kubemoot image tag; the build
-      # stamps the candidate version and the newest Kubemoot candidate image tags (the final once it exists) into the
-      # chart it packages and never commits them.
-      - name: Stamp the chart version and the Kubemoot images
+      - name: Install crane
+        if: steps.version.outputs.release_created == 'true'
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+
+      # The image this run's `image` job built from this commit (tagged with the commit), given
+      # the chart's version, so the candidate chart pins an image tagged from git tags. Harbor
+      # push and pull stay in-cluster.
+      - name: Tag the search server image with the chart version
+        if: steps.version.outputs.release_created == 'true'
+        env:
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "${HARBOR_PASSWORD}" | crane auth login --insecure "${REGISTRY}" -u "${HARBOR_USERNAME}" --password-stdin
+          bash .github/scripts/retag-image.sh "${REGISTRY}/crews/oguide-search" "${GITHUB_SHA}" "${VERSION}"
+
+      # Git holds 0.0.0 for the chart version and for every image tag; the build stamps the
+      # candidate version, the newest Kubemoot candidate image tags (the final once it exists), and
+      # the digest of the search server image tagged above into the chart it packages and never
+      # commits them.
+      - name: Stamp the chart version and the images
         if: steps.version.outputs.release_created == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          OWN_IMAGE_REGISTRY: ${{ env.REGISTRY }}/crews
         run: bash .github/scripts/stamp-crew.sh "${CHART_PATH}" "${VERSION}"
 
       - name: Package and push Helm chart

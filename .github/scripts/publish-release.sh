@@ -26,6 +26,13 @@
 # ran. Otherwise the crew is refused: publish Kubemoot first, or rebuild the crew
 # candidate (force), which then takes the final. A published chart pins finals only.
 #
+# An image this repository builds itself (CREW_OWN_IMAGES, default oguide-search) is pinned in the
+# candidate chart by digest, stamped at package time by stamp-crew.sh from the image the release
+# built into Harbor (OWN_IMAGE_REGISTRY, default ${REGISTRY}/crews). The final chart keeps that
+# digest. Before anything is pushed the digest must still be in Harbor; each such image is then
+# copied by digest, never rebuilt, to ${RELEASE_REGISTRY}/<name>:<final chart version> before its
+# chart, and signed there by digest like the charts (it is attested, and listed in the release notes).
+#
 # Env:
 #   RC_TAG            "latest" (default) or a release-candidate tag on main
 #   DRY_RUN           "true" (default) plans and packages; pushes nothing, signs
@@ -57,6 +64,8 @@ OUT_DIR="$(mkdir -p "${OUT_DIR:-release-files}" && cd "${OUT_DIR:-release-files}
 
 KUBEMOOT_REMOTE="${KUBEMOOT_REMOTE:-https://github.com/kubemoot/kubemoot.git}"
 KUBEMOOT_IMAGE_REGISTRY="${KUBEMOOT_IMAGE_REGISTRY:-${REGISTRY}/kubemoot}"
+CREW_OWN_IMAGES="${CREW_OWN_IMAGES:-oguide-search}"
+OWN_IMAGE_REGISTRY="${OWN_IMAGE_REGISTRY:-${REGISTRY}/crews}"
 
 here="$(cd "$(dirname "$0")" && pwd)"
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -71,6 +80,22 @@ candidate_values() {
     --version "${rc_tag#"${crew}-v"}" > "$file" \
     || die "cannot read the candidate chart ${crew} ${rc_tag#"${crew}-v"} from Harbor"
   printf '%s\n' "$file"
+}
+
+# verify_own_images CREW VALUES FINAL: for each image this repository built that the stamped
+# values pin by digest, checks that Harbor still holds that digest and records it in
+# images.tsv (crew, image, digest, final version) for push_images. Refuses otherwise.
+verify_own_images() {
+  local crew="$1" values="$2" final="$3" name digest read_back
+  for name in ${CREW_OWN_IMAGES}; do
+    digest="$({ grep -oE "${name}@sha256:[0-9a-f]{64}" "$values" || true; } | head -n 1 | sed 's/^.*@//')"
+    [ -n "$digest" ] || continue
+    # shellcheck disable=SC2086 # the command is a word list on purpose
+    read_back="$(${RL_DIGEST_CMD:-crane digest --insecure} "${OWN_IMAGE_REGISTRY}/${name}@${digest}")" \
+      || die "${crew} pins ${name}@${digest}, which Harbor does not hold; rebuild the crew candidate"
+    [ "$read_back" = "$digest" ] || die "${crew} pins ${name}@${digest}, but Harbor reports ${read_back}"
+    printf '%s\t%s\t%s\t%s\n' "$crew" "$name" "$digest" "$final" >> "${OUT_DIR}/images.tsv"
+  done
 }
 
 # package_crew CREW RC_TAG FINAL: the chart from the candidate's commit, stamped with the
@@ -91,7 +116,32 @@ package_crew() {
   if grep -nE -- ':[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${wt}/${crew}/values.yaml"; then
     die "${crew} at ${rc_tag} still pins a release candidate image after mapping; publish Kubemoot first, then publish a crew candidate built after it"
   fi
+  verify_own_images "$crew" "${wt}/${crew}/values.yaml" "$final"
   helm package "${wt}/${crew}" --destination "${OUT_DIR}"
+}
+
+# push_images: each image this release pins, copied by digest from Harbor to the release registry
+# under the final chart version, checked to have kept its digest, then signed by that digest.
+push_images() {
+  local crew name digest final target logged=""
+  while IFS=$'\t' read -r crew name digest final; do
+    target="${RELEASE_REGISTRY}/${name}"
+    echo "image ${name}@${digest} for ${crew} ${final}"
+    if rl_is_dry; then
+      rl_sign_artifact "$target" "$digest"
+      continue
+    fi
+    if [ -z "$logged" ]; then
+      echo "${GHCR_TOKEN:?GHCR_TOKEN required}" \
+        | crane auth login "${RELEASE_REGISTRY%%/*}" -u "${GHCR_USERNAME:?GHCR_USERNAME required}" --password-stdin
+      logged=1
+    fi
+    crane copy --insecure "${OWN_IMAGE_REGISTRY}/${name}@${digest}" "${target}:${final}" \
+      || die "copying ${name}@${digest} to ${target}:${final} failed"
+    [ "$(crane digest "${target}:${final}")" = "$digest" ] \
+      || die "${target}:${final} does not carry the digest ${digest}"
+    rl_sign_artifact "$target" "$digest"
+  done < "${OUT_DIR}/images.tsv"
 }
 
 # push_chart TGZ: the chart to Harbor and the release registry, then signed by the
@@ -123,6 +173,8 @@ write_notes() {
     echo '```'
     echo
     rl_notes_document "$prev" "$src" "${crew}-v${final}" "$crew"
+    awk -F'\t' -v c="$crew" -v r="$RELEASE_REGISTRY" '$1 == c { printf "\nImage: `%s/%s@%s`, signed and attested; the chart pins it by digest.\n", r, $2, $3 }' \
+      "${OUT_DIR}/images.tsv"
   } > "${OUT_DIR}/${crew}.md"
 }
 
@@ -149,6 +201,8 @@ write_provenance_map() {
   local name digest crew tag
   : > "${OUT_DIR}/provenance.tsv"
   while IFS=$'\t' read -r name digest; do
+    # An image subject is attested with the charts but has no chart release to carry it.
+    case "$name" in */charts/*) ;; *) continue ;; esac
     crew="${name##*/}"
     tag="$(awk -F'\t' -v p="^${crew}-v[0-9]+\\.[0-9]+\\.[0-9]+$" '$1 ~ p { print $1 }' "${OUT_DIR}/releases.tsv")"
     if [ -z "$tag" ] || [ "$(wc -l <<<"$tag")" -ne 1 ]; then
@@ -165,11 +219,13 @@ main() {
   echo "Publishing crew charts from ${RC_TAG} (commit ${point}); dry run: ${DRY_RUN:-true}"
   rl_sign_preflight "${OUT_DIR}"
   : > "${OUT_DIR}/releases.tsv"
+  : > "${OUT_DIR}/images.tsv"
   for crew in ${CREWS}; do
     publish_crew "$crew" "$point"
   done
   [ "${#RL_NEW_TAGS[@]}" -gt 0 ] || die "nothing to publish: every crew's latest candidate is already released"
-  # Every chart is packaged and checked before the first push.
+  # Every chart is packaged and checked before the first push; the images a chart pins go first.
+  push_images
   for tgz in "${OUT_DIR}"/*.tgz; do
     push_chart "$tgz"
   done

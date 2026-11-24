@@ -265,7 +265,7 @@ The search server has two implementations with the same five tools (and the two 
 
 Neither engine holds a key. The server process has no credential variable, Secret, or mount; the crew's MCP gateway adds the O'Reilly credential to each outbound request, the subscriber key from `oreilly.auth` or, with `perPerson`, the asking person's own token through `callerCredential`. The Go server's tests prove it: with a gateway that adds the credential the searches work, and with one that does not (or pointed straight at O'Reilly) they fail.
 
-`engine: go` renders only with an image pinned by digest. The value in git is a placeholder (stamping it in the release is not done yet), so a render with the placeholder fails; set `--set mcpServers.search.go.image=<registry>/crews/oguide-search@sha256:<digest>` with the digest the "CI O'guide Search Server" workflow prints for the commit. To compare the engines on a running crew, use `search-server-go/cmd/oguide-compare` (see [search-server-go/README.md](search-server-go/README.md)).
+**Where the Go image comes from.** Every push to main that changes `oguide-crew/` tests the Go module and builds `crews/oguide-search:<commit>` into Harbor in-cluster (the "CI O'guide Search Server" workflow, called by the oguide-crew release). The release then tags that build with the chart's candidate version (`X.Y.Z-rc.N`, from the git tags) and packages the chart with `mcpServers.search.go.image` stamped to `oguide-search@sha256:<digest>` of that build (`.github/scripts/stamp-crew.sh`). Git holds the placeholder `oguide-search:0.0.0`, as it does for the other images this chart pins, and never a digest. Publish Release checks that Harbor still holds the candidate's digest, copies the image to the release registry by digest under the final version, signs it, attests it, and packages the final chart with the same digest. A packaged chart therefore renders `engine: go` with nothing set. A hand-run `helm template` of the unpackaged chart renders the placeholder (`ghcr.io/kubemoot/oguide-search:0.0.0`), the same way it renders `code-sandbox:0.0.0`; any other value must be pinned by digest. To compare the engines on a running crew, use `search-server-go/cmd/oguide-compare` (see [search-server-go/README.md](search-server-go/README.md)).
 
 ### The requester's date
 
@@ -308,7 +308,7 @@ helm upgrade --install oguide \
 | `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
 | `mcpServers.search.engine` | `python` | `python` or `go`: which search server runs |
 | `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest (engine `python`) |
-| `mcpServers.search.go.image` | `oguide-search@sha256:0000...` | The Go search server image, pinned by digest; the placeholder fails the render until you set it (engine `go`) |
+| `mcpServers.search.go.image` | `oguide-search:0.0.0` | The Go search server image (engine `go`). Packaging stamps it with the digest of the release build; set it only to test another build, and then by digest |
 | `mcpServers.search.go.resources` | 10m / 16Mi requests, 200m / 64Mi limits | Resources of the Go search server |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
 | `global.imageRegistry` | `ghcr.io/kubemoot` | Registry prefix for the Kubemoot image the chart pins (`code-sandbox`); an image value that contains a `/` is used as written |

@@ -184,13 +184,15 @@ mcpServers:
     # (never a tag); its code is search-server/server.py, delivered through a Secret.
     image: "python@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
     codeSecretName: oguide-search-server
-    # engine go: the image built from search-server-go (the CI O'guide Search Server workflow
-    # pushes crews/oguide-search:<sha> to Harbor and prints its digest). It must be pinned by digest.
-    # A name without a registry takes global.imageRegistry. The all-zero digest is a placeholder; rendering
-    # with engine go fails until it is replaced (the release does not stamp it yet), for example
-    #   --set mcpServers.search.go.image=harbor.example.test/crews/oguide-search@sha256:<digest>
+    # engine go: the image built from search-server-go (the oguide-crew release builds it into
+    # Harbor as crews/oguide-search:<chart version>). Git holds the placeholder name:0.0.0, like the
+    # other images this chart pins; packaging the chart stamps it with the digest of that build
+    # (stamp-crew.sh), and Publish Release copies the image to the release registry by digest. A
+    # name without a registry takes global.imageRegistry. A hand-run `helm template` of the
+    # unpackaged chart renders the placeholder, as it does for the other images; any other value
+    # must be pinned by digest.
     go:
-      image: "oguide-search@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      image: "oguide-search:0.0.0"
       resources:
         requests:
           cpu: "10m"
