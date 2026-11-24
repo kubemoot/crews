@@ -176,10 +176,28 @@ mcpServers:
       limits:
         memory: "512Mi"
   search:
-    # The crew's search server runs in the official Python image, pinned by digest (never a
-    # tag); its code is search-server/server.py, delivered through a Secret.
+    # Which implementation of the search server runs: python (the default) or go. Both offer the
+    # same tools with the same arguments and results; the Go one is a small static image of its own.
+    # Neither holds a key: the gateway adds the O'Reilly credential to each call it forwards.
+    engine: python
+    # engine python: the crew's search server runs in the official Python image, pinned by digest
+    # (never a tag); its code is search-server/server.py, delivered through a Secret.
     image: "python@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f"
     codeSecretName: oguide-search-server
+    # engine go: the image built from search-server-go (the CI O'guide Search Server workflow
+    # pushes crews/oguide-search:<sha> to Harbor and prints its digest). It must be pinned by digest.
+    # A name without a registry takes global.imageRegistry. The all-zero digest is a placeholder; rendering
+    # with engine go fails until it is replaced (the release does not stamp it yet), for example
+    #   --set mcpServers.search.go.image=harbor.example.test/crews/oguide-search@sha256:<digest>
+    go:
+      image: "oguide-search@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "16Mi"
+        limits:
+          cpu: "200m"
+          memory: "64Mi"
 
 # An optional extra seat run by goose, an external harness (the Moot Mesh sidecar gives it
 # the model and the catalog search). Off by default; turn it off again to remove the seat.
