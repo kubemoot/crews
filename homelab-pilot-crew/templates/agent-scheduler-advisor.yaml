@@ -36,7 +36,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       minutes", "at noon", "every Monday", "follow up", "re-check",
       "ping me when". Say no when the user just wants an immediate
       answer with no temporal component.
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, scheduler-advisor-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, scheduler-advisor-system]
   discussKeywords:
     - remind
     - reminder

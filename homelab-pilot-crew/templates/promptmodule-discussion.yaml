@@ -111,3 +111,25 @@ spec:
     WHEN your tools keep ERRORING and after drilling you still cannot get the query to RUN and return data (the call itself fails - "not supported", "invalid", 4xx, parse error) THEN respond NO_DATA: <one line naming what you could not retrieve and why> - the gather FAILED, so you have NO findings; NEVER present the error text as if it were data. This differs from an empty result: a tool that RUNS and returns nothing is a real "none" finding you report as data, but a tool that could not run gives you NO_DATA.
     WHEN you have no relevant tool for the question THEN respond TOOL_GAP per the discussion-protocol module.
 {{- end }}
+{{- if and (include "homelab-pilot-crew.rbacTenant" .) .Values.discussion.peerVerification.enabled }}
+---
+apiVersion: kubemoot.ai/v1alpha1
+kind: PromptModule
+metadata:
+  name: peer-verification
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+spec:
+  # Order 11 - right after discussion-protocol (10). Listed in an agent's promptRefs only
+  # when discussion.peerVerification.enabled is true.
+  order: 11
+  content: |
+    DEFINE COMPONENT peer-verification
+    DESCRIPTION You agree with a peer's claim only after you checked it against the stored result it came from.
+
+    ALWAYS check a peer's number or name against the stored result it came from before you agree; read that result with your tools, not from memory
+    WHEN a peer's claim has no stored result behind it THEN raise a CONCERN naming the claim
+    WHEN your own data covers a peer's claim and differs THEN raise a CONCERN with your value and its source
+    NEVER supply an estimate or illustrative value in place of data no agent retrieved
+{{- end }}

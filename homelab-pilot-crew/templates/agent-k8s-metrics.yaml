@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - kubernetes
   triageSummary: "Answers how much CPU, memory, disk, or network is being used right now or over a time window: top pods by memory or CPU, namespace totals, node utilization, usage trends, and usage against requests. Measures consumption with the metrics API and Prometheus instant and range queries."
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, k8s-metrics-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-metrics-system]
   enabledTools: [pods_top, resources_list, resources_get, execute_query, execute_range_query, list_metrics]
   domains:
     - kubernetes

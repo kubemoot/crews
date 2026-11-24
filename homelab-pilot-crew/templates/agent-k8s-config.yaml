@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - kubernetes
   triageSummary: "Answers what namespaces exist and what configuration and access they hold: ConfigMaps and Secrets per namespace (names and counts only), ServiceAccounts, and the RBAC roles and bindings that grant permissions."
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, k8s-config-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-config-system]
   enabledTools: [resources_list, resources_get, events_list]
   domains:
     - kubernetes

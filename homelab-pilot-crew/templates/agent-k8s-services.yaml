@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - kubernetes
   triageSummary: "Answers how traffic reaches workloads: which Services exist with their type, ports, and selectors, which endpoints back them, Ingress hosts and paths, and which namespaces have NetworkPolicies and which have none."
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, k8s-services-system]
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-services-system]
   enabledTools: [resources_list, resources_get, events_list]
   domains:
     - kubernetes

@@ -226,6 +226,10 @@ kubectl apply -f /tmp/nodes-grounded.yaml && kmctl fitness run nodes-grounded -n
 
 The inline guards fail an iteration that names `crew-node` or counts `15 nodes`; the deferred judge fails any node name the cluster does not have and any count other than the live one. Compare the fail rate of the two runs, and read the failing iterations' syntheses, not only the score.
 
+## Peer verification
+
+`discussion.peerVerification.enabled` (default `false`) adds the `peer-verification` PromptModule to every agent that uses `discussion-protocol` (all but the coordinator), listed right after it. The module is four short rules: check a peer's number or name against the stored result it came from before agreeing, raise a CONCERN naming a claim that has no stored result behind it, raise a CONCERN with your own value and its source when your data differs from a peer's, and never supply an estimate or illustrative value in place of data no agent retrieved. It is an experiment: run the same fitness scenarios with it off and on (`--set discussion.peerVerification.enabled=true`) and compare. With it off the chart renders exactly as before.
+
 ## Placement policy
 
 `crew.placementPolicy` chooses how Kubemoot places this crew's model calls: `algorithm`,

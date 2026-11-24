@@ -447,3 +447,11 @@ that runs first in every CrewFitnessSuite calls each listed tool with its input.
 {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+The promptRefs entry for the peer-verification module, with its trailing comma and space,
+or nothing when discussion.peerVerification.enabled is false.
+*/}}
+{{- define "homelab-pilot-crew.peerVerificationRef" -}}
+{{- if .Values.discussion.peerVerification.enabled }}peer-verification, {{ end -}}
+{{- end }}
