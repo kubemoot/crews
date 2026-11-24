@@ -1,0 +1,103 @@
+{
+ "search": [
+  {
+   "name": "find_released",
+   "description": "Search the O'Reilly catalog for released books, videos, courses and other recorded content on a topic (not live events: find_live_events has those). Every item is labelled Released and the list is newest first. For one person's work use find_by_author.",
+   "argument": "topic",
+   "argumentDescription": "Descriptive keywords for the topic, not a question"
+  },
+  {
+   "name": "find_scheduled",
+   "description": "Search the O'Reilly catalog for books, videos and courses on a topic that are announced but not yet released. Every item is labelled Scheduled and the list is soonest first.",
+   "argument": "topic",
+   "argumentDescription": "Descriptive keywords for the topic, not a question"
+  },
+  {
+   "name": "find_by_author",
+   "description": "Find the work of one author in the O'Reilly catalog, books and live events included. Books (up to 50 per status) come first as released_books newest first and scheduled_books soonest first; other recorded formats (videos, courses and more) are only the newest 25 per status; upcoming_live_events lists the author's live events and live courses with every session date, soonest first. A message says when a list may be missing items, or when the name matches more than one author entry (then authors holds one separate group per entry, each with author, item_counts, topics, formats, publishers and its own lists). Durations are text such as 10 h 31 min. Every item is labelled Released or Scheduled.",
+   "argument": "name",
+   "argumentDescription": "The author's full name"
+  },
+  {
+   "name": "find_title",
+   "description": "Look up one named book, video or course in the O'Reilly catalog, whether it is released or scheduled. Items are ordered by how well they match the title; each is labelled Released or Scheduled.",
+   "argument": "title",
+   "argumentDescription": "The title, or the words of it you know"
+  },
+  {
+   "name": "find_live_events",
+   "description": "Search the O'Reilly catalog for upcoming live events and live courses on a topic, with their session dates, soonest first. Past events are never listed. For one person's live events use find_by_author.",
+   "argument": "topic",
+   "argumentDescription": "Descriptive keywords for the topic, not a question"
+  }
+ ],
+ "expert": [
+  {
+   "name": "ask_experts",
+   "upstream": "ask_oreilly_experts",
+   "description": "Ask O'Reilly's expert-authored library a specific technical question and get back grounded, citable snippets (each with product_id, offset, the book or video title, authors, publication date, chapter, a snippet preview and a learning.oreilly.com link). It returns passages to cite, not a list of titles; every claim made from them must name the item and link it returned. Results reflect the asking account's O'Reilly access. Use find_released or find_by_author to browse the catalog instead.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "question": {
+      "type": "string",
+      "description": "The technical question, in plain words"
+     },
+     "context": {
+      "type": "string",
+      "description": "What the asker is working on or trying to achieve"
+     },
+     "author": {
+      "type": "string",
+      "description": "Restrict results to works by this author"
+     },
+     "published_after": {
+      "type": "string",
+      "description": "Only results published on or after this date (YYYY-MM-DD)"
+     },
+     "published_before": {
+      "type": "string",
+      "description": "Only results published on or before this date (YYYY-MM-DD)"
+     },
+     "max_results": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "description": "Most results to return, 1 to 20 (default 10)"
+     },
+     "within_product_id": {
+      "type": "string",
+      "description": "Restrict the search to one item, by a returned product_id"
+     }
+    },
+    "required": [
+     "question"
+    ]
+   }
+  },
+  {
+   "name": "get_citation",
+   "upstream": "get_oreilly_citation",
+   "description": "Retrieve the full, citable source text of one snippet that ask_experts returned. Only a product_id and offset from an ask_experts result in this conversation work; any other pair is refused.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "product_id": {
+      "type": "string",
+      "description": "The product_id of the snippet, from an ask_experts result"
+     },
+     "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The offset of the snippet, from the same result"
+     }
+    },
+    "required": [
+     "product_id",
+     "offset"
+    ]
+   }
+  }
+ ],
+ "noExpertAccess": "This O'Reilly account does not include Expert Intelligence (the Expert MCP entitlement), so the Expert tools are refused. Nothing was retrieved; say so and do not answer from memory."
+}
