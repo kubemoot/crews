@@ -163,8 +163,10 @@ check "O'guide pins its own search image by the digest of the build, with no tag
   "$(grep -c "\"oguide-search@${digest_a}\"" "${root}/oguide-crew/values.yaml")"
 check "O'guide has no placeholder left" "" \
   "$(rl_image_placeholders "${root}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "the Go engine renders from the stamped chart with no value set" "ghcr.io/kubemoot/oguide-search@${digest_a}" \
+check "the Go engine renders from the stamped candidate chart from the registry that holds the build" "harbor.test/crews/oguide-search@${digest_a}" \
   "$(helm template t "${root}/oguide-crew" --set mcpServers.search.engine=go | yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.image')"
+check "a mirror of Kubemoot's images (global.imageRegistry) does not move the crew's own image" "harbor.test/crews/oguide-search@${digest_a}|mirror.test/kubemoot/code-sandbox:0.20.0" \
+  "$(helm template t "${root}/oguide-crew" --set mcpServers.search.engine=go --set global.imageRegistry=mirror.test/kubemoot | yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.image')|$(helm template t "${root}/oguide-crew" --set global.imageRegistry=mirror.test/kubemoot | yq -N 'select(.kind == "MCPServer") | .spec.image' | grep code-sandbox)"
 check "the Python engine renders the same stamped chart" 1 "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
 check "the stamped chart holds no 0.0.0 own image" 0 "$(grep -c 'oguide-search:0.0.0' "${root}/oguide-crew/values.yaml" || true)"
 cp "${root}/oguide-crew/values.yaml" "${root}/oguide-candidate-values.yaml"
@@ -172,6 +174,10 @@ copy_crew oguide-crew
 stamp "${root}/oguide-crew" 0.1.0 "${root}/oguide-candidate-values.yaml" && status=0 || status=$?
 check "a final takes the digest the tested candidate pinned, not a rebuild" "0|1" \
   "${status}|$(grep -c "\"oguide-search@${digest_a}\"" "${root}/oguide-crew/values.yaml")"
+check "a final keeps the release registry for its own image, so the published chart resolves to what Publish Release copies" "ghcr.io/kubemoot/oguide-search@${digest_a}" \
+  "$(helm template t "${root}/oguide-crew" --set mcpServers.search.engine=go | yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.image')"
+check "a final renders its own image from global.crewImageRegistry" "mirror.test/kubemoot/oguide-search@${digest_a}" \
+  "$(helm template t "${root}/oguide-crew" --set mcpServers.search.engine=go --set global.crewImageRegistry=mirror.test/kubemoot | yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.image')"
 copy_crew oguide-crew
 printf 'global:\n  imageRegistry: ghcr.io/kubemoot\n' > "${root}/oguide-nopin.yaml"
 stamp "${root}/oguide-crew" 0.1.0 "${root}/oguide-nopin.yaml" && status=0 || status=$?
@@ -186,6 +192,11 @@ stamp "${root}/oguide-crew" 0.2.0-rc.0 && status=0 || status=$?
 check "a build whose image is not in Harbor is refused and leaves the placeholder" "1|1" \
   "$((status != 0))|$(rl_image_placeholders "${root}/oguide-crew/values.yaml" | grep -cx oguide-search)"
 check "and says which image" 1 "$(grep -c 'cannot read the digest of harbor.test/crews/oguide-search:0.2.0-rc.0' "${root}/stamp.log")"
+copy_crew oguide-crew
+sed -i '/^  crewImageRegistry:/d' "${root}/oguide-crew/values.yaml"
+stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
+check "a candidate build refuses a chart with no crewImageRegistry to stamp" "1|1" \
+  "$((status != 0))|$(grep -c 'has no global.crewImageRegistry to stamp' "${root}/stamp.log")"
 copy_crew oguide-crew
 sed -i 's/"oguide-search:0.0.0"/"oguide-search:1.2.3"/' "${root}/oguide-crew/values.yaml"
 stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?

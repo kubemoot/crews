@@ -110,6 +110,12 @@ check "an unknown engine fails the render" 1 \
 check "the Go search server runs its own binary" '["/workspace/oguide-search"]' "$(search '.spec.command' <<<"$goout")"
 check "the Go search server image is pinned by digest and takes the image registry" \
   "\"ghcr.io/kubemoot/oguide-search@${digest}\"" "$(search '.spec.image' <<<"$goout")"
+check "the crew's own image takes global.crewImageRegistry, not the Kubemoot registry" "\"crew.example.test/kubemoot/oguide-search@${digest}\"" \
+  "$(go_render --set global.imageRegistry=mirror.example.test/kubemoot --set global.crewImageRegistry=crew.example.test/kubemoot | search '.spec.image')"
+check "the Kubemoot registry still applies to the Kubemoot image" "mirror.example.test/kubemoot/code-sandbox:0.0.0" \
+  "$(go_render --set global.imageRegistry=mirror.example.test/kubemoot | yq -N 'select(.kind == "MCPServer" and .metadata.name != "search-mcp") | .spec.image' | grep code-sandbox)"
+check "an empty crew image registry fails the render with engine go" 1 \
+  "$(render_err --set mcpServers.search.engine=go --set "mcpServers.search.go.image=oguide-search@${digest}" --set global.crewImageRegistry= | grep -c 'global.crewImageRegistry is required' || true)"
 check "the Go image name is a value" "\"harbor.example.test/crews/oguide-search@${digest}\"" \
   "$(render --set mcpServers.search.engine=go --set "mcpServers.search.go.image=harbor.example.test/crews/oguide-search@${digest}" | search '.spec.image')"
 check "the Go search server is stdio" '"stdio"' "$(search '.spec.transport' <<<"$goout")"

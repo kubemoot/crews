@@ -3,6 +3,12 @@ global:
   # <imageRegistry>/code-sandbox:<tag>). An image value that already contains a "/" is
   # used as written.
   imageRegistry: ghcr.io/kubemoot
+  # Registry prefix for the images this chart's own repository builds (oguide-search:<digest>
+  # becomes <crewImageRegistry>/oguide-search@<digest>). It is separate from imageRegistry because
+  # a cluster may point imageRegistry at a mirror of Kubemoot's images, which never holds the
+  # crew's own. Git holds the release registry, where Publish Release copies the image; packaging
+  # a release candidate (stamp-crew.sh) writes the registry the candidate image was built into.
+  crewImageRegistry: ghcr.io/kubemoot
 
 crew:
   name: oguide
@@ -188,7 +194,9 @@ mcpServers:
     # Harbor as crews/oguide-search:<chart version>). Git holds the placeholder name:0.0.0, like the
     # other images this chart pins; packaging the chart stamps it with the digest of that build
     # (stamp-crew.sh), and Publish Release copies the image to the release registry by digest. A
-    # name without a registry takes global.imageRegistry. A hand-run `helm template` of the
+    # name without a registry takes global.crewImageRegistry (never global.imageRegistry, which
+    # is for Kubemoot's images; the candidate stamp sets it to the registry holding the build, the
+    # published chart keeps the release registry). A hand-run `helm template` of the
     # unpackaged chart renders the placeholder, as it does for the other images; any other value
     # must be pinned by digest.
     go:
