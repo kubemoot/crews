@@ -5,11 +5,8 @@
 {{- $goImage := "" }}
 {{- if eq $engine "go" }}
 {{- $goImage = include "oguide-crew.image" (dict "root" $ "image" (required "mcpServers.search.go.image is required with engine go" .Values.mcpServers.search.go.image)) }}
-{{- if not (regexMatch "@sha256:[0-9a-f]{64}$" $goImage) }}
+{{- if not (or (regexMatch "@sha256:[0-9a-f]{64}$" $goImage) (regexMatch "/oguide-search:0\\.0\\.0$" $goImage)) }}
 {{- fail (printf "mcpServers.search.go.image must be pinned by digest (name@sha256:<64 hex>), got %q" $goImage) }}
-{{- end }}
-{{- if contains "@sha256:0000000000000000000000000000000000000000000000000000000000000000" $goImage }}
-{{- fail "mcpServers.search.go.image is the unstamped placeholder: set it to the digest of the oguide-search image the CI O'guide Search Server workflow built" }}
 {{- end }}
 {{- end }}
 apiVersion: kubemoot.ai/v1alpha1

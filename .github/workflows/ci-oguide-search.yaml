@@ -2,8 +2,10 @@ name: CI O'guide Search Server
 
 # The Go search server of the O'guide crew (oguide-crew/search-server-go): tidy, lint (the shared
 # .golangci.yml, cyclomatic complexity at most 10), tests with the race detector, a static binary.
-# On main the tested binary is packaged into an image with Paketo buildpacks and pushed to Harbor
-# as crews/oguide-search:<sha>; the digest is in the job summary. Pull requests build nothing.
+# The oguide-crew release workflow calls it on every push to main: the tested binary is packaged
+# into an image with Paketo buildpacks and pushed to Harbor as crews/oguide-search:<sha>, which the
+# release tags with the chart's version and stamps into the chart by digest. Pull requests build
+# nothing.
 on:
   pull_request:
     branches: [main]
@@ -15,16 +17,7 @@ on:
       - '.github/scripts/go-build-static.sh'
       - '.github/workflows/ci-oguide-search.yaml'
       - '.github/workflows/build-go-binary-image.yaml'
-  push:
-    branches: [main]
-    paths:
-      - 'oguide-crew/search-server-go/**'
-      - 'oguide-crew/search-server/server.py'
-      - '.golangci.yml'
-      - '.github/scripts/golangci-lint.sh'
-      - '.github/scripts/go-build-static.sh'
-      - '.github/workflows/ci-oguide-search.yaml'
-      - '.github/workflows/build-go-binary-image.yaml'
+  workflow_call:
   workflow_dispatch:
 
 env:

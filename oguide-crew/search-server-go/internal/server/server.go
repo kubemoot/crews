@@ -37,6 +37,9 @@ type Config struct {
 	Expert bool
 	// Note is appended to every tool description (the per-person access sentence).
 	Note string
+	// PerPerson is true when each person's own O'Reilly access is on. A search that names no
+	// person is then never remembered or answered from memory, so no one gets another's results.
+	PerPerson bool
 	// Now is the clock; nil is the system clock.
 	Now func() time.Time
 }
@@ -136,7 +139,8 @@ func (s *Server) callSearch(name string, arguments any, c Catalog, ctx callConte
 			maxArgumentChars), true), nil
 	}
 	key := callKey(name, value, ctx.meta)
-	if earlier := s.recent.earlier(key); earlier != nil {
+	remembers := !s.config.PerPerson || names(ctx.meta, keyPrincipalID)
+	if earlier := s.recentFor(remembers, key); earlier != nil {
 		return jsonResult(newObj().set("repeat", repeatNote), earlier)
 	}
 	found, err := handlers[name](c, value, ctx.today)
@@ -148,8 +152,24 @@ func (s *Server) callSearch(name string, arguments any, c Catalog, ctx callConte
 	for _, k := range merged.keys {
 		payload.set(k, merged.get(k))
 	}
-	s.recent.remember(key, payload)
+	if remembers {
+		s.recent.remember(key, payload)
+	}
 	return jsonResult(payload, nil)
+}
+
+func (s *Server) recentFor(remembers bool, key string) *obj {
+	if !remembers {
+		return nil
+	}
+	return s.recent.earlier(key)
+}
+
+// names is true when the call's _meta carries a non-empty text value under key.
+func names(meta any, key string) bool {
+	fields, _ := meta.(map[string]any)
+	text, ok := fields[key].(string)
+	return ok && text != ""
 }
 
 // jsonResult is the text result of the objects' keys in order, a second object after the first.

@@ -107,3 +107,27 @@ func TestTheGatewaysRefusalTextIsThePlainEntitlementResult(t *testing.T) {
 	isTrue(t, failed, "an error")
 	equal(t, noExpertAccess, text)
 }
+
+func TestWithPerPersonOnASearchThatNamesNoPersonIsNeverRemembered(t *testing.T) {
+	catalog := answers([]m{book("B", "2026-01-01")}, []m{book("B", "2026-01-01")}, []m{book("B", "2026-01-01")})
+	s := newServer(catalog, Config{PerPerson: true})
+	for i := 0; i < 2; i++ {
+		payload, _ := callText(t, rpc(t, s, toolCall("find_released", `{"topic":"x"}`, `{"timeZone":"UTC"}`)))
+		isTrue(t, payload["repeat"] == nil, "no repeat note without a person")
+	}
+	equal(t, 2, len(catalog.calls))
+}
+
+func TestWithPerPersonOnASearchThatNamesAPersonIsRememberedForThatPersonOnly(t *testing.T) {
+	catalog := answers([]m{book("B", "2026-01-01")}, []m{book("B", "2026-01-01")})
+	s := newServer(catalog, Config{PerPerson: true})
+	ask := func(person string) m {
+		meta := `{"conversationId":"c","principalId":"` + person + `"}`
+		payload, _ := callText(t, rpc(t, s, toolCall("find_released", `{"topic":"x"}`, meta)))
+		return payload
+	}
+	isTrue(t, ask("p-1")["repeat"] == nil, "first")
+	equal(t, repeatNote, ask("p-1")["repeat"])
+	isTrue(t, ask("p-2")["repeat"] == nil, "another person gets their own search")
+	equal(t, 2, len(catalog.calls))
+}

@@ -41,7 +41,7 @@ func run(env func(string) string, stdin io.Reader, stdout, stderr io.Writer) int
 		Expert:      strings.EqualFold(env("OREILLY_EXPERT"), "true"),
 	}
 	if perPerson {
-		config.Note = env("OREILLY_ACCESS_NOTE")
+		config.Note, config.PerPerson = env("OREILLY_ACCESS_NOTE"), true
 	}
 	if err := server.New(server.NewGatewayCatalog(gateway, perPerson), config).Serve(stdin, stdout); err != nil {
 		_, _ = fmt.Fprintln(stderr, "oguide-search:", err)

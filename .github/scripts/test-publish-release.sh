@@ -73,7 +73,22 @@ case "\$1" in
 esac
 exec "${real_helm}" "\$@"
 EOF
-chmod +x "${root}/bin/helm" "${root}/bin/cosign"
+# crane stub: login reads the token, a copy adds the destination tag to the digest table, a
+# digest read looks the reference up in it. CRANE_COPY_FAIL makes a copy fail.
+cat > "${root}/bin/crane" <<'EOF'
+#!/usr/bin/env bash
+echo "crane $*" >> "$LOG"
+case "$1" in
+  auth) cat > /dev/null; exit 0 ;;
+  copy)
+    shift; [ "$1" != --insecure ] || shift
+    [ -z "${CRANE_COPY_FAIL:-}" ] || exit 1
+    printf '%s=%s\n' "${2##*/}" "${1##*@}" >> "$DIGESTS" ;;
+  digest) shift; [ "$1" != --insecure ] || shift; grep -m1 "^${1##*/}=" "$DIGESTS" | cut -d= -f2 | grep . ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "${root}/bin/helm" "${root}/bin/cosign" "${root}/bin/crane"
 export PATH="${root}/bin:${PATH}"
 mkdir -p "${root}/harbor"
 # harbor_candidate CREW VERSION IMAGE_TAG: the values.yaml the candidate chart was
@@ -290,6 +305,59 @@ done
 # Nothing left to publish.
 DRY_RUN=false run_publish again && status=0 || status=$?
 check "refuses when nothing is new" 1 "$status"
+
+# A crew that pins an image this repository built (oguide-search): git holds oguide-search:0.0.0,
+# the candidate chart in Harbor pins the digest of the build, and the release copies that image
+# by digest to the release registry before its chart, signs it, and attests it.
+img_digest="sha256:$(printf 'd%.0s' {1..64})"
+git checkout -q -b own main
+mkdir -p delta
+printf 'apiVersion: v2\nname: delta\nversion: 0.0.0\nappVersion: 0.0.0\n' > delta/Chart.yaml
+printf 'global:\n  imageRegistry: ghcr.io/kubemoot\nsearch:\n  image: "oguide-search:0.0.0"\n' > delta/values.yaml
+git add delta; git commit -q -m "feat(delta): a crew with its own image"
+git tag -a delta-v0.1.0-rc.0 -m rc
+printf 'global:\n  imageRegistry: ghcr.io/kubemoot\nsearch:\n  image: "oguide-search@%s"\n' "$img_digest" \
+  > "${root}/harbor/delta-0.1.0-rc.0.values.yaml"
+git push -q origin own:main --tags 2>/dev/null; git fetch -q origin
+export CREWS="alpha beta gamma delta"
+printf '%s\n' "oguide-search@${img_digest}=${img_digest}" > "$DIGESTS"
+: > "$LOG"
+DRY_RUN=true run_publish owndry && status=0 || status=$?
+check "a dry run packages a crew that pins its own image" 0 "$status"
+check "the final chart pins the digest the candidate pinned" 1 \
+  "$(tar -xzOf "${root}/out-owndry/delta-0.1.0.tgz" delta/values.yaml | grep -c "\"oguide-search@${img_digest}\"")"
+check "the final chart holds no 0.0.0 image" 0 "$(tar -xzOf "${root}/out-owndry/delta-0.1.0.tgz" | grep -c '0\.0\.0' || true)"
+check "the dry run records the image" "delta|oguide-search|${img_digest}|0.1.0" "$(tr '\t' '|' < "${root}/out-owndry/images.tsv")"
+check "the dry run plans signing the image by digest" 1 \
+  "$(grep -cF "sign ghcr.test/kubemoot/oguide-search@${img_digest} (dry run: not signed)" "${root}/run-owndry.log")"
+check "the dry run copies nothing and logs in nowhere" 0 "$(grep -c '^crane ' "$LOG" || true)"
+check "the release notes name the image" 1 "$(grep -cF "Image: \`ghcr.test/kubemoot/oguide-search@${img_digest}\`" "${root}/out-owndry/delta.md")"
+check "git keeps the 0.0.0 placeholder" 1 "$(grep -c '"oguide-search:0.0.0"' delta/values.yaml)"
+: > "$DIGESTS"
+DRY_RUN=true run_publish ownmissing && status=0 || status=$?
+check "refuses a candidate whose image Harbor no longer holds" "1|1" \
+  "${status}|$(grep -c 'which Harbor does not hold' "${root}/run-ownmissing.log")"
+printf '%s\n' "oguide-search@${img_digest}=sha256:$(printf 'e%.0s' {1..64})" > "$DIGESTS"
+DRY_RUN=true run_publish ownother && status=0 || status=$?
+check "refuses an image whose digest Harbor reports differently" 1 "$status"
+printf '%s\n' "oguide-search@${img_digest}=${img_digest}" > "$DIGESTS"
+rm -f "$SIGNED_STATE"/*; : > "$LOG"
+CRANE_COPY_FAIL=1 DRY_RUN=false run_publish ownfail && status=0 || status=$?
+check "a failed image copy fails the release before any chart is pushed" "1|0" "${status}|$(grep -c '^helm push' "$LOG" || true)"
+rm -f "$SIGNED_STATE"/*; : > "$LOG"
+DRY_RUN=false run_publish ownreal && status=0 || status=$?
+check "the release with an own image succeeds" 0 "$status"
+[ "$status" -eq 0 ] || sed 's/^/    /' "${root}/run-ownreal.log"
+check "the image is copied by digest from Harbor to the release registry under the final version" 1 \
+  "$(grep -cxF "crane copy --insecure harbor.test/crews/oguide-search@${img_digest} ghcr.test/kubemoot/oguide-search:0.1.0" "$LOG")"
+check "the release registry login reads the token from stdin" 1 "$(grep -cx 'crane auth login ghcr.test -u u --password-stdin' "$LOG")"
+check "the image is signed by its digest" 1 "$(grep -cxF "cosign sign --yes ghcr.test/kubemoot/oguide-search@${img_digest}" "$LOG")"
+check "the image is in place before its chart is pushed" 1 \
+  "$([ "$(grep -n '^crane copy' "$LOG" | head -1 | cut -d: -f1)" -lt "$(grep -n '^helm push .*delta-0.1.0.tgz oci://harbor' "$LOG" | head -1 | cut -d: -f1)" ] && echo 1 || echo 0)"
+check "the attest matrix holds the chart and the image" "2" \
+  "$(sed -n 's/^subjects=//p' "${root}/gh-ownreal" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')"
+check "provenance is mapped for the chart only" "1|delta-v0.1.0" \
+  "$(wc -l < "${root}/out-ownreal/provenance.tsv" | tr -d ' ')|$(cut -f1 "${root}/out-ownreal/provenance.tsv")"
 
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all publish-release tests passed"

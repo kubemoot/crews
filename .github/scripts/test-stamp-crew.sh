@@ -48,7 +48,7 @@ for crew in "${crews[@]}"; do
 done
 check "the pilot crews pin Kubemoot images as placeholders" "code-sandbox scheduling-mcp workspace-access" \
   "$(rl_image_placeholders "${repo}/homelab-pilot-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
-check "O'guide pins the code sandbox (its workspace server selects the operator's image)" "code-sandbox" \
+check "O'guide pins the code sandbox and its own search image (its workspace server selects the operator's image)" "code-sandbox oguide-search" \
   "$(rl_image_placeholders "${repo}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
 
 # A throwaway Kubemoot with final and candidate tags.
@@ -130,6 +130,24 @@ check "refuses an unknown KUBEMOOT_PINS" 1 "$((status != 0))"
 
 # O'guide pins one Kubemoot image, the code sandbox; its workspace server selects the
 # operator's with kubemootImage. The stamp reads Kubemoot's tags for the sandbox only.
+# It also pins the image of its own Go search server, which the release builds into Harbor as
+# crews/oguide-search:<chart version>: git holds oguide-search:0.0.0 and the stamp writes the digest.
+digest_a="sha256:$(printf 'a%.0s' {1..64})"
+digest_b="sha256:$(printf 'b%.0s' {1..64})"
+cat > "${root}/digest.sh" <<DIGEST
+#!/usr/bin/env bash
+case "\$1" in
+  harbor.test/crews/oguide-search:0.1.0-rc.0) echo ${digest_a} ;;
+  harbor.test/crews/oguide-search:0.1.0) echo ${digest_b} ;;
+  *) exit 1 ;;
+esac
+DIGEST
+export RL_DIGEST_CMD="bash ${root}/digest.sh"
+copy_crew oguide-crew
+stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
+check "O'guide refuses to stamp its own image without OWN_IMAGE_REGISTRY" "1|1|1" \
+  "$((status != 0))|$(grep -c 'OWN_IMAGE_REGISTRY is required to stamp oguide-search' "${root}/stamp.log")|$(rl_image_placeholders "${root}/oguide-crew/values.yaml" | grep -cx oguide-search)"
+export OWN_IMAGE_REGISTRY=harbor.test/crews
 copy_crew oguide-crew
 stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
 check "O'guide candidate stamp succeeds" 0 "$status"
@@ -141,6 +159,37 @@ check "O'guide workspace server selects kubemootImage workspaceAccess" 1 \
 check "O'guide keeps the search server's Python image pinned by digest, unstamped" 1 \
   "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
 check "O'guide stamped chart lints" 0 "$(helm lint "${root}/oguide-crew" >/dev/null 2>&1; echo $?)"
+check "O'guide pins its own search image by the digest of the build, with no tag" "1" \
+  "$(grep -c "\"oguide-search@${digest_a}\"" "${root}/oguide-crew/values.yaml")"
+check "O'guide has no placeholder left" "" \
+  "$(rl_image_placeholders "${root}/oguide-crew/values.yaml" | tr '\n' ' ' | sed 's/ $//')"
+check "the Go engine renders from the stamped chart with no value set" "ghcr.io/kubemoot/oguide-search@${digest_a}" \
+  "$(helm template t "${root}/oguide-crew" --set mcpServers.search.engine=go | yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.image')"
+check "the Python engine renders the same stamped chart" 1 "$(rendered_images oguide-crew | grep -cE '^python@sha256:[0-9a-f]{64}$')"
+check "the stamped chart holds no 0.0.0 own image" 0 "$(grep -c 'oguide-search:0.0.0' "${root}/oguide-crew/values.yaml" || true)"
+cp "${root}/oguide-crew/values.yaml" "${root}/oguide-candidate-values.yaml"
+copy_crew oguide-crew
+stamp "${root}/oguide-crew" 0.1.0 "${root}/oguide-candidate-values.yaml" && status=0 || status=$?
+check "a final takes the digest the tested candidate pinned, not a rebuild" "0|1" \
+  "${status}|$(grep -c "\"oguide-search@${digest_a}\"" "${root}/oguide-crew/values.yaml")"
+copy_crew oguide-crew
+printf 'global:\n  imageRegistry: ghcr.io/kubemoot\n' > "${root}/oguide-nopin.yaml"
+stamp "${root}/oguide-crew" 0.1.0 "${root}/oguide-nopin.yaml" && status=0 || status=$?
+check "a final refuses a candidate that pinned no digest for the image" "1|1" \
+  "$((status != 0))|$(grep -c 'must pin oguide-search by one digest' "${root}/stamp.log")"
+copy_crew oguide-crew
+printf 'a: "oguide-search@%s"\nb: "oguide-search@%s"\n' "${digest_a}" "${digest_b}" > "${root}/oguide-twopins.yaml"
+stamp "${root}/oguide-crew" 0.1.0 "${root}/oguide-twopins.yaml" && status=0 || status=$?
+check "a final refuses a candidate that pinned two digests" 1 "$((status != 0))"
+copy_crew oguide-crew
+stamp "${root}/oguide-crew" 0.2.0-rc.0 && status=0 || status=$?
+check "a build whose image is not in Harbor is refused and leaves the placeholder" "1|1" \
+  "$((status != 0))|$(rl_image_placeholders "${root}/oguide-crew/values.yaml" | grep -cx oguide-search)"
+check "and says which image" 1 "$(grep -c 'cannot read the digest of harbor.test/crews/oguide-search:0.2.0-rc.0' "${root}/stamp.log")"
+copy_crew oguide-crew
+sed -i 's/"oguide-search:0.0.0"/"oguide-search:1.2.3"/' "${root}/oguide-crew/values.yaml"
+stamp "${root}/oguide-crew" 0.1.0-rc.0 && status=0 || status=$?
+check "a typed own image tag is not stamped over" 1 "$(grep -c '"oguide-search:1.2.3"' "${root}/oguide-crew/values.yaml")"
 
 # The fitness crew (no Kubemoot images) stamps the same way.
 copy_crew kubemoot-fitness-crew

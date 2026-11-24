@@ -59,6 +59,7 @@ jobs:
           bash .github/scripts/test-publish-release.sh
           bash .github/scripts/test-stamp-crew.sh
           bash .github/scripts/test-go-build-static.sh
+          bash .github/scripts/test-retag-image.sh
           bash .github/scripts/test-create-github-releases.sh
           bash .github/scripts/test-fitness-scenarios.sh
           bash homelab-pilot-crew/tests/test-domains.sh
