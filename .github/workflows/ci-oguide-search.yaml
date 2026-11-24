@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  oguide-search-test:
     # Pull requests (including forks) run on GitHub-hosted runners; the self-hosted
     # cluster runners take push and dispatch runs from main only.
     runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'homelab-runners' }}
@@ -70,7 +70,7 @@ jobs:
           retention-days: 3
 
   build-image:
-    needs: test
+    needs: oguide-search-test
     if: github.event_name != 'pull_request'
     uses: ./.github/workflows/build-go-binary-image.yaml
     with:
