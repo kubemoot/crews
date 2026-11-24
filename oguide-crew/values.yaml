@@ -174,7 +174,6 @@ mcpServers:
         cpu: "50m"
         memory: "256Mi"
       limits:
-        cpu: "500m"
         memory: "512Mi"
   search:
     # The crew's search server runs in the official Python image, pinned by digest (never a

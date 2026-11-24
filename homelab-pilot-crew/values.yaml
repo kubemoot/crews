@@ -413,7 +413,6 @@ mcpServers:
         cpu: "50m"
         memory: "256Mi"
       limits:
-        cpu: "500m"
         memory: "512Mi"
     image: "workspace-access:0.0.0"
 

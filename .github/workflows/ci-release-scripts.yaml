@@ -65,6 +65,7 @@ jobs:
           bash homelab-pilot-crew/tests/test-access.sh
           bash homelab-pilot-crew/tests/test-prompt-tools.sh
           bash homelab-pilot-crew/tests/test-rbac.sh
+          bash homelab-pilot-crew/tests/test-resources.sh
           bash kubemoot-fitness-crew/tests/test-render.sh
           bash oguide-crew/tests/test-render.sh
       - name: Set up Python
