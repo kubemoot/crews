@@ -16,7 +16,10 @@
 # first, as NAME@sha256:<digest>: a candidate build reads the digest of OWN_IMAGE_REGISTRY/NAME:VERSION
 # (the image the release built and tagged with the chart's version); a final release takes the
 # digest its tested candidate chart pinned. A chart whose values hold NAME:0.0.0 for such an image
-# and a build with neither is refused, so an unstamped image never ships.
+# and a build with neither is refused, so an unstamped image never ships. A candidate build also
+# writes OWN_IMAGE_REGISTRY into global.crewImageRegistry, so the chart pulls the image from where it
+# was built (not from global.imageRegistry, which names Kubemoot's images); a final keeps git's value,
+# the release registry Publish Release copies the image to.
 # Env:
 #   OWN_IMAGE_REGISTRY registry path of the images this repository builds, e.g. harbor/crews
 #   CREW_OWN_IMAGES    names of those images (default "oguide-search")
@@ -64,13 +67,19 @@ own_digest_ref() {
 
 # stamp_own_images VALUES: writes the digest reference over each NAME:0.0.0 of an own image.
 stamp_own_images() {
-  local values="$1" name ref
+  local values="$1" name ref stamped_own=""
   for name in ${CREW_OWN_IMAGES:-oguide-search}; do
     rl_image_placeholders "${values}" | grep -qxF -- "${name}" || continue
     ref="$(own_digest_ref "${name}")" || exit 1
     sed -E -i "s#${RL_IMAGE_BEFORE}${name}:0\.0\.0${RL_IMAGE_AFTER}#\1${ref}\2#g" "${values}"
     echo "Stamped ${values}: ${ref}" >&2
+    stamped_own=1
   done
+  if [ -n "${stamped_own:-}" ] && [ -z "${candidate_values}" ]; then
+    grep -qE '^  crewImageRegistry: ' "${values}" || die "${values} has no global.crewImageRegistry to stamp"
+    sed -E -i "s#^(  crewImageRegistry:) .*#\\1 ${OWN_IMAGE_REGISTRY}#" "${values}"
+    echo "Stamped ${values}: crewImageRegistry ${OWN_IMAGE_REGISTRY}" >&2
+  fi
 }
 
 rl_stamp_chart "${chart_dir}" "${version}"
