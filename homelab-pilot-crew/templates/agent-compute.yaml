@@ -18,7 +18,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # but - unlike the reasoning-only analysts - it has ONE tool (execute_code) to
   # compute deterministically instead of tallying in its head.
   discussRole: analyst{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "readWrite") }}
-  think: true
+  think: {{ .Values.compute.think }}
   capabilities: [reasoning, tool-calling]
   discussChannels:
     - kubernetes
@@ -67,4 +67,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # inline preview in its head. Forces deterministic compute via execute_code.
       - name: KUBEMOOT_DISCUSS_COMPUTE_CONTRACT
         value: "true"
+{{- if .Values.compute.groundNumbers }}
+      # Grounded figures: a figure no tool result holds is sent back once, then withheld.
+      - name: KUBEMOOT_DISCUSS_COMPUTE_GROUNDING
+        value: "true"
+{{- end }}
 {{- end }}

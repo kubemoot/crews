@@ -234,6 +234,24 @@ done
 [ "$(diff <(echo "$wq_off") <(echo "$wq_on") | grep -c '^[<>]')" = "3" ] || fail "compute.workspaceQuery must change only the compute enabledTools and disabledTools lines"
 echo "PASS: compute.workspaceQuery"
 
+# compute.think, compute.groundNumbers and mcpServers.workspace.nestedColumnHints: the three
+# switches a measurement turns on one at a time. The defaults render what the chart always did,
+# and each switch changes only its own line or env entry.
+env_of() { yq -N "select(.kind == \"$1\" and .metadata.name == \"$2\") | .spec.deployment.env // .spec.env | .[].name" ; }
+base="$(render)"
+[ "$(yq -N 'select(.kind == "Agent" and .metadata.name == "compute") | .spec.think' <<<"$base")" = "true" ] || fail "compute.think must default to true, as the chart always ran it"
+! env_of Agent compute <<<"$base" | grep -qx KUBEMOOT_DISCUSS_COMPUTE_GROUNDING || fail "compute.groundNumbers must default to off"
+! env_of MCPServer workspace-mcp <<<"$base" | grep -qx KUBEMOOT_QUERY_NESTED_HINTS || fail "nestedColumnHints must default to off"
+think_off="$(render --set compute.think=false)"
+[ "$(yq -N 'select(.kind == "Agent" and .metadata.name == "compute") | .spec.think' <<<"$think_off")" = "false" ] || fail "compute.think=false must render think: false"
+[ "$(diff <(echo "$base") <(echo "$think_off") | grep -c '^[<>]')" = "2" ] || fail "compute.think must change only the think line"
+grounded="$(render --set compute.groundNumbers=true)"
+[ "$(env_of Agent compute <<<"$grounded" | grep -cx KUBEMOOT_DISCUSS_COMPUTE_GROUNDING)" = "1" ] || fail "compute.groundNumbers=true must set KUBEMOOT_DISCUSS_COMPUTE_GROUNDING on compute"
+[ "$(yq -N 'select(.kind == "Agent" and .metadata.name == "compute") | .spec.deployment.env[] | select(.name == "KUBEMOOT_DISCUSS_COMPUTE_GROUNDING") | .value' <<<"$grounded")" = "true" ] || fail "KUBEMOOT_DISCUSS_COMPUTE_GROUNDING must be true"
+hints="$(render --set mcpServers.workspace.nestedColumnHints=true)"
+[ "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | .spec.env[] | select(.name == "KUBEMOOT_QUERY_NESTED_HINTS") | .value' <<<"$hints")" = "true" ] || fail "nestedColumnHints=true must set KUBEMOOT_QUERY_NESTED_HINTS on the workspace server"
+echo "PASS: compute.think, compute.groundNumbers, mcpServers.workspace.nestedColumnHints"
+
 # advisors.workspaceQuery: on by default adds workspace_query to the four advisors; off leaves
 # them the three text tools; the other agents never get it.
 adv_on="$(render)"
