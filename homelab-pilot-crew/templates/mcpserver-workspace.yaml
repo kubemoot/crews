@@ -37,6 +37,12 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
       value: "kubemoot_workspace"
     - name: WORKSPACE_QUERY_MEMORY
       value: {{ dig "artifactReadOps" "queryMemory" .Values.mcpServers.workspace.queryMemory .Values.mcpServers | quote }}
+{{- if .Values.mcpServers.workspace.nestedColumnHints }}
+    # A query that guesses a path inside a column holding a nested object gets the column and the
+    # SQL that reads the field in its error.
+    - name: KUBEMOOT_QUERY_NESTED_HINTS
+      value: "true"
+{{- end }}
   capabilities:
     - data-access
     - data-analysis

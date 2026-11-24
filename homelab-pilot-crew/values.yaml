@@ -403,6 +403,11 @@ mcpServers:
     # process, two queries and a margin. A query over queryMemory stops with an error instead of the
     # container being killed.
     queryMemory: "128MB"
+    # When true, the query error that names a column a table lacks also says how to read a field
+    # inside a column that holds a nested object (status.conditions for the column status) with
+    # the SQL that does it. Off by default; needs a workspace-access image that reads
+    # KUBEMOOT_QUERY_NESTED_HINTS.
+    nestedColumnHints: false
     resources:
       requests:
         cpu: "50m"
@@ -447,8 +452,19 @@ workspace:
 # workspace.queryEngine is sqlite or duckdb; with it off, the agent registers only the tools
 # its gateway offers, so the tool is simply absent. The compute agent always has
 # workspace_head, workspace_tail and workspace_grep.
+#
+# think: whether the compute agent's model reasons before it answers. true is how the agent has
+# always run; false leaves out the reasoning, which is a model call that costs seconds on a
+# prompt of several thousand tokens, and is here so a measurement can compare the two on their own.
+#
+# groundNumbers: when true, a figure in compute's finding that occurs in no result a tool returned
+# to it and not in its input is sent back once and then withheld (the finding becomes a NO_DATA
+# statement that reports no figure), so compute never reports a value it did not compute. Off by
+# default; needs a Kubemoot agent-runtime that reads KUBEMOOT_DISCUSS_COMPUTE_GROUNDING.
 compute:
   workspaceQuery: true
+  think: true
+  groundNumbers: false
 
 # The advisors (k8s, nvidia-gpu, obs, proxmox). workspaceQuery adds workspace_query to their
 # tools, beside workspace_head, workspace_tail and workspace_grep, with the same operator
