@@ -20,3 +20,7 @@ coverage.xml
 # Measurement reports stay local to the homelab; they are not part of the release
 reports/
 .claude/worktrees/
+
+# The Go search server's build output
+oguide-crew/search-server-go/oguide-search
+oguide-crew/search-server-go/coverage.out
