@@ -645,5 +645,10 @@ check "the README no longer names the unlisted content-discovery endpoint" 0 "$(
 check "the README says the three expert scenarios are in fitness/expert" "$(find "${chart}/fitness/expert" -name '*.adl' | wc -l | tr -d ' ')" \
   "$(grep -cF 'three more are in `fitness/expert/`' "${chart}/README.md" | awk '{print ($1 == 1) ? 3 : 0}')"
 
+ws_res() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"workspace-mcp\") | .spec.resources | $1" <<<"$(render)"; }
+check "workspace-mcp has no CPU limit, so a query burst is not throttled" "null" "$(ws_res .limits.cpu)"
+check "workspace-mcp keeps its 512Mi memory limit" "512Mi" "$(ws_res .limits.memory)"
+check "workspace-mcp still asks for 50m CPU" "50m" "$(ws_res .requests.cpu)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"
