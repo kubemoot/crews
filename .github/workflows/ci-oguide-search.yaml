@@ -1,0 +1,85 @@
+name: CI O'guide Search Server
+
+# The Go search server of the O'guide crew (oguide-crew/search-server-go): tidy, lint (the shared
+# .golangci.yml, cyclomatic complexity at most 10), tests with the race detector, a static binary.
+# On main the tested binary is packaged into an image with Paketo buildpacks and pushed to Harbor
+# as crews/oguide-search:<sha>; the digest is in the job summary. Pull requests build nothing.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'oguide-crew/search-server-go/**'
+      - 'oguide-crew/search-server/server.py'
+      - '.golangci.yml'
+      - '.github/scripts/golangci-lint.sh'
+      - '.github/scripts/go-build-static.sh'
+      - '.github/workflows/ci-oguide-search.yaml'
+      - '.github/workflows/build-go-binary-image.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'oguide-crew/search-server-go/**'
+      - 'oguide-crew/search-server/server.py'
+      - '.golangci.yml'
+      - '.github/scripts/golangci-lint.sh'
+      - '.github/scripts/go-build-static.sh'
+      - '.github/workflows/ci-oguide-search.yaml'
+      - '.github/workflows/build-go-binary-image.yaml'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Pull requests (including forks) run on GitHub-hosted runners; the self-hosted
+    # cluster runners take push and dispatch runs from main only.
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-latest' || 'homelab-runners' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: oguide-crew/search-server-go/go.mod
+
+      - name: Check go.mod and go.sum are tidy
+        working-directory: oguide-crew/search-server-go
+        env:
+          GOTOOLCHAIN: local
+        run: go mod tidy -diff
+
+      - name: Lint
+        working-directory: oguide-crew/search-server-go
+        run: ../../.github/scripts/golangci-lint.sh
+
+      - name: Run tests
+        working-directory: oguide-crew/search-server-go
+        run: go test -race -coverprofile=coverage.out ./...
+
+      # The image packages this tested binary; the build pod does not compile again.
+      - name: Build the static binary
+        working-directory: oguide-crew/search-server-go
+        run: ../../.github/scripts/go-build-static.sh oguide-search ./cmd/oguide-search/
+
+      - name: Keep the tested binary for the image build
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: oguide-search-binary
+          path: oguide-crew/search-server-go/oguide-search
+          if-no-files-found: error
+          retention-days: 3
+
+  build-image:
+    needs: test
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/build-go-binary-image.yaml
+    with:
+      name: oguide-search
+      binary: oguide-search

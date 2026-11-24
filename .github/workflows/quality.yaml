@@ -34,6 +34,16 @@ jobs:
           python -m coverage report
         continue-on-error: true
 
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: oguide-crew/search-server-go/go.mod
+
+      - name: Go tests with coverage
+        working-directory: oguide-crew/search-server-go
+        run: go test -coverprofile=coverage.out ./...
+        continue-on-error: true
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@59202af334b4ba7b5db01b701b8e79f8b3bef0f4 # v8.5.0
         env:
