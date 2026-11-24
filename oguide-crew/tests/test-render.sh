@@ -98,6 +98,57 @@ check "an unknown Secret key fails the render" 1 \
 check "a header with a bearer-token fails the render" 1 \
   "$(render_err --set oreilly.auth.header=X-Key | grep -c 'applies only with oreilly.auth.secretKey api-key' || true)"
 
+# The Go search server (mcpServers.search.engine go): its own image pinned by digest, no code Secret,
+# no secret volume, and the same environment as the Python server. Python stays the default.
+digest="sha256:$(printf 'ab%.0s' {1..32})"
+go_render() { render --set mcpServers.search.engine=go --set "mcpServers.search.go.image=oguide-search@${digest}" "$@"; }
+goout="$(go_render)"
+check "the search server is Python by default" '"python"' "$(search '.spec.command[0]' <<<"$out")"
+check "an empty engine is Python" '"python"' "$(render --set mcpServers.search.engine= | search '.spec.command[0]')"
+check "an unknown engine fails the render" 1 \
+  "$(render_err --set mcpServers.search.engine=rust | grep -c 'mcpServers.search.engine must be python or go' || true)"
+check "the Go search server runs its own binary" '["/workspace/oguide-search"]' "$(search '.spec.command' <<<"$goout")"
+check "the Go search server image is pinned by digest and takes the image registry" \
+  "\"ghcr.io/kubemoot/oguide-search@${digest}\"" "$(search '.spec.image' <<<"$goout")"
+check "the Go image name is a value" "\"harbor.example.test/crews/oguide-search@${digest}\"" \
+  "$(render --set mcpServers.search.engine=go --set "mcpServers.search.go.image=harbor.example.test/crews/oguide-search@${digest}" | search '.spec.image')"
+check "the Go search server is stdio" '"stdio"' "$(search '.spec.transport' <<<"$goout")"
+check "the Go search server mounts nothing" null "$(search '.spec.secretVolumes' <<<"$goout")"
+check "the Go search server renders no code Secret" "" "$(yq -N 'select(.kind == "Secret") | .metadata.name' <<<"$goout")"
+check "the Go search server holds no key and no secret reference in its environment" 0 \
+  "$(search '.spec.env[] | select(.valueFrom != null or (.name | test("KEY|TOKEN|SECRET|PASSWORD|AUTH"))) | .name' <<<"$goout" | grep -c . || true)"
+check "the Go search server env is the gateway and the time zone" "OREILLY_GATEWAY_URL,OREILLY_DEFAULT_TIMEZONE" \
+  "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.env[].name' <<<"$goout" | paste -sd,)"
+check "the Go search server sets no Python variable" 0 \
+  "$(search '.spec.env[] | select(.name | test("PYTHON|SEARCH_SERVER_SHA256")) | .name' <<<"$goout" | grep -c . || true)"
+check "the Go search server calls this crew's gateway" '"http://oguide-gateway.crew-oguide.svc:8080"' \
+  "$(search '.spec.env[] | select(.name == "OREILLY_GATEWAY_URL") | .value' <<<"$goout")"
+check "the Go search server is contained" '{"readOnlyRootFilesystem":true,"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"seccompProfile":{"type":"RuntimeDefault"}}' \
+  "$(search '.spec.securityContext' <<<"$goout")"
+check "the Go search server resources are values" '{"limits":{"cpu":"200m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"16Mi"}}' \
+  "$(search '.spec.resources' <<<"$goout")"
+check "the Go engine changes only the search server" "" \
+  "$(diff <(yq -N 'select(.metadata.name != "search-mcp" and .metadata.name != "oguide-search-server")' <<<"$out") \
+    <(yq -N 'select(.metadata.name != "search-mcp")' <<<"$goout") || true)"
+check "the Go engine fails the render on the unstamped placeholder" 1 \
+  "$(render_err --set mcpServers.search.engine=go | grep -c 'unstamped placeholder' || true)"
+check "the Go engine fails the render on a tag" 1 \
+  "$(render_err --set mcpServers.search.engine=go --set mcpServers.search.go.image=oguide-search:1.2.3 | grep -c 'pinned by digest' || true)"
+check "the Go engine fails the render on an empty image" 1 \
+  "$(render_err --set mcpServers.search.engine=go --set mcpServers.search.go.image= | grep -c 'mcpServers.search.go.image is required' || true)"
+check "the Go engine passes the per-person switches the same way" "OREILLY_GATEWAY_URL,OREILLY_DEFAULT_TIMEZONE,OREILLY_EXPERT,OREILLY_PER_PERSON,OREILLY_ACCESS_NOTE" \
+  "$(go_render --set perPerson.enabled=true --set perPerson.hashKeySecret.name=h | yq -N 'select(.kind == "MCPServer" and .metadata.name == "search-mcp") | .spec.env[].name' | paste -sd,)"
+check "the Go engine keeps the relayed context with per-person access on" '{"callerCredential":{"mode":"Off","relayContext":true}}' \
+  "$(go_render --set perPerson.enabled=true --set perPerson.hashKeySecret.name=h | search '.spec.registry')"
+check "the Go engine turns Expert on the same way" '"true"' \
+  "$(go_render --set oreilly.expert.enabled=true | search '.spec.env[] | select(.name == "OREILLY_EXPERT") | .value')"
+check "the Go engine keeps the smoke input" '"find_released"' "$(search '.spec.smokeInputs[0].name' <<<"$goout")"
+check "the Go engine lints" 0 "$(helm lint "$chart" --set mcpServers.search.engine=go --set "mcpServers.search.go.image=oguide-search@${digest}" >/dev/null 2>&1; echo $?)"
+pkg="$(mktemp -d)"
+helm package "$chart" -d "$pkg" >/dev/null 2>&1
+check "the package holds no Go source" 0 "$(tar -tzf "$pkg"/*.tgz | grep -c 'search-server-go' || true)"
+rm -rf "$pkg"
+
 # No key or token value in any rendered object, even when one is passed by mistake.
 planted="$(render --set oreilly.auth.key=PLANTED-KEY-0001 --set oreilly.key=PLANTED-KEY-0001 --set oreilly.auth.token=PLANTED-KEY-0001)"
 check "a key passed as a value is never rendered" 0 "$(grep -c PLANTED-KEY-0001 <<<"$planted" || true)"

@@ -1,3 +1,17 @@
+{{- $engine := .Values.mcpServers.search.engine | default "python" }}
+{{- if not (has $engine (list "python" "go")) }}
+{{- fail (printf "mcpServers.search.engine must be python or go, got %q" $engine) }}
+{{- end }}
+{{- $goImage := "" }}
+{{- if eq $engine "go" }}
+{{- $goImage = include "oguide-crew.image" (dict "root" $ "image" (required "mcpServers.search.go.image is required with engine go" .Values.mcpServers.search.go.image)) }}
+{{- if not (regexMatch "@sha256:[0-9a-f]{64}$" $goImage) }}
+{{- fail (printf "mcpServers.search.go.image must be pinned by digest (name@sha256:<64 hex>), got %q" $goImage) }}
+{{- end }}
+{{- if contains "@sha256:0000000000000000000000000000000000000000000000000000000000000000" $goImage }}
+{{- fail "mcpServers.search.go.image is the unstamped placeholder: set it to the digest of the oguide-search image the CI O'guide Search Server workflow built" }}
+{{- end }}
+{{- end }}
 apiVersion: kubemoot.ai/v1alpha1
 kind: MCPServer
 metadata:
@@ -10,12 +24,24 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
   {{- if or (not .Values.perPerson.enabled) .Values.perPerson.keepShared }}
   {{- include "oguide-crew.smokeInputs" (dict "root" $ "name" "search") }}
   {{- end }}
-  # The crew's search server (search-server/server.py): five fixed searches of the O'Reilly
+  # The crew's search server: five fixed searches of the O'Reilly
   # catalog (find_released, find_scheduled, find_by_author, find_title, find_live_events), each taking one
   # text argument. It builds every date filter, the item count, and the order itself, and
   # labels each item Released or Scheduled from the requester's date. Pure stdio, so the
-  # operator adds the bridge sidecar (port is the bridge's TCP port). The code comes from the
-  # Secret above; the image is the official Python image, pinned by digest (see values.yaml).
+  # operator adds the bridge sidecar (port is the bridge's TCP port).
+  {{- if eq $engine "go" }}
+  # engine go: the static Go binary of search-server-go in its own image, pinned by digest (see
+  # values.yaml). The bridge runs it in exec mode, so the start command is explicit. No code
+  # Secret, no secret volume, and no credential of any kind: it reads five plain variables.
+  image: {{ $goImage | quote }}
+  transport: stdio
+  command:
+    - "/workspace/oguide-search"
+  port: 3000
+  replicas: 1
+  {{- else }}
+  # engine python: search-server/server.py. The code comes from the Secret above; the image is the
+  # official Python image, pinned by digest (see values.yaml).
   image: {{ .Values.mcpServers.search.image | quote }}
   transport: stdio
   command:
@@ -27,6 +53,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     - name: {{ .Values.mcpServers.search.codeSecretName }}
       mountPath: /app/server.py
       subPath: server.py
+  {{- end }}
   # The server holds no key. It calls the raw O'Reilly search through this crew's gateway
   # (the gateway's tool endpoint, as agents do), where the key, the argument coercion and the
   # call log live. Rotating the key needs no restart here.
@@ -48,6 +75,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     - name: OREILLY_ACCESS_NOTE
       value: {{ .Values.perPerson.accessNote | quote }}
     {{- end }}
+    {{- if eq $engine "python" }}
     # The checksum of the code, so a chart upgrade that changes server.py changes the spec and
     # the pod restarts (a mounted single file is not refreshed in a running pod).
     - name: SEARCH_SERVER_SHA256
@@ -56,6 +84,7 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
       value: "1"
     - name: PYTHONUNBUFFERED
       value: "1"
+    {{- end }}
   {{- if .Values.perPerson.enabled }}
   # The search server calls the gateway for each tool call it serves. relayContext keeps the
   # asking person's conversationId and principalId in the _meta the gateway forwards to this
@@ -70,8 +99,9 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     - library-search
     - catalog
   securityContext:
-    # The server reads one mounted file and calls the crew's gateway over the cluster network: read-only root
-    # filesystem, all capabilities dropped, no privilege escalation. The image runs as uid 0.
+    # The server calls the crew's gateway over the cluster network and writes nothing: read-only root
+    # filesystem, all capabilities dropped, no privilege escalation. The Python image runs as uid 0;
+    # the Go image runs as its run image's user (1002).
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
@@ -79,6 +109,10 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
         - ALL
     seccompProfile:
       type: RuntimeDefault
+  {{- if eq $engine "go" }}
+  resources:
+    {{- toYaml .Values.mcpServers.search.go.resources | nindent 4 }}
+  {{- else }}
   resources:
     requests:
       cpu: "20m"
@@ -86,3 +120,4 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
     limits:
       cpu: "200m"
       memory: "128Mi"
+  {{- end }}

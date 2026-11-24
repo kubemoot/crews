@@ -240,7 +240,7 @@ With it on:
 | curator | Ranks, removes older editions, compares by recency, depth, and audience, and builds reading and learning paths | workspace read tools and `workspace_query` |
 | goose-curator (optional) | A seat run by goose that searches the catalog and orders what it finds; shown as goose on the dashboard | `find_released`, `find_by_author`, `find_title` |
 
-Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server, in the official Python image pinned by digest, its code in a Secret), the workspace read-ops MCPServer that lets the curator read large search results, the code sandbox MCPServer (Kubemoot's `code-sandbox` image; no credentials, no workspace volume, egress denied by a NetworkPolicy) that events-scout calls for time-zone conversion and date arithmetic, and the fitness scenarios ConfigMap.
+Also: 11 ADL PromptModules (12 with the goose seat), the Crew, its CrewSchedulingPolicy, an MCPGateway, the O'Reilly MCPServer (an external endpoint on the gateway, no deployment), the search MCPServer (the crew's search server: by default in the official Python image pinned by digest with its code in a Secret, or with `mcpServers.search.engine: go` its own static Go image pinned by digest), the workspace read-ops MCPServer that lets the curator read large search results, the code sandbox MCPServer (Kubemoot's `code-sandbox` image; no credentials, no workspace volume, egress denied by a NetworkPolicy) that events-scout calls for time-zone conversion and date arithmetic, and the fitness scenarios ConfigMap.
 
 ## The search tools
 
@@ -255,6 +255,17 @@ The model never builds a catalog search. The search server (`search-server/serve
 | `find_live_events` | `topic` | Upcoming live events and live courses with their session dates, soonest first (a person's name points to `find_by_author`) |
 
 Each item has the title, authors, format, publication date, page count or duration (as text such as `10 h 31 min` or `45 s`, never raw seconds) and session dates when the catalog gives them, the reader link, and a `status` of `Released` or `Scheduled`, worked out in code from the item's own date against today's date (a live event is Scheduled while it has a session today or later; an item with no date is Released). Session dates are the catalog's dates as written and are compared with the requester's date as written, with no further time zone conversion. Nothing is invented. Author names are matched by their words: case, accents, initials (`Neal E. Ford`), suffixes and word order (`Ford, Neal`) are ignored, `Neil Ford` does not match `Neal Ford`. When a topic search is really a person's name (the topic holds an author's full name and at least three results list that author), `find_released` and `find_scheduled` answer with a pointer to `find_by_author`. A search that finds nothing answers with a plain `Nothing found for ...` message, which is not an error. The same search repeated within 20 seconds (in the same thread, when the call names one; calls that name no thread, which is every call through the gateway's tool endpoint today, share one store, so two conversations asking the identical thing within 20 seconds get the same results) answers with the same results and a `repeat` note saying it repeats an earlier search, so whichever caller of the thread (an agent, or a goose seat through its sidecar) ran it first, every caller gets the data, and a model that loops is told it is looping. The store holds at most 256 searches, oldest dropped first. If the gateway or O'Reilly cannot be reached or refuses the key, a tool answers with an MCP error result (`isError: true`) saying the catalog could not be searched, and the crew's answer says so.
+
+### Two engines: Python or Go
+
+The search server has two implementations with the same five tools (and the two Expert tools), the same arguments, and the same result shapes. `mcpServers.search.engine` picks one:
+
+- `python` (the default): `search-server/server.py`, plain Python, run in the official Python image pinned by digest, its code in a Secret.
+- `go`: `search-server-go/`, one static binary in an image of its own built with Paketo's Go buildpack and pinned by digest (`mcpServers.search.go.image`). No code Secret and no mounted file. It is about a third of the Python server's memory (peak 10 MiB against 29 MiB on the same recorded queries, measured locally).
+
+Neither engine holds a key. The server process has no credential variable, Secret, or mount; the crew's MCP gateway adds the O'Reilly credential to each outbound request, the subscriber key from `oreilly.auth` or, with `perPerson`, the asking person's own token through `callerCredential`. The Go server's tests prove it: with a gateway that adds the credential the searches work, and with one that does not (or pointed straight at O'Reilly) they fail.
+
+`engine: go` renders only with an image pinned by digest. The value in git is a placeholder (stamping it in the release is not done yet), so a render with the placeholder fails; set `--set mcpServers.search.go.image=<registry>/crews/oguide-search@sha256:<digest>` with the digest the "CI O'guide Search Server" workflow prints for the commit. To compare the engines on a running crew, use `search-server-go/cmd/oguide-compare` (see [search-server-go/README.md](search-server-go/README.md)).
 
 ### The requester's date
 
@@ -295,7 +306,10 @@ helm upgrade --install oguide \
 | `oreilly.auth.header` | empty | With `api-key` only: the header that carries it |
 | `imagePullSecrets` | `[]` | Pull secrets for the gateway, for a private mirror |
 | `oreilly.defaultTimeZone` | `UTC` | The time zone whose date is "today" when a request carries none |
-| `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest |
+| `mcpServers.search.engine` | `python` | `python` or `go`: which search server runs |
+| `mcpServers.search.image` | `python@sha256:...` | The Python image the search server runs in, pinned by digest (engine `python`) |
+| `mcpServers.search.go.image` | `oguide-search@sha256:0000...` | The Go search server image, pinned by digest; the placeholder fails the render until you set it (engine `go`) |
+| `mcpServers.search.go.resources` | 10m / 16Mi requests, 200m / 64Mi limits | Resources of the Go search server |
 | `mcpGateway.name`, `mcpGateway.port` | `oguide-gateway`, `8080` | The gateway the search server calls (its address is built from these and the release namespace) |
 | `global.imageRegistry` | `ghcr.io/kubemoot` | Registry prefix for the Kubemoot image the chart pins (`code-sandbox`); an image value that contains a `/` is used as written |
 | `mcpServers.codeSandbox.enabled` | `true` | Deploys the code sandbox and gives events-scout `execute_code`. `false` removes the server, its NetworkPolicy, and the tool |

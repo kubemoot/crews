@@ -1,3 +1,4 @@
+{{- if eq (.Values.mcpServers.search.engine | default "python") "python" }}
 {{/*
 The search server's code, mounted into the stock Python image by the MCPServer
 (templates/mcpserver-search.yaml). It is code, not a credential; a Secret is the one volume
@@ -13,3 +14,4 @@ metadata:
 type: Opaque
 data:
   server.py: {{ .Files.Get "search-server/server.py" | b64enc }}
+{{- end }}

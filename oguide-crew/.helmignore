@@ -1,3 +1,4 @@
 search-server/test_*.py
 search-server/__pycache__/
 *.pyc
+search-server-go/
