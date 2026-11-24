@@ -22,6 +22,8 @@ const (
 	maxArgumentChars = 300
 	jsonRPC          = "2.0"
 
+	internalErrorText = "internal error"
+
 	codeInvalidRequest = -32600
 	codeMethodNotFound = -32601
 	codeInvalidParams  = -32602
@@ -318,7 +320,7 @@ func writeReply(out io.Writer, reply map[string]any) error {
 	}
 	text, err := encodeJSON(reply)
 	if err != nil {
-		text, _ = encodeJSON(errorReply(nil, codeInternalError, "internal error"))
+		text, _ = encodeJSON(errorReply(nil, codeInternalError, internalErrorText))
 	}
 	_, err = io.WriteString(out, text+"\n")
 	return err
@@ -329,7 +331,7 @@ func writeReply(out io.Writer, reply map[string]any) error {
 func (s *Server) answer(line []byte) (reply map[string]any) {
 	defer func() {
 		if recover() != nil {
-			reply = errorReply(nil, codeInternalError, "internal error")
+			reply = errorReply(nil, codeInternalError, internalErrorText)
 		}
 	}()
 	var message any
@@ -338,7 +340,7 @@ func (s *Server) answer(line []byte) (reply map[string]any) {
 	}
 	reply, err := s.Handle(message)
 	if err != nil {
-		return errorReply(nil, codeInternalError, "internal error")
+		return errorReply(nil, codeInternalError, internalErrorText)
 	}
 	return reply
 }

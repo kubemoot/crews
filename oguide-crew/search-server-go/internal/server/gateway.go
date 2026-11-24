@@ -45,6 +45,11 @@ func catalogErr(format string, args ...any) error {
 	return &CatalogError{Msg: fmt.Sprintf(format, args...)}
 }
 
+// unreachableErr says the gateway could not be reached, and the kind of failure.
+func unreachableErr(kind string) error {
+	return catalogErr("the gateway is unreachable (%s)", kind)
+}
+
 func entitlementErr() error {
 	return &CatalogError{Msg: noExpertAccess, Entitlement: true}
 }
@@ -136,12 +141,12 @@ func (g *GatewayCatalog) Call(tool string, arguments map[string]any) (string, er
 func (g *GatewayCatalog) post(target string, payload []byte) ([]byte, error) {
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, target, bytes.NewReader(payload))
 	if err != nil {
-		return nil, catalogErr("the gateway is unreachable (%s)", "bad address")
+		return nil, unreachableErr("bad address")
 	}
 	request.Header.Set("Content-Type", "application/json")
 	response, err := g.client.Do(request)
 	if err != nil {
-		return nil, catalogErr("the gateway is unreachable (%s)", failureKind(err))
+		return nil, unreachableErr(failureKind(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
@@ -153,7 +158,7 @@ func (g *GatewayCatalog) post(target string, payload []byte) ([]byte, error) {
 	}
 	raw, err := io.ReadAll(io.LimitReader(response.Body, maxReplyBytes+1))
 	if err != nil {
-		return nil, catalogErr("the gateway is unreachable (%s)", failureKind(err))
+		return nil, unreachableErr(failureKind(err))
 	}
 	if len(raw) > maxReplyBytes {
 		return nil, catalogErr("the gateway answered with more than this server reads")

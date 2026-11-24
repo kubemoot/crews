@@ -130,12 +130,15 @@ func fixtureItems(arguments map[string]any) map[string]catalogItem {
 	}
 }
 
+// nealFord is the author the fixture answers for by name.
+const nealFord = "Neal Ford"
+
 func liveItems(query string, authors []string) map[string]catalogItem {
 	who := []string{"Pat Teacher"}
 	if len(authors) > 0 {
 		who = authors
 	} else if strings.Contains(strings.ToLower(query), "neal ford") {
-		who = []string{"Neal Ford"}
+		who = []string{nealFord}
 	}
 	return map[string]catalogItem{
 		"urn:live:1": fixtureEvent("Live Agents Workshop", []string{"2026-12-10T16:00:00Z", "2026-12-11T16:00:00Z"}, who),
@@ -169,8 +172,8 @@ func authorItems(author string, types []string, arguments map[string]any) map[st
 
 func topicItems(query string, arguments map[string]any) map[string]catalogItem {
 	who := []string{alexWriter, "Sam Coauthor"}
-	if strings.EqualFold(query, "Neal Ford") || strings.EqualFold(query, "Neal Ford forthcoming") {
-		who = []string{"Neal Ford"}
+	if strings.EqualFold(query, nealFord) || strings.EqualFold(query, "Neal Ford forthcoming") {
+		who = []string{nealFord}
 		return datedItems("Architecture", who, arguments, 4)
 	}
 	return datedItems(query, who, arguments, 5)

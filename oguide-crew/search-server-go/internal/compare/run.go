@@ -101,14 +101,14 @@ func (r Report) Failed() bool {
 func (r Report) Write(out io.Writer) {
 	_, _ = fmt.Fprintf(out, "tools/list: %s\n", map[bool]string{true: "identical", false: "DIFFERENT"}[r.ToolsMatch])
 	for _, line := range r.ToolsDetail {
-		_, _ = fmt.Fprintf(out, "    %s\n", line)
+		writeIndented(out, line)
 	}
 	counts := map[Verdict]int{}
 	for _, result := range r.Results {
 		counts[result.Verdict]++
 		_, _ = fmt.Fprintf(out, "%-11s %-18s %s\n", result.Verdict, result.Query.Tool, result.Query.Name)
 		for _, line := range result.Details {
-			_, _ = fmt.Fprintf(out, "    %s\n", line)
+			writeIndented(out, line)
 		}
 	}
 	_, _ = fmt.Fprintf(out, "\n%d queries: %d identical, %d same-shape, %d different\n", len(r.Results),
@@ -133,8 +133,13 @@ func (r Report) writeVaries(out io.Writer) {
 	_, _ = fmt.Fprintf(out, "the catalog changed between the two python runs for %d queries, compared on shape and "+
 		"stable fields only:\n", len(names))
 	for _, name := range names {
-		_, _ = fmt.Fprintf(out, "    %s\n", name)
+		writeIndented(out, name)
 	}
+}
+
+// writeIndented prints one detail line under its heading.
+func writeIndented(out io.Writer, text string) {
+	_, _ = fmt.Fprintf(out, "    %s\n", text)
 }
 
 func firstOf(list []string, n int) []string {
