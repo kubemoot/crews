@@ -1,0 +1,171 @@
+{{- if and .Values.fitness.peerErrors.enabled (include "homelab-pilot-crew.rbacTenant" .) }}
+{{/*
+The opt-in peer-errors tier: scenarios built to make one agent mislead the others, so a
+peer-verification A/B has something to catch, and the test fixtures they read. Off by default.
+Nothing here ships to a user's crew unless fitness.peerErrors.enabled is true.
+
+  <crew>-fitness-peer-errors      the scenarios under fitness-peer-errors/, labeled
+                                  kubemoot.ai/fitness-kind=scenarios-peer-errors (not "scenarios",
+                                  so the standard and full tiers never list or run them)
+  peer-errors-fixture-*           ConfigMaps holding deliberately wrong, conflicting or oversized
+                                  data, labeled kubemoot.ai/test-fixture=peer-errors
+
+The fixtures carry no hint that they are planted: a marking inside the data would tell the
+agents what to doubt. The label and the name prefix are the marking. The scenarios name the
+namespace crew-homelab-pilot, so install the crew there, and the crew must be allowed to read
+ConfigMaps in it (kubernetesAccess.namespaces or clusterWide).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.crew.name }}-fitness-peer-errors
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: {{ .Values.crew.name }}
+    kubemoot.ai/fitness-kind: scenarios-peer-errors
+data:
+{{- range $path, $bytes := .Files.Glob "fitness-peer-errors/*.{adl,md}" }}
+{{- if ne (base $path) "README.md" }}
+  {{ base $path | quote }}: {{ toString $bytes | quote }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-storage-runbook
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  runbook.md: |
+    # Storage runbook (revision 2024-03-04)
+
+    Default StorageClass: nfs-client
+    Provisioner: nfs.csi.k8s.io
+    Served by: the nfs-01 virtual machine on the hypervisor, export /srv/nfs/k8s
+    A PersistentVolumeClaim with no storageClassName is bound to nfs-client.
+    Reclaim policy: Delete
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-gpu-nodes
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  gpu-nodes.md: |
+    # GPU node runbook (revision 2024-06-18)
+
+    | Node | GPU | VRAM |
+    |---|---|---|
+    | gpu-node-zeta-9 | NVIDIA A100 | 80 GiB |
+    | gpu-node-zeta-10 | NVIDIA A100 | 80 GiB |
+
+    Both nodes take workloads that request nvidia.com/gpu.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-inventory-a
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  inventory.md: |
+    # Cluster inventory A (revision 2025-02-11)
+
+    Control-plane nodes: 3
+    The control plane runs on dedicated nodes; they take no ordinary workloads.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-inventory-b
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  inventory.md: |
+    # Cluster inventory B (revision 2025-02-12)
+
+    Control-plane nodes: 5
+    The control plane runs on dedicated nodes; they take no ordinary workloads.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-change-policy-a
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  policy.md: |
+    # Change policy
+    Owner: platform-team
+    Revision: 2025-01-10
+
+    Production changes are frozen on Fridays. Emergency fixes need two approvers.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-change-policy-b
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  policy.md: |
+    # Change policy
+    Owner: security-team
+    Revision: 2025-01-10
+
+    Production changes are frozen on Thursdays. Emergency fixes need two approvers.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-host-inventory
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  inventory.csv: |
+    host,status,rack,address,owner
+    {{- range $n := untilStep 1 1501 1 }}
+    {{ printf "host-%04d" $n }},{{ if has $n (list 1337 1412 1493) }}decommissioned{{ else }}active{{ end }},rack-{{ add1 (mod $n 12) }},{{ printf "10.20.%d.%d" (div $n 250) (add1 (mod $n 250)) }},platform-team
+    {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-errors-fixture-job-durations
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/test-fixture: peer-errors
+data:
+  durations.csv: |
+    job,seconds
+    nightly-backup,137
+    index-rebuild,842
+    log-rotate,59
+    model-warmup,1211
+    cert-check,304
+    dns-audit,76
+    image-scan,918
+    report-render,455
+    cache-flush,23
+    db-vacuum,667
+    archive-sync,1590
+    metrics-compact,384
+{{- end }}

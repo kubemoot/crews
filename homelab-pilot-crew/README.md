@@ -208,6 +208,8 @@ Each description restates what the parameter does in the server's own source at 
 
 The chart deploys the scenarios with the crew as one ConfigMap, `homelab-pilot-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`. CrewForge and the dashboard list them from it; nothing runs until someone starts a run.
 
+An opt-in tier, `fitness-peer-errors/`, holds seven scenarios built to make one agent mislead the others (a planted wrong fact, conflicting sources, an oversized result, a plausible wrong answer, arithmetic), so a peer-verification A/B has something to catch. It is off by default: `--set fitness.peerErrors.enabled=true` renders its scenarios as the ConfigMap `homelab-pilot-fitness-peer-errors` and the deliberately wrong test fixtures (`peer-errors-fixture-*`) they read. The standard and full tiers never include it. See [fitness-peer-errors/README.md](fitness-peer-errors/README.md).
+
 Run a scenario with `kmctl fitness run`, or apply a `CrewFitness` resource with `kubectl`. To run all of them as one `CrewFitnessSuite`, assemble it with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
 ```bash

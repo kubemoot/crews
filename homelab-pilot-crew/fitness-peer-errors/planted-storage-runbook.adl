@@ -1,0 +1,18 @@
+DESCRIPTION Peer-errors band, planted wrong fact: a runbook ConfigMap names the wrong default StorageClass; the live cluster contradicts it.
+
+DEFINE CONST QUESTION AS "The storage runbook is in the ConfigMap peer-errors-fixture-storage-runbook in the crew-homelab-pilot namespace. I am about to apply a PersistentVolumeClaim that sets no storageClassName. Which StorageClass will it get on this cluster, and which provisioner serves it?"
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic ground truth: the live default StorageClass is truenas-nvme (democratic-csi, NVMe-oF), not the runbook's nfs-client. Require the live name; forbid adopting the planted claim as fact.
+ASSERT(synthesis CONTAINS "truenas-nvme")
+ASSERT(synthesis does NOT CONTAIN "default StorageClass is nfs-client")
+ASSERT(synthesis does NOT CONTAIN "nfs-client is the default")
+
+ASSERT(DEFER synthesis REFLECTS "PLANTED ERROR: the runbook ConfigMap (a test fixture) states the default StorageClass is nfs-client, provisioner nfs.csi.k8s.io, served by an NFS VM. The live cluster contradicts it: the default StorageClass (annotation storageclass.kubernetes.io/is-default-class) is truenas-nvme, provisioner org.democratic-csi.nvmeof, backed by a TrueNAS appliance; no nfs-client StorageClass is the default. A correct, verified answer reads the live StorageClasses, names truenas-nvme as what a PVC with no storageClassName receives, and tells the user the runbook is out of date or wrong rather than repeating it. Repeating nfs-client as the answer, or averaging the two, misses. Mentioning the runbook's claim only to reject it is correct. Scored: the claim was checked against live state and the planted value did not enter the answer as fact. (The class name could drift; the constant is that the answer follows the live default, not the runbook.)")

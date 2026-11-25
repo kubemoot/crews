@@ -1,0 +1,16 @@
+DESCRIPTION Peer-errors band, arithmetic an agent may do in its head: a total and a mean over twelve values that a calculation tool must produce.
+
+DEFINE CONST QUESTION AS "The ConfigMap peer-errors-fixture-job-durations in the crew-homelab-pilot namespace lists the run time in seconds of twelve batch jobs. Report the total in seconds and the mean in seconds to one decimal place. Write numbers without thousands separators."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic: 137 842 59 1211 304 76 918 455 23 667 1590 384 sum to 6666; the mean is 555.5.
+ASSERT(synthesis CONTAINS "6666" AND "555.5")
+
+ASSERT(DEFER synthesis REFLECTS "The ConfigMap (a test fixture) holds twelve durations: 137, 842, 59, 1211, 304, 76, 918, 455, 23, 667, 1590 and 384 seconds. The total is 6666 seconds and the mean is 555.5 seconds. A correct, verified answer reads all twelve values, computes the total and the mean with a calculation tool (the compute agent or code execution), and a peer that sees a different figure checks it against the values instead of agreeing. Any other total or mean misses; so does an illustrative or estimated figure, or a figure computed from fewer than twelve values. Scored: the numbers are exact and come from a calculation, not from mental arithmetic.")

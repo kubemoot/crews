@@ -255,6 +255,16 @@ mcpQualityPolicy:
     timeoutSeconds: 30
     fallbackAction: deny
 
+# Fitness scenarios beyond the standard set. peerErrors renders the opt-in "peer-errors" tier:
+# scenarios built to make one agent mislead the others (a planted wrong fact, conflicting
+# sources, an oversized result, a plausible wrong answer, arithmetic), the test-fixture
+# ConfigMaps they read (peer-errors-fixture-*, deliberately wrong data), and the ConfigMap
+# <crew>-fitness-peer-errors that holds them. Off by default: test fixtures never reach a user's
+# crew unless this is set. Run the tier with scripts/build-suite.py on fitness-peer-errors/.
+fitness:
+  peerErrors:
+    enabled: false
+
 # Which part of the chart one release renders, so an admin and a tenant can install the same
 # chart from the same values. RBAC objects (ClusterRoles, ClusterRoleBindings, RoleBindings) need
 # rights a namespaced applier, such as a Flux ServiceAccount that holds only its crew

@@ -117,5 +117,40 @@ for chart in kubemoot-fitness-crew oguide-crew; do
   check "${chart} TIERS labels use only smoke and standard" "" "$words"
 done
 
+# The peer-errors tier is opt-in: off by default, and never part of the standard scenarios.
+pe_dir="${repo}/homelab-pilot-crew/fitness-peer-errors"
+out="$(render "${repo}/homelab-pilot-crew")"
+check "peer-errors renders no fixture by default" 0 \
+  "$(yq -N 'select(.kind == "ConfigMap" and .metadata.labels."kubemoot.ai/test-fixture" == "peer-errors") | .metadata.name' <<<"$out" | grep -c . || true)"
+check "peer-errors renders no tier ConfigMap by default" 0 \
+  "$(yq -N 'select(.kind == "ConfigMap" and .metadata.name == "homelab-pilot-fitness-peer-errors") | .metadata.name' <<<"$out" | grep -c . || true)"
+check "the standard ConfigMap holds no peer-errors scenario" 0 \
+  "$(yq -N '.data | keys | .[]' <<<"$(scenario_maps "$out")" | grep -c -E '^(planted|conflict|oversized|plausible|arithmetic)-' || true)"
+out="$(render "${repo}/homelab-pilot-crew" --set fitness.peerErrors.enabled=true)"
+tier_map="$(yq 'select(.kind == "ConfigMap" and .metadata.name == "homelab-pilot-fitness-peer-errors")' <<<"$out")"
+check "peer-errors tier ConfigMap holds one key per scenario" \
+  "$(find "$pe_dir" -maxdepth 1 -name '*.adl' -printf '%f\n' | sort | tr '\n' ' ')" \
+  "$(yq -N '.data | keys | .[]' <<<"$tier_map" | sort | tr '\n' ' ')"
+check "peer-errors tier is not labeled as standard scenarios" scenarios-peer-errors \
+  "$(yq -N '.metadata.labels."kubemoot.ai/fitness-kind"' <<<"$tier_map")"
+check "enabling peer-errors leaves the standard ConfigMap unchanged" "$(scenario_files "${repo}/homelab-pilot-crew" | tr '\n' ' ')" \
+  "$(yq -N '.data | keys | .[]' <<<"$(scenario_maps "$out")" | sort | tr '\n' ' ')"
+fixtures="$(yq -N 'select(.kind == "ConfigMap" and .metadata.labels."kubemoot.ai/test-fixture" == "peer-errors") | .metadata.name' <<<"$out" | sort | tr '\n' ' ')"
+check "peer-errors fixtures are all prefixed" 8 "$(grep -o 'peer-errors-fixture-' <<<"$fixtures" | grep -c . || true)"
+for f in $(grep -ho 'peer-errors-fixture-[a-z-]*' "$pe_dir"/*.adl | sort -u); do
+  check "a scenario's fixture ${f} is rendered" yes "$(grep -q "${f} " <<<"$fixtures" && echo yes || echo no)"
+done
+inv="$(yq -N 'select(.metadata.name == "peer-errors-fixture-host-inventory") | .data."inventory.csv"' <<<"$out")"
+check "the host inventory has 1500 rows" 1500 "$(grep -c '^host-' <<<"$inv")"
+check "the host inventory marks three decommissioned" "host-1337 host-1412 host-1493" \
+  "$(grep decommissioned <<<"$inv" | cut -d, -f1 | tr '\n' ' ' | sed 's/ $//')"
+check "the job durations sum to 6666" 6666 "$(yq -N 'select(.metadata.name == "peer-errors-fixture-job-durations") | .data."durations.csv"' <<<"$out" | awk -F, 'NR>1{s+=$2} END{print s}')"
+check "every peer-errors scenario has a reference and a question" 0 \
+  "$(for f in "$pe_dir"/*.adl; do grep -q 'DEFER synthesis REFLECTS' "$f" && grep -q 'DEFINE CONST QUESTION' "$f" || echo bad; done | grep -c . || true)"
+check "peer-errors files are ASCII" 0 "$(LC_ALL=C grep -lP '[^\x00-\x7F]' "$pe_dir"/* | grep -c . || true)"
+check "build-suite assembles the peer-errors scenarios" 7 \
+  "$(python3 "${repo}/scripts/build-suite.py" "$pe_dir" --namespace crew-homelab-pilot --crew-ref homelab-pilot --name t --iterations 1 2>&1 >/dev/null | grep -o 'assembling [0-9]*' | grep -o '[0-9]*')"
+check "peer-errors lints" 0 "$(helm lint "${repo}/homelab-pilot-crew" --set vectorStore.host=db --set fitness.peerErrors.enabled=true >/dev/null 2>&1; echo $?)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all fitness-scenario tests passed"
