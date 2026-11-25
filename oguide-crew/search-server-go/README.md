@@ -62,6 +62,20 @@ in mode Off"). Without it the ids are cut from `_meta`, an inner call carries no
 `Required` per-person server answers "no account connected"; the server then falls back safely: with
 per-person on, a search that names no person is never remembered or answered from memory.
 
+What is forwarded, exactly: on every gateway call (`POST <gateway>/tools/<tool>/call`, the
+five searches including each call of an author search, and both Expert tools) the body is
+`{"arguments": {...}, "_meta": {"conversationId": "...", "principalId": "..."}}`, the same body the
+Python server sends. Only those two keys, only when the incoming `_meta` holds them as non-empty text
+of at most 256 characters, and never anything from `arguments`. A request whose `_meta` names neither
+sends no `_meta`, and the gateway then refuses the inner call ("carried no conversation and
+principal"); that refusal is correct, since no person asked. The context is read from each request
+and never kept, so one person's ids never ride on the next person's call
+(`internal/server/relay_test.go` and `perperson_test.go`).
+
+If the gateway logs that refusal for a call that came from a person, the ids were already missing
+when the call reached this server: check that the MCPServer registers `callerCredential.relayContext`
+and that the gateway and operator are new enough to keep the ids for a mode `Off` server.
+
 ## Differences from the Python server
 
 - The repeat memory keys on the asking person (`principalId`) as well as the thread, so one person's
