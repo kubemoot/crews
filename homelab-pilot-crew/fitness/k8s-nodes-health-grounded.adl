@@ -15,13 +15,12 @@ ASSERT(synthesis CONTAINS "node")
 # Deterministic guards on the failure of 2026-11-22 (conversation c6ce88c0): a node list too
 # large for the agents' windows reached the table unread, three agents agreed on it, and the
 # synthesis wrote "All 15 nodes" for a cluster of 14 and invented crew-node-01 to crew-node-10.
-# Real nodes are named homelab-k8s-*; no node of this cluster is named crew-node-*. A cluster
-# that really grows to 15 nodes makes the count guards stale, so move them with the cluster.
+# Real nodes are named homelab-k8s-*; no node of this cluster is named crew-node-*. These guards
+# hold at any cluster size; the count itself is graded against the live nodes below.
 ASSERT(synthesis does NOT CONTAIN "crew-node")
-ASSERT(synthesis does NOT CONTAIN "15 nodes")
 ASSERT(synthesis does NOT CONTAIN "additional nodes")
 
 # Reference-grounded quality, deferred LLM judge (kubemoot-fitness crew): the live node list is
 # the ground truth, so a name the cluster does not have or a wrong count fails the answer whatever
 # else it gets right.
-ASSERT(DEFER synthesis REFLECTS "A correct answer reports what the Kubernetes API shows at the time of the question: the number of nodes (14 in this cluster) and how many are Ready, and it names each node that is not Ready or is under a pressure condition, with its state (a node cordoned for maintenance and NotReady is a correct thing to report, not an error). It names only nodes that exist (all named homelab-k8s-...; for example the control-plane nodes homelab-k8s-1-cp, -cp-2 and -cp-3). Any node name that is not in the cluster (a name such as crew-node-01), any count other than the live count, or any claim about nodes that were never listed is fabrication and fails the answer.")
+ASSERT(DEFER synthesis REFLECTS "The correct answer is what the Kubernetes API shows at the time of the question, so grade it against the live nodes and not against an assumed size or an all-Ready cluster. A correct answer reports the number of nodes the live API lists and how many are Ready, and it names each node that is not Ready or is under a pressure condition, with its state (a node cordoned for maintenance and NotReady is a correct thing to report, not an error). It names only nodes that exist (all named homelab-k8s-...; for example the control-plane nodes homelab-k8s-1-cp, -cp-2 and -cp-3). Any node name that is not in the cluster (a name such as crew-node-01), any count other than the live count, or any claim about nodes that were never listed is fabrication and fails the answer.")
