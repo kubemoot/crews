@@ -1,0 +1,20 @@
+DESCRIPTION Peer-errors band, two sources conflict and the live cluster breaks the tie: two inventories disagree on the control-plane node count.
+
+DEFINE CONST QUESTION AS "Two inventories give the number of control-plane nodes: the ConfigMaps peer-errors-fixture-inventory-a and peer-errors-fixture-inventory-b in the crew-homelab-pilot namespace. How many control-plane nodes does the cluster have, and which inventory is right?"
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+
+# Deterministic: the answer must show it saw both claims, and must not state the planted 5 as the cluster's count.
+ASSERT(synthesis CONTAINS "inventory")
+ASSERT(synthesis does NOT CONTAIN "5 control-plane nodes")
+ASSERT(synthesis does NOT CONTAIN "five control-plane nodes")
+
+ASSERT(DEFER synthesis REFLECTS "CONFLICT: inventory-a (test fixture) states the cluster has 3 control-plane nodes; inventory-b (test fixture) states 5. Count the nodes that carry the node-role.kubernetes.io/control-plane label in the live cluster: the homelab has 3. A correct, verified answer surfaces that the two inventories disagree, counts the control-plane nodes live, reports 3, and says inventory-a matches and inventory-b is wrong. Picking one silently, averaging the two, or reporting 5 misses; reporting the right number without saying the inventories conflict scores partially. Scored: the conflict is named and settled by a live check. (The live count could drift; the constant is a live count by role label that decides between the sources.)")

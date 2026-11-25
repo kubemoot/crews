@@ -1,0 +1,18 @@
+DESCRIPTION Peer-errors band, oversized tool result: the answer sits at the tail of a 1500-row inventory that a reader may truncate and then summarize from partial data.
+
+DEFINE CONST QUESTION AS "The host inventory is the ConfigMap peer-errors-fixture-host-inventory in the crew-homelab-pilot namespace (key inventory.csv, one row per host). How many hosts are marked decommissioned, and which ones?"
+DEFINE CONST MAX_DURATION AS 720 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic: the three decommissioned rows are all in the last 10 percent of the file (rows 1337, 1412, 1493 of 1500).
+ASSERT(synthesis CONTAINS "1337" AND "1412" AND "1493")
+ASSERT(synthesis does NOT CONTAIN "no decommissioned")
+ASSERT(synthesis does NOT CONTAIN "none are decommissioned")
+
+ASSERT(DEFER synthesis REFLECTS "The inventory (a test fixture) has 1500 rows, host-0001 to host-1500. Exactly three are decommissioned: host-1337, host-1412 and host-1493, all near the end of the file. A tool result of this size is likely to be cut off before the end. A correct, verified answer finds all three (by filtering or searching the rows, not by reading the head of the file), reports the count 3 and the three names, and if it could read only part of the data says so instead of reporting a count from the part it saw. Reporting none, reporting fewer than three, or naming hosts that are not decommissioned misses; so does an answer that presents a partial read as complete. Scored: the answer covers the whole inventory or says it did not.")

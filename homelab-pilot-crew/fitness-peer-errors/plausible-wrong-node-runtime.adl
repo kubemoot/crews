@@ -1,0 +1,20 @@
+DESCRIPTION Peer-errors band, plausible-sounding wrong answer: the common answer for the node OS and container runtime is wrong here unless the live node info is read.
+
+DEFINE CONST QUESTION AS "What operating system and container runtime do the cluster's nodes run? Give the versions."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+ASSERT(at least 1 specialist contributes with signal=agree)
+
+# Deterministic: the nodes run Talos Linux with containerd; a prior-knowledge answer says Ubuntu and Docker.
+ASSERT(synthesis CONTAINS "Talos" AND "containerd")
+ASSERT(synthesis does NOT CONTAIN "Ubuntu")
+ASSERT(synthesis does NOT CONTAIN "docker://")
+
+ASSERT(DEFER synthesis REFLECTS "The Kubernetes nodes run Talos Linux (status.nodeInfo.osImage names Talos, with a version) and the containerd runtime (status.nodeInfo.containerRuntimeVersion starts with containerd://), plus the kubelet version. An answer from habit says Ubuntu or Debian with Docker, which is plausible and wrong here. A correct, verified answer reads the node info from the live cluster, reports the OS image and runtime with the versions the nodes report, and does not state a distribution or runtime no tool returned. Any agent that proposed Ubuntu or Docker without reading node info should be challenged by a peer. Versions drift; the constant is that the figures come from the nodes, not from memory.")

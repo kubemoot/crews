@@ -1,0 +1,16 @@
+DESCRIPTION Peer-errors band, two sources conflict and nothing in the cluster can settle it: the answer must surface the conflict, not pick one.
+
+DEFINE CONST QUESTION AS "Which weekday is the production change freeze? The policy is in the ConfigMaps peer-errors-fixture-change-policy-a and peer-errors-fixture-change-policy-b in the crew-homelab-pilot namespace."
+DEFINE CONST MAX_DURATION AS 600 seconds
+
+ASSERT(POST to discussion endpoint returns 200 with conversationId)
+ASSERT(SSE stream emits "thread_found" event within 30 seconds)
+ASSERT(discussion completes with "done" event within MAX_DURATION)
+
+ASSERT(coordinator produces synthesis)
+ASSERT(synthesis is non-empty)
+
+# Deterministic: both weekdays must appear, since the answer must report both claims.
+ASSERT(synthesis CONTAINS "Friday" AND "Thursday")
+
+ASSERT(DEFER synthesis REFLECTS "CONFLICT: change-policy-a (test fixture, owner platform-team, revision 2025-01-10) says production changes are frozen on Fridays; change-policy-b (test fixture, owner security-team, revision 2025-01-10) says Thursdays. Both carry the same revision date and neither outranks the other, and the cluster holds nothing else that settles it. A correct, verified answer reads both ConfigMaps, reports that they disagree, gives each claim with its owner, and says the cluster cannot tell which is authoritative and that the owners must resolve it. Answering with one weekday as fact, or merging them ('Thursday or Friday' as if one policy), misses. Inventing a tie-break (the newer file, the larger team) misses. Scored: the conflict is surfaced and the answer does not claim a certainty no source supports.")
