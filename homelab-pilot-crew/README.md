@@ -360,7 +360,7 @@ mcpServers:
     transport: http
 ```
 
-The default, `stdio`, reaches the sandbox through the operator's bridge sidecar, which talks to the server over FIFOs shared between the two containers. gVisor does not share FIFOs between containers, so the bridged setup cannot run there. With `http` the sandbox serves MCP over Streamable HTTP itself (`/mcp`, with `/healthz` and `/readyz`, on port 3000): the operator adds no bridge sidecar and no pipes volume, and the image entrypoint, which already runs the server under `tini`, starts it. `http` needs a code-sandbox image that supports it, which means a Kubemoot release with Streamable HTTP in the code sandbox. Any other `transport` value fails the render.
+The default, `stdio`, reaches the sandbox through the operator's bridge sidecar, which talks to the server over FIFOs shared between the two containers. gVisor does not share FIFOs between containers, so the bridged setup cannot run there. With `http` the sandbox serves MCP over Streamable HTTP itself (`/mcp`, with `/healthz` and `/readyz`, on port 3000): the operator adds no bridge sidecar and no pipes volume, and the image launcher (`/cnb/process/web`, the image entrypoint), which runs the server under `tini`, starts it. With `stdio` the bridge runs that same launcher as its command. `http` needs a code-sandbox image that supports it, which means a Kubemoot release with Streamable HTTP in the code sandbox. Any other `transport` value fails the render.
 
 ## Deployment
 
