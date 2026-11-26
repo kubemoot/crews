@@ -137,9 +137,9 @@ check "enabling peer-errors leaves the standard ConfigMap unchanged" "$(scenario
   "$(yq -N '.data | keys | .[]' <<<"$(scenario_maps "$out")" | sort | tr '\n' ' ')"
 fixtures="$(yq -N 'select(.kind == "ConfigMap" and .metadata.labels."kubemoot.ai/test-fixture" == "peer-errors") | .metadata.name' <<<"$out" | sort | tr '\n' ' ')"
 check "peer-errors fixtures are all prefixed" 8 "$(grep -o 'peer-errors-fixture-' <<<"$fixtures" | grep -c . || true)"
-for f in $(grep -ho 'peer-errors-fixture-[a-z-]*' "$pe_dir"/*.adl | sort -u); do
+while read -r f; do
   check "a scenario's fixture ${f} is rendered" yes "$(grep -q "${f} " <<<"$fixtures" && echo yes || echo no)"
-done
+done < <(grep -ho 'peer-errors-fixture-[a-z-]*' "$pe_dir"/*.adl | sort -u)
 inv="$(yq -N 'select(.metadata.name == "peer-errors-fixture-host-inventory") | .data."inventory.csv"' <<<"$out")"
 check "the host inventory has 1500 rows" 1500 "$(grep -c '^host-' <<<"$inv")"
 check "the host inventory marks three decommissioned" "host-1337 host-1412 host-1493" \
