@@ -28,19 +28,17 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   {{- if eq $transport "http" }}
   # The server listens on the port itself (Streamable HTTP at /mcp) and the
   # operator adds no bridge and no pipes volume. No explicit command: the image
-  # entrypoint runs the server under tini, which reaps processes a killed program
-  # leaves behind.
+  # launcher (/cnb/process/web, the image entrypoint) starts the server under tini,
+  # which reaps processes a killed program leaves behind.
   healthPath: /healthz
   readinessPath: /readyz
   {{- else }}
   # The bridge runs in exec mode (kubemoot-mcp-bridge exec -- <command>), so the
-  # server's start command must be explicit. tini reaps processes a killed
-  # program leaves behind.
+  # server's start command must be explicit: the image's Paketo launcher, which
+  # starts the server under tini (tini reaps processes a killed program leaves
+  # behind). Needs a code-sandbox image built with Paketo buildpacks.
   command:
-    - "/usr/bin/tini"
-    - "-s"
-    - "--"
-    - "/usr/local/bin/code-sandbox"
+    - "/cnb/process/web"
   {{- end }}
   port: {{ $port }}
   replicas: 1

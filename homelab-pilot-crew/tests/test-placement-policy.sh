@@ -192,11 +192,12 @@ withrc="$(render --set mcpServers.codeSandbox.runtimeClassName=gvisor)"
 echo "PASS: mcpServers.codeSandbox.runtimeClassName"
 
 # mcpServers.codeSandbox.transport: stdio (the default) renders the bridged setup with an
-# explicit tini command; http renders the server's own listener, probes, and no command.
+# explicit launcher command; http renders the server's own listener, probes, and no command.
 sbx() { render "$@" | yq -N 'select(.kind == "MCPServer" and .metadata.name == "code-sandbox-mcp")'; }
 stdio_out="$(sbx)"
 [ "$(yq '.spec.transport' <<<"$stdio_out")" = "stdio" ] || fail "the default code sandbox transport must be stdio"
-[ "$(yq -o=json -I=0 '.spec.command' <<<"$stdio_out")" = '["/usr/bin/tini","-s","--","/usr/local/bin/code-sandbox"]' ] || fail "stdio must keep the explicit tini command"
+[ "$(yq -o=json -I=0 '.spec.command' <<<"$stdio_out")" = '["/cnb/process/web"]' ] || fail "stdio must start the server through the image launcher"
+[ "$(grep -c -e '/usr/bin/tini' -e '/usr/local/bin/code-sandbox' <<<"$(render)")" = "0" ] || fail "no Dockerfile-era path may remain in the render"
 [ "$(yq '.spec.env[] | select(.name == "MCP_TRANSPORT" or .name == "PORT") | .name' <<<"$stdio_out")" = "" ] || fail "stdio must set no MCP_TRANSPORT or PORT"
 [ "$(yq '.spec | has("healthPath") or has("readinessPath")' <<<"$stdio_out")" = "false" ] || fail "stdio must render no health paths"
 [ "$(sbx --set mcpServers.codeSandbox.transport=stdio)" = "$stdio_out" ] || fail "an explicit stdio must render the same as the default"

@@ -23,18 +23,16 @@ spec:{{ include "oguide-crew.egress" (dict "root" $ "kind" "mcpServers" "name" "
   transport: {{ $transport }}
   {{- if eq $transport "http" }}
   # The server listens on the port itself (Streamable HTTP at /mcp), so the operator adds no
-  # bridge. No explicit command: the image entrypoint runs the server under tini.
+  # bridge. No explicit command: the image launcher (/cnb/process/web, the entrypoint) starts
+  # the server under tini.
   healthPath: /healthz
   readinessPath: /readyz
   {{- else }}
   # Pure stdio: the operator adds the bridge sidecar (port is the bridge's TCP port). The
-  # bridge runs in exec mode, so the start command is explicit. tini reaps processes a
-  # killed program leaves behind.
+  # bridge runs in exec mode, so the start command is explicit: the image's Paketo launcher,
+  # which starts the server under tini (tini reaps processes a killed program leaves behind).
   command:
-    - "/usr/bin/tini"
-    - "-s"
-    - "--"
-    - "/usr/local/bin/code-sandbox"
+    - "/cnb/process/web"
   {{- end }}
   port: {{ $port }}
   replicas: 1
