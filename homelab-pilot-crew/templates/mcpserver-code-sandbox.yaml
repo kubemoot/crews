@@ -42,6 +42,14 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   {{- end }}
   port: {{ $port }}
   replicas: 1
+  # The pod runs the sandbox as 1000:1000 in the default (relaxed) security mode, whatever
+  # user the image sets: 1000 is the workspace-access materializer's user, and the Paketo
+  # image's own user is 1002. The operator keeps drop-ALL capabilities, no privilege
+  # escalation and the RuntimeDefault seccomp profile around these.
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
   {{- with .Values.mcpServers.codeSandbox.runtimeClassName }}
   runtimeClassName: {{ . | quote }}
   {{- end }}

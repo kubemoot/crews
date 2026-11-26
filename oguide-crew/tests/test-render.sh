@@ -541,6 +541,7 @@ check "the code sandbox has no runtimeClassName by default" null "$(sandbox '.sp
 check "the code sandbox takes a runtimeClassName" '"gvisor"' \
   "$(sandbox '.spec.runtimeClassName' "$(render --set mcpServers.codeSandbox.runtimeClassName=gvisor)")"
 check "the code sandbox runs through the bridge by default" '["/cnb/process/web"]' "$(sandbox '.spec.command')"
+check "the code sandbox runs as 1000:1000" '{"runAsNonRoot":true,"runAsUser":1000,"runAsGroup":1000}' "$(sandbox '.spec.securityContext' | yq -o=json -I=0 -p=json '.')"
 check "the http transport lists no command" 'http|null' \
   "$(sandbox '.spec.transport' "$(render --set mcpServers.codeSandbox.transport=http)" | tr -d '"')|$(sandbox '.spec.command // null' "$(render --set mcpServers.codeSandbox.transport=http)")"
 check "an unknown sandbox transport fails the render" 1 "$(render_err --set mcpServers.codeSandbox.transport=grpc | grep -c 'must be stdio or http' || true)"
