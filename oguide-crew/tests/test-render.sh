@@ -708,5 +708,10 @@ check "workspace-mcp has no CPU limit, so a query burst is not throttled" "null"
 check "workspace-mcp keeps its 512Mi memory limit" "512Mi" "$(ws_res .limits.memory)"
 check "workspace-mcp still asks for 50m CPU" "50m" "$(ws_res .requests.cpu)"
 
+# Every module that tells an agent to raise a concern says how: a reply starting CONCERN: <claim, why, source>.
+check "the discussion-protocol concern is raised with the CONCERN: prefix" 1 "$(grep -c 'CONCERN: <the claim' <<<"$(module discussion-protocol)" || true)"
+check "no module says 'raise a CONCERN' without the prefix" 0 \
+  "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out" | grep -c 'raise a CONCERN' || true)"
+
 if [ "$failures" -ne 0 ]; then echo "${failures} test(s) failed"; exit 1; fi
 echo "all O'guide render tests passed"

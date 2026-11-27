@@ -281,6 +281,8 @@ check "discussion-protocol is ADL" 1 "$(grep -c -x -F 'DEFINE DOMAIN discussion-
 for word in NOTHING_TO_ADD TOOL_GAP CONCERN; do
   check "discussion-protocol carries $word" yes "$(has "$discussion" "$word")"
 done
+check "discussion-protocol says how to raise a concern" yes "$(has "$discussion" 'CONCERN: <the claim')"
+check "discussion-protocol names no bare 'raise a CONCERN'" 0 "$(grep -c 'raise a CONCERN' <<<"$discussion" || true)"
 check "discussion-protocol has no Markdown headings" 0 "$(grep -c '^#' <<<"$discussion" || true)"
 
 # A failed gather leaves only its own part unknown; the answer still covers the rest.
@@ -300,6 +302,8 @@ pv_module="$(yq -N 'select(.kind == "PromptModule" and .metadata.name == "peer-v
 check "peer-verification on: the module renders" 1 "$(grep -c 'DEFINE COMPONENT peer-verification' <<<"$pv_module")"
 check "peer-verification names no agent's tool" 0 "$(grep -cEw "$vocab" <<<"$pv_module" || true)"
 check "peer-verification has no Markdown headings" 0 "$(grep -c '^#' <<<"$pv_module" || true)"
+check "peer-verification says how to raise a concern" 2 "$(grep -c 'CONCERN: <the claim' <<<"$pv_module" || true)"
+check "peer-verification names no bare 'raise a CONCERN'" 0 "$(grep -c 'raise a CONCERN' <<<"$pv_module" || true)"
 for word in CONCERN NEVER ALWAYS; do
   check "peer-verification carries $word" yes "$(has "$pv_module" "$word")"
 done

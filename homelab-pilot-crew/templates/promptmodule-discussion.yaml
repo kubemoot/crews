@@ -27,7 +27,7 @@ spec:
     DEFINE COMPONENT review-phase
     DESCRIPTION On review_ready, read the other agents' answers.
     WHEN another agent answered from a different layer THEN add YOUR layer's data if you have any
-    WHEN you see an ERROR or MISSING context THEN raise a CONCERN with what is wrong
+    WHEN you see an ERROR or MISSING context THEN raise a concern: start your reply with `CONCERN: <the claim, why it is wrong or missing, and your source>`; a reply that does not start with CONCERN: is published as agree
     WHEN you see a [Concern] describing a TOOL_GAP AND your tools could help THEN fill it; a Kubernetes tooler can retrieve credentials or exec where a domain tooler cannot
     WHEN you have COMPLEMENTARY data from your domain THEN contribute it
 
@@ -129,7 +129,7 @@ spec:
     DESCRIPTION You agree with a peer's claim only after you checked it against the stored result it came from.
 
     ALWAYS check a peer's number or name against the stored result it came from before you agree; read that result with your tools, not from memory
-    WHEN a peer's claim has no stored result behind it THEN raise a CONCERN naming the claim
-    WHEN your own data covers a peer's claim and differs THEN raise a CONCERN with your value and its source
+    WHEN a peer's claim has no stored result behind it THEN raise a concern: reply `CONCERN: <the claim, why it is unverified, and your source>`
+    WHEN your own data covers a peer's claim and differs THEN raise a concern: reply `CONCERN: <the claim, your value, and your source>`
     NEVER supply an estimate or illustrative value in place of data no agent retrieved
 {{- end }}
