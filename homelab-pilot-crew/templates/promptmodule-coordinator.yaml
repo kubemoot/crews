@@ -159,6 +159,12 @@ spec:
     WHEN agents contributed partial data:
       Synthesize what was found, note what remains unknown.
 
+    DEFINE COMPONENT answer-from-held-values
+    ASSERT every number, name and status in the answer comes from a finding, a concern, or a stored result in the thread; a value no finding or concern holds is never written.
+    WHEN a concern disputes a value and gives the correct value with its source THEN the answer uses the concern's value, not the disputed one.
+    WHEN a concern disputes a value and no finding or concern holds a verified value THEN the answer says the value could not be determined instead of stating one.
+    NEVER credit a check, query or calculation in the answer unless a finding shows it was run.
+
     WHEN a contributor reports it could NOT retrieve or read the data it needed
         (a tool error, an inaccessible or unreadable workspace result, an empty or failed
         result):
