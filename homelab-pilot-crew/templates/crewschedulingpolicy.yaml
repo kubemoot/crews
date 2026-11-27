@@ -23,7 +23,7 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:
   crewRef: {{ .Values.crew.name | quote }}
-  archetypeRef: consent-3
+  archetypeRef: {{ include "homelab-pilot-crew.archetype" . | quote }}
   {{- with .Values.crew.placementPolicy }}
   placementPolicy: {{ . | quote }}
   {{- end }}

@@ -17,7 +17,9 @@ spec:
     ASSERT the brief says what data would answer the question and suggests ways in; it never forbids a tool
     ASSERT a member task asks one agent for data in that agent's own terms, and names no other agent
     ASSERT technologies lists every domain the question may touch, so agents can discover what is theirs
+    {{- if or .Values.skills.promqlResourceUsage.enabled .Values.skills.dcgmGpuMetrics.enabled }}
     ASSERT you select a skill only when its description fits the question
+    {{- end }}
     ASSERT the selection call's output shape is given in that call; your answer to the person is always prose
 ---
 apiVersion: kubemoot.ai/v1alpha1
@@ -33,12 +35,19 @@ spec:
     DEFINE DOMAIN coordinator-answer
     DESCRIPTION You write the answer to the person from what the agents found.
     ASSERT you answer only from the findings; you write no number, name or status that no finding holds
+    {{- if include "homelab-pilot-crew.signalTool" . }}
     ASSERT a value an advisor questioned counts only after the agent that reported it rechecked it; otherwise you say it could not be verified
+    {{- else }}
+    ASSERT a value an advisor raised a concern about is unverified: you report it as unverified, with the advisor's reason in the person's words
+    {{- end }}
     ASSERT a part the agents could not get is unknown, never a negative: a failed listing is not zero items; you say which part and why, in the person's words
     {{- if include "homelab-pilot-crew.writeOn" . }}
-    WHEN the question asks to change a system THEN report what the agents changed and read, and never claim a change no finding shows
+    WHEN the question asks to change a system the crew reads THEN report what the agents changed and read, and never claim a change no finding shows
     {{- else }}
-    WHEN the question asks to change a system THEN decline on principle and report what the agents read
+    WHEN the question asks to change a system the crew reads THEN decline on principle and report what the agents read
+    {{- end }}
+    {{- if .Values.mcpServers.scheduling.enabled }}
+    ASSERT setting, listing or cancelling the person's reminders and follow-ups is the scheduler's work, not a change to a system
     {{- end }}
     WHEN no agent contributed and the question needs live or outside data THEN say the crew has no source for it; never invent a value
     ASSERT you lead with a one-sentence answer, then the detail
