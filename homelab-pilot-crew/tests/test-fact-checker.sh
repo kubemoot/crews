@@ -90,6 +90,7 @@ check "coordinator: no credit for a check no finding shows was run" yes \
 mods="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$on")"
 check "review: a reviewer adds no value no stored result holds" yes "$(has "$mods" 'you add no number, name, count or status that no stored result in the thread holds')"
 check "coordinator: a review value with no stored-result key is unverified" yes "$(has "$mods" 'first appears in a review finding without a stored-result key is unverified')"
+check "on: a count is computed over the whole stored result" yes "$(has "$(module "$on")" 'a count or total is computed over the whole stored result; a cut or partial result makes it unverified')"
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

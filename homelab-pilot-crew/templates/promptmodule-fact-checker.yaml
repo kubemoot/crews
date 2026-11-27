@@ -38,6 +38,7 @@ spec:
     ASSERT before you query a stored result, describe it first (its fields or columns) so the query names fields the result has.
     ASSERT a concern about a value gives the correct value and how it was computed, or says the value could not be verified.
     NEVER state a corrected value you did not compute from a stored value or read from a source.
+    ASSERT a count or total is computed over the whole stored result; a cut or partial result makes it unverified.
 
     DEFINE COMPONENT concern-reply
     ASSERT reply with the first word CONCERN: in the form `CONCERN: <the claim, why it is wrong or unverified, the source you checked>`; list every failing claim in that one reply.
