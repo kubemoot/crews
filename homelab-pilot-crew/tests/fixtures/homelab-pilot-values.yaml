@@ -67,7 +67,7 @@ mcpGateway:
     embeddingModel:
       endpoint: http://embeddings.example.svc:11434
 # The crew's Kubernetes tools read every namespace, read-only: the chart binds its read role
-# cluster-wide. No Secret reads (the Helm toolset is off, so the k8s-helm agent answers from
+# cluster-wide. No Secret reads (helm_list then fails as forbidden, so the k8s-helm agent answers from
 # Flux HelmRelease resources) and no write access: no exec, patch or scale.
 kubernetesAccess:
   clusterWide: true
