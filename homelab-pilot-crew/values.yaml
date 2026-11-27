@@ -20,29 +20,18 @@ crew:
   # beside it). Empty inherits the cluster default (KubemootConfig).
   placementPolicy: ""
 
-# Behavior rules every agent at the table follows in a discussion.
+# How the agents at the table record what they conclude. The roles themselves are in the
+# PromptModules: crew-invariants for every agent, worker for the agents that gather, advisor for
+# the four domain advisors (the fact-checkers), and each agent's own module for its purpose.
 discussion:
-  # peerVerification adds the peer-verification PromptModule to every agent that uses
-  # discussion-protocol: an agent agrees with a peer's number or name only after checking
-  # it against the stored result it came from. Off by default; switch it on for the B arm
-  # of an A/B measurement.
-  peerVerification:
+  # signalTool: true makes the shared modules say to record each verdict (agree, a concern, a
+  # clarifying question to the agent whose finding is in doubt, stand aside, no data, a tool gap)
+  # with the signal tool the Kubemoot agent runtime gives each agent, whose kinds the crew's
+  # consensus archetype declares. false (the default) keeps the reply words today's runtime
+  # parses: NOTHING_TO_ADD, NO_DATA:, TOOL_GAP: and CONCERN:. Set it true only on a Kubemoot
+  # whose agent runtime offers the signal tool.
+  signalTool:
     enabled: false
-  # factChecker adds the fact-checker agent: an analyst that declares no domains, so the
-  # coordinator convenes it to review every discussion that gathered data. In review it lists
-  # the factual claims of each finding (numbers, names, counts, states), checks each against the
-  # stored result the finding cites and, with liveRead, against the live cluster, and replies
-  # CONCERN: <claim, why, source> for a claim that fails or cannot be checked; it agrees only
-  # when every claim it checked matched. When the coordinator asks the roster to ratify its
-  # draft, it traces each name and number of the draft the same way. On by default (the A/B on
-  # the CONCERN fix passed 62 of 70 runs with it against 54 without); false renders the crew
-  # without it. liveRead gives it the Kubernetes MCP
-  # server's read tools (resources_list, resources_get, pods_list, pods_list_in_namespace,
-  # events_list, the same read-only tools and RBAC the toolers use) beside the workspace read
-  # tools; false leaves it the workspace tools alone. It has no write tool either way.
-  factChecker:
-    enabled: true
-    liveRead: true
 
 # Namespaces whose pods may reach this crew's discussion gateway when the operator
 # generates network policies (Crew spec.network.allowedIngress). Each entry is a
@@ -490,8 +479,27 @@ compute:
   think: true
   groundNumbers: false
 
-# The advisors (k8s, nvidia-gpu, obs, proxmox). workspaceQuery adds workspace_query to their
-# tools, beside workspace_head, workspace_tail and workspace_grep, with the same operator
-# requirement as compute.workspaceQuery.
+# The advisors (k8s, nvidia-gpu, obs, proxmox) are the crew's fact-checkers: each checks its
+# domain's findings against the stored results, the live source and its documentation, and asks
+# the agent behind a doubtful finding to recheck it. They always have workspace_head,
+# workspace_tail and workspace_grep, and execute_code to compute a number they check.
+# workspaceQuery adds workspace_query and workspace_describe, with the same operator requirement
+# as compute.workspaceQuery. liveRead adds the read tools of each advisor's live source (the
+# Kubernetes server, Prometheus or Proxmox; each agent-*-advisor.yaml names its own), the same
+# read-only tools and access the workers use; false leaves them the stored results and the
+# documentation. No advisor has a write tool either way.
 advisors:
   workspaceQuery: true
+  liveRead: true
+
+# Crew Skills (Skill, kubemoot.ai/v1alpha1): procedures the coordinator selects for a question
+# and the agents of that discussion read, instead of carrying them in every prompt.
+# promqlResourceUsage holds the PromQL for CPU, memory, disk and network use and for naming a
+# host by its labels; dcgmGpuMetrics holds the DCGM exporter's metric names and units and the
+# queries over a window. Off by default; the measurement of the prompt refactor runs them as
+# its second arm. Needs a Kubemoot operator with the Skill CRD.
+skills:
+  promqlResourceUsage:
+    enabled: false
+  dcgmGpuMetrics:
+    enabled: false
