@@ -63,15 +63,28 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/*
 "true" when the agents record their verdicts with the signal tool (discussion.signalTool.enabled),
-and nothing otherwise, so it works as a condition. Off, the shared modules teach the reply words
-the agent runtime parses today (NOTHING_TO_ADD, NO_DATA:, TOOL_GAP:, CONCERN:); on, they say to
+and nothing otherwise, so it works as a condition. On (the default), the shared modules say to
 record each verdict with the signal tool, whose own description lists the kinds the crew's
-consensus archetype declares. Needs a Kubemoot agent runtime that offers the tool before it is on.
+consensus archetype declares; the render fails when crew.archetype is not one of
+discussion.signalTool.archetypes. Off, they teach the reply words an older Kubemoot parses
+(NOTHING_TO_ADD, NO_DATA, TOOL_GAP:, CONCERN:).
 */}}
 {{- define "homelab-pilot-crew.signalTool" -}}
 {{- $discussion := .Values.discussion | default dict -}}
 {{- $signal := $discussion.signalTool | default dict -}}
-{{- if and (kindIs "map" $signal) (eq (toString $signal.enabled) "true") -}}true{{- end -}}
+{{- if and (kindIs "map" $signal) (eq (toString $signal.enabled) "true") -}}
+{{- $known := $signal.archetypes | default list -}}
+{{- $archetype := include "homelab-pilot-crew.archetype" . -}}
+{{- if not (has $archetype $known) -}}
+{{- fail (printf "discussion.signalTool.enabled is true but crew.archetype %q is not in discussion.signalTool.archetypes %v, the archetypes known to declare signals. Add it there when it declares signals, or set discussion.signalTool.enabled=false so the agents use the reply words." $archetype $known) -}}
+{{- end -}}
+true
+{{- end -}}
+{{- end }}
+
+{{/* The crew's consensus archetype (crew.archetype, default consent-3). */}}
+{{- define "homelab-pilot-crew.archetype" -}}
+{{- (.Values.crew | default dict).archetype | default "consent-3" -}}
 {{- end }}
 
 {{/*
@@ -81,10 +94,25 @@ four spaces for a PromptModule's content.
 */}}
 {{- define "homelab-pilot-crew.readOnlyLine" -}}
 {{- if include "homelab-pilot-crew.writeOn" . }}
-    ASSERT this crew changes a system only with a write tool it has, and only when the person asks for that change
+    ASSERT this crew changes a system it reads only with a write tool it has, and only when the person asks for that change
 {{- else }}
-    ASSERT this crew reads only; it never changes a system it reads
-    NEVER propose or run a command that changes a system
+    ASSERT this crew reads the systems it answers about and never changes them
+    NEVER propose or run a command that changes a system the crew reads
+{{- end }}
+{{- if .Values.mcpServers.scheduling.enabled }}
+    ASSERT the person's reminders and follow-up discussions are the one thing the crew keeps for them; the scheduler sets and cancels those
+{{- end }}
+{{- end }}
+
+{{/*
+The stand-aside verdict, as one line of a PromptModule indented four spaces: the signal tool, or
+the NOTHING_TO_ADD reply word.
+*/}}
+{{- define "homelab-pilot-crew.standAsideLine" -}}
+{{- if include "homelab-pilot-crew.signalTool" . }}
+    WHEN the question is not yours to answer THEN stand aside with the signal tool
+{{- else }}
+    WHEN the question is not yours to answer THEN reply NOTHING_TO_ADD
 {{- end }}
 {{- end }}
 

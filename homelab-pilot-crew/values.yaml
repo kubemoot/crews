@@ -19,19 +19,26 @@ crew:
   # is predicted to finish soonest), or shadow (algorithm places; learned is logged
   # beside it). Empty inherits the cluster default (KubemootConfig).
   placementPolicy: ""
+  # The consensus archetype (MootArchetype) the crew discusses under: who reviews, the signal kinds
+  # it declares, and the recheck rounds. consent-3 ships with the Kubemoot operator.
+  archetype: consent-3
 
 # How the agents at the table record what they conclude. The roles themselves are in the
 # PromptModules: crew-invariants for every agent, worker for the agents that gather, advisor for
 # the four domain advisors (the fact-checkers), and each agent's own module for its purpose.
 discussion:
-  # signalTool: true makes the shared modules say to record each verdict (agree, a concern, a
-  # clarifying question to the agent whose finding is in doubt, stand aside, no data, a tool gap)
-  # with the signal tool the Kubemoot agent runtime gives each agent, whose kinds the crew's
-  # consensus archetype declares. false (the default) keeps the reply words today's runtime
-  # parses: NOTHING_TO_ADD, NO_DATA:, TOOL_GAP: and CONCERN:. Set it true only on a Kubemoot
-  # whose agent runtime offers the signal tool.
+  # signalTool: how an agent records its verdict. true (the default) makes the shared modules say
+  # to record each verdict (agree, a concern, a clarifying question to the agent whose finding is
+  # in doubt, stand aside, no data, a tool gap) with the signal tool the Kubemoot agent runtime
+  # offers whenever the crew's consensus archetype declares signals; an agent asked a question
+  # rechecks and answers. false keeps the reply words an older Kubemoot parses (NOTHING_TO_ADD,
+  # NO_DATA, TOOL_GAP:, CONCERN:), for a crew on a Kubemoot without the signal tool; a questioned
+  # value is then reported as unverified, since there is no recheck round. The flag and the
+  # archetype must agree: archetypes lists the archetypes known to declare signals, and the render
+  # fails when the flag is true and crew.archetype is not one of them.
   signalTool:
-    enabled: false
+    enabled: true
+    archetypes: [consent-3]
 
 # Namespaces whose pods may reach this crew's discussion gateway when the operator
 # generates network policies (Crew spec.network.allowedIngress). Each entry is a
@@ -309,6 +316,10 @@ kubernetesAccess:
   # namespaces only. helm_list needs it (Helm stores release state in Secrets; without it the
   # k8s-helm agent's calls fail as forbidden), and so does any question that counts Secrets.
   # Also list the namespace under namespaces, or the servers cannot read anything else there.
+  # With a namespace listed, the Kubernetes server's own Secret denial (denied_resources) is
+  # dropped for the whole server, not only in these namespaces: the RBAC grant and the crew's
+  # invariant (never read or report the contents of a Secret) are then what keep Secret data out
+  # of an answer.
   secretRead:
     namespaces: []
   # pods/exec, workload patch and scale in the listed namespaces only, and the matching agent

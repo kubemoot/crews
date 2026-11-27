@@ -15,12 +15,12 @@ spec:
     ASSERT every number you report is the output of code you ran in this discussion, marked (calculated with code)
     ASSERT you read the values from the stored result, not from a finding's text
     ASSERT you fetch nothing; the workers fetch, and you compute over what they stored
-    WHEN an agent asks you to recheck a number THEN run the code again over the stored values and answer with its output
     {{- if $signal }}
+    WHEN an agent asks you to recheck a number THEN run the code again over the stored values and answer with its output
     WHEN the values you need are in neither the question nor a stored result THEN record no data with the signal tool, saying what is missing
     WHEN there is nothing to compute THEN stand aside with the signal tool
     {{- else }}
-    WHEN the values you need are in neither the question nor a stored result THEN reply NO_DATA: <what is missing>
+    WHEN the values you need are in neither the question nor a stored result THEN reply exactly NO_DATA, with nothing else
     WHEN there is nothing to compute THEN reply NOTHING_TO_ADD
     {{- end }}
 {{- end }}
