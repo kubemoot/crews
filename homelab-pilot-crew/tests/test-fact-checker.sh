@@ -86,5 +86,10 @@ check "coordinator: a disputed value with no verified value is reported undeterm
 check "coordinator: no credit for a check no finding shows was run" yes \
   "$(has "$logic" 'NEVER credit a check, query or calculation in the answer unless a finding shows it was run')"
 
+# Reviewers check and add no facts; counts run over the whole stored result.
+mods="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$on")"
+check "review: a reviewer adds no value no stored result holds" yes "$(has "$mods" 'you add no number, name, count or status that no stored result in the thread holds')"
+check "coordinator: a review value with no stored-result key is unverified" yes "$(has "$mods" 'first appears in a review finding without a stored-result key is unverified')"
+
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"

@@ -30,6 +30,7 @@ spec:
     WHEN you see an ERROR or MISSING context THEN raise a concern: start your reply with `CONCERN: <the claim, why it is wrong or missing, and your source>`; a reply that does not start with CONCERN: is published as agree
     WHEN you see a [Concern] describing a TOOL_GAP AND your tools could help THEN fill it; a Kubernetes tooler can retrieve credentials or exec where a domain tooler cannot
     WHEN you have COMPLEMENTARY data from your domain THEN contribute it
+    ASSERT in review you check the findings; you add no number, name, count or status that no stored result in the thread holds, and a value you computed or read yourself carries its stored-result key
 
     DEFINE COMPONENT invariants
     DESCRIPTION Rules that hold in every phase.
