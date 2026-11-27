@@ -229,10 +229,10 @@ wq_off="$(render --set compute.workspaceQuery=false)"
 wq_on="$(render)"
 [ "$(tools compute <<<"$wq_off")" = "execute_code,validate_code,workspace_head,workspace_tail,workspace_grep" ] || fail "compute.workspaceQuery=false must leave compute the code and text tools"
 [ "$(tools compute <<<"$wq_on")" = "execute_code,validate_code,workspace_head,workspace_tail,workspace_grep,workspace_query,workspace_list,workspace_describe" ] || fail "compute.workspaceQuery must append the workspace tools to compute"
-# workspace_describe is also the fact-checker's (advisors.workspaceQuery), so it is listed twice by default.
+# workspace_describe is also each advisor's (advisors.workspaceQuery), so it is listed five times by default.
 for t in workspace_list workspace_describe; do
-  want=1; [ "$t" = workspace_describe ] && want=2
-  [ "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$wq_on" | grep -c "^$t$")" = "$want" ] || fail "$t must be listed by $want agent(s): compute (and the fact-checker for describe)"
+  want=1; [ "$t" = workspace_describe ] && want=5
+  [ "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$wq_on" | grep -c "^$t$")" = "$want" ] || fail "$t must be listed by $want agent(s): compute (and the four advisors for describe)"
   ! tools compute <<<"$wq_off" | grep -q "$t" || fail "$t listed with compute.workspaceQuery=false"
 done
 # The switch also renders the denial (a declared access would otherwise grant the tools back).
@@ -257,22 +257,22 @@ hints="$(render --set mcpServers.workspace.nestedColumnHints=true)"
 [ "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "workspace-mcp") | .spec.env[] | select(.name == "KUBEMOOT_QUERY_NESTED_HINTS") | .value' <<<"$hints")" = "true" ] || fail "nestedColumnHints=true must set KUBEMOOT_QUERY_NESTED_HINTS on the workspace server"
 echo "PASS: compute.think, compute.groundNumbers, mcpServers.workspace.nestedColumnHints"
 
-# advisors.workspaceQuery: on by default adds workspace_query to the four advisors; off leaves
-# them the three text tools; the other agents never get it.
+# advisors.workspaceQuery: on by default adds workspace_query and workspace_describe to the four
+# advisors; off leaves them the three text tools and execute_code; the other agents never get them.
 adv_on="$(render)"
 adv_off="$(render --set advisors.workspaceQuery=false)"
 for a in k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor; do
-  [ "$(tools "$a" <<<"$adv_on")" = "workspace_head,workspace_tail,workspace_grep,workspace_query" ] || fail "$a: tools with advisors.workspaceQuery"
-  [ "$(tools "$a" <<<"$adv_off")" = "workspace_head,workspace_tail,workspace_grep" ] || fail "$a: tools without advisors.workspaceQuery"
+  case "$(tools "$a" <<<"$adv_on")" in execute_code,workspace_head,workspace_tail,workspace_grep,workspace_query,workspace_describe*) ;; *) fail "$a: tools with advisors.workspaceQuery" ;; esac
+  case "$(tools "$a" <<<"$adv_off")" in execute_code,workspace_head,workspace_tail,workspace_grep | execute_code,workspace_head,workspace_tail,workspace_grep,[!w]*) ;; *) fail "$a: tools without advisors.workspaceQuery" ;; esac
 done
-[ "$(grep -c 'workspace_query' <<<"$adv_on")" = "6" ] || fail "workspace_query must appear on the four advisors, compute and the fact-checker only"
+[ "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$adv_on" | grep -cx workspace_query)" = "5" ] || fail "workspace_query must appear on the four advisors and compute only"
 # A declared access grants every workspace tool it allows unless disabledTools names it, so a switch
 # that is off renders the denial; nothing renders with the switch on or with no declaration.
 denied() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | (.spec.disabledTools // []) | join(\",\")"; }
 all_off="$(render --set advisors.workspaceQuery=false --set compute.workspaceQuery=false)"
 [ "$(denied compute <<<"$all_off")" = "workspace_query,workspace_list,workspace_describe" ] || fail "compute.workspaceQuery=false must deny the three workspace query tools"
 for a in k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor; do
-  [ "$(denied "$a" <<<"$all_off")" = "workspace_query" ] || fail "$a: advisors.workspaceQuery=false must deny workspace_query"
+  [ "$(denied "$a" <<<"$all_off")" = "workspace_query,workspace_describe" ] || fail "$a: advisors.workspaceQuery=false must deny workspace_query and workspace_describe"
   [ "$(denied "$a" <<<"$adv_on")" = "" ] || fail "$a: no denial with advisors.workspaceQuery on"
 done
 [ "$(denied compute <<<"$adv_on")" = "" ] || fail "compute denies nothing by default"
@@ -348,8 +348,8 @@ echo "PASS: no previous Proxmox tool names"
 # when neither the question nor the discussion has any.
 compute_prompt="$(render | yq -N 'select(.kind == "PromptModule" and .metadata.name == "compute-system") | .spec.content')"
 [ -n "$compute_prompt" ] || fail "compute-system PromptModule did not render"
-grep -q 'stated in the question' <<<"$compute_prompt" || fail "compute prompt must accept data stated in the question"
-grep -q 'NEITHER the question NOR the discussion' <<<"$compute_prompt" || fail "NO_DATA must apply only when neither the question nor the discussion has data"
+grep -q 'values the question states' <<<"$compute_prompt" || fail "compute prompt must accept data stated in the question"
+grep -q 'in neither the question nor a stored result' <<<"$compute_prompt" || fail "NO_DATA must apply only when neither the question nor a stored result has the values"
 echo "PASS: compute prompt accepts inputs in the question"
 
 # The workspace server selects Kubemoot's built-in workspace-access image (the operator takes
@@ -435,41 +435,39 @@ field() { yq -N -o=json -I0 "select(.kind == \"Agent\" and .metadata.name == \"$
 rag() { render --set ragSources.enabled=true --set vectorStore.host=db.test --set vectorStore.existingSecret=s "$@"; }
 tool_out="$(rag --set ragSources.retrieval=tool)"
 preload_out="$(rag --set ragSources.retrieval=preload)"
-base='["workspace_head","workspace_tail","workspace_grep","workspace_query"]'
+searches='.spec.enabledTools | map(select(test("_search$")))'
 for a in $advisors; do
-  [ "$(field "$rag_out" "$a" '.spec.enabledTools')" = "$base" ] || fail "$a: the default retrieval must leave enabledTools as the workspace tools"
+  [ "$(field "$rag_out" "$a" "$searches | length")" = "0" ] || fail "$a: the default retrieval must add no search tool"
   [ "$(field "$rag_out" "$a" '.spec.ragSources | length')" -ge 1 ] || fail "$a: the default retrieval must keep its sources in spec.ragSources"
   [ "$(field "$preload_out" "$a" '.spec')" = "$(field "$rag_out" "$a" '.spec')" ] || fail "$a: retrieval=preload must equal the default"
   [ "$(field "$tool_out" "$a" '.spec.ragSources')" = "null" ] || fail "$a: retrieval=tool must leave spec.ragSources out"
 done
 [ "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$rag_out" | grep -c '_search' || true)" = "0" ] || fail "the default retrieval must add no search rule to any prompt"
-[ "$(field "$tool_out" k8s-advisor '.spec.enabledTools | .[4:]')" = '["kubectl-reference_search","helm-reference_search","talos-reference_search","kubernetes-concepts_search"]' ] || fail "k8s-advisor: retrieval=tool must add one search tool per bound source, in source order"
-[ "$(field "$tool_out" nvidia-gpu-advisor '.spec.enabledTools | .[4:]')" = '["nvidia-gpu-reference_search"]' ] || fail "nvidia-gpu-advisor: search tool missing"
-[ "$(field "$tool_out" obs-advisor '.spec.enabledTools | .[4:]')" = '["prometheus-reference_search"]' ] || fail "obs-advisor: search tool missing"
-[ "$(field "$tool_out" proxmox-advisor '.spec.enabledTools | .[4:]')" = '["proxmox-api-reference_search","proxmox-pve-docs_search"]' ] || fail "proxmox-advisor: search tools missing"
-# Each advisor's own module carries the search rule only when it has a search tool, with the runtime's tool-list placeholder.
+[ "$(field "$tool_out" k8s-advisor "$searches")" = '["kubectl-reference_search","helm-reference_search","talos-reference_search","kubernetes-concepts_search"]' ] || fail "k8s-advisor: retrieval=tool must add one search tool per bound source, in source order"
+[ "$(field "$tool_out" nvidia-gpu-advisor "$searches")" = '["nvidia-gpu-reference_search"]' ] || fail "nvidia-gpu-advisor: search tool missing"
+[ "$(field "$tool_out" obs-advisor "$searches")" = '["prometheus-reference_search"]' ] || fail "obs-advisor: search tool missing"
+[ "$(field "$tool_out" proxmox-advisor "$searches")" = '["proxmox-api-reference_search","proxmox-pve-docs_search"]' ] || fail "proxmox-advisor: search tools missing"
+# Each advisor's own module says its documentation is searched on demand only when it has a search tool.
 for a in $advisors; do
   mod="$(yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$a-system\") | .spec.content" <<<"$tool_out")"
-  grep -q 'DEFINE COMPONENT reference-search' <<<"$mod" || fail "$a-system: retrieval=tool must add the search rule"
-  # shellcheck disable=SC2016
-  grep -qF '${agent.tools}' <<<"$mod" || fail "$a-system: the search rule must use the tool-list placeholder"
+  grep -q 'searched on demand' <<<"$mod" || fail "$a-system: retrieval=tool must say the documentation is searched on demand"
 done
 # A per-binding override: one source on demand, the rest preloaded; and a global tool with one binding back to preload.
 two='[{"name":"one","gitUrl":"https://x.test/r","paths":["."],"agents":{"k8s-advisor":{"topK":2,"retrieval":"tool"},"obs-advisor":{"topK":1}}},{"name":"two","gitUrl":"https://x.test/r","paths":["."],"agents":{"k8s-advisor":{"topK":3}}}]'
 one_tool="$(rag --set-json "ragSources.sources=$two")"
-[ "$(field "$one_tool" k8s-advisor '.spec.enabledTools | .[4:]')" = '["one_search"]' ] || fail "a binding set to tool must add only its own search tool"
+[ "$(field "$one_tool" k8s-advisor "$searches")" = '["one_search"]' ] || fail "a binding set to tool must add only its own search tool"
 [ "$(field "$one_tool" k8s-advisor '.spec.ragSources | map(.name)')" = '["two"]' ] || fail "a binding set to tool must leave only that source out of spec.ragSources"
 [ "$(field "$one_tool" obs-advisor '.spec.ragSources | map(.name)')" = '["one"]' ] || fail "an override on one agent must not move another agent's bindings"
-[ "$(field "$one_tool" obs-advisor '.spec.enabledTools | length')" = "4" ] || fail "an override on one agent must not add a tool to another agent"
+[ "$(field "$one_tool" obs-advisor "$searches | length")" = "0" ] || fail "an override on one agent must not add a tool to another agent"
 module() { yq -N "select(.kind == \"PromptModule\" and .metadata.name == \"$2-system\") | .spec.content" <<<"$1"; }
-grep -q 'DEFINE COMPONENT reference-search' <<<"$(module "$one_tool" k8s-advisor)" || fail "the advisor with a search tool must carry the search rule"
-grep -q 'DEFINE COMPONENT reference-search' <<<"$(module "$one_tool" obs-advisor)" && fail "the advisor with no search tool must not carry the search rule"
-grep -q 'NO tools' <<<"$(module "$one_tool" obs-advisor)" || fail "the advisor with no search tool keeps its no-tools line"
-grep -q 'NO tools' <<<"$(module "$one_tool" k8s-advisor)" && fail "the advisor with a search tool must not claim it has no tools"
+grep -q 'searched on demand' <<<"$(module "$one_tool" k8s-advisor)" || fail "the advisor with a search tool must say it searches on demand"
+grep -q 'searched on demand' <<<"$(module "$one_tool" obs-advisor)" && fail "the advisor with no search tool must not say it searches"
+grep -q 'arrives with the question' <<<"$(module "$one_tool" obs-advisor)" || fail "the advisor with no search tool says its documentation arrives with the question"
+grep -q 'arrives with the question' <<<"$(module "$one_tool" k8s-advisor)" && fail "the advisor with a search tool must not say its documentation arrives with the question"
 back="$(rag --set ragSources.retrieval=tool --set-json "ragSources.sources=${two/\"tool\"/\"preload\"}")"
 [ "$(field "$back" k8s-advisor '.spec.ragSources | map(.name)')" = '["one"]' ] || fail "a binding set to preload must stay preloaded under a global tool"
 [ "$(field "$back" k8s-advisor '.spec.ragSources[0].topK')" = "2" ] || fail "a preloaded binding must keep its topK"
-[ "$(field "$back" k8s-advisor '.spec.enabledTools | .[4:]')" = '["two_search"]' ] || fail "an unset binding must follow the global tool value"
+[ "$(field "$back" k8s-advisor "$searches")" = '["two_search"]' ] || fail "an unset binding must follow the global tool value"
 # Bad values fail the render, globally and per binding; RAG off adds nothing whatever the value.
 rag --set ragSources.retrieval=sometimes >/dev/null 2>&1 && fail "an unknown global retrieval must fail the render"
 rag --set-json 'ragSources.sources=[]' --set ragSources.retrieval=sometimes >/dev/null 2>&1 && fail "an unknown global retrieval must fail the render even with no sources"
@@ -481,5 +479,5 @@ bind --set 'ragSources.sources[0].agents.obs-advisor.topK=4' --set 'ragSources.s
 bind --set 'ragSources.sources[0].agents.obs-advisor.retrieval=sometimes' >/dev/null 2>&1 && fail "an unknown binding retrieval must fail the render"
 bind --set 'ragSources.sources[0].agents.obs-advisor.retrieval=Tool' >/dev/null 2>&1 && fail "retrieval is case sensitive"
 bind --set-json 'ragSources.sources[0].agents.obs-advisor.retrieval=true' >/dev/null 2>&1 && fail "a non-string binding retrieval must fail the render"
-[ "$(field "$(render --set ragSources.retrieval=tool)" obs-advisor '.spec.enabledTools | length')" = "4" ] || fail "ragSources.enabled=false must add no search tool"
+[ "$(field "$(render --set ragSources.retrieval=tool)" obs-advisor "$searches | length")" = "0" ] || fail "ragSources.enabled=false must add no search tool"
 echo "PASS: RAG retrieval switch (preload and tool) renders and validates"

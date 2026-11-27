@@ -81,12 +81,12 @@ check "k8s-helm: the same with secret namespaces" "helm_list resources_list" "$(
 check "k8s-helm: install and uninstall with write namespaces" "helm_list resources_list helm_install helm_uninstall" \
   "$(helm_tools "$(render --set 'kubernetesAccess.write.namespaces={apps}')")"
 helm_text="$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[] | select(.name == "helm_list") | .description' <<<"$out")"
-check "k8s-helm: on forbidden, helm_list sends it to Flux HelmRelease" yes \
-  "$(has "$helm_text" "WHEN this tool fails with a forbidden error THEN list the Flux HelmRelease objects instead: resources_list with apiVersion helm.toolkit.fluxcd.io/v2 and kind HelmRelease")"
+check "k8s-helm: helm_list names the Flux HelmRelease route for a cluster without Secret read" yes \
+  "$(has "$helm_text" "the HelmRelease objects (resources_list, apiVersion helm.toolkit.fluxcd.io/v2, kind HelmRelease")"
 check "k8s-helm: helm_list names where a HelmRelease carries chart and version" yes \
   "$(has "$helm_text" "status.history[0] (chartName, chartVersion, status)")"
-check "k8s-helm: helm_list forbids the unserved helm.sh Release kind" yes \
-  "$(has "$helm_text" "NEVER request kind Release or apiVersion helm.sh/v3")"
+check "k8s-helm: helm_list says the API serves no helm.sh Release kind" yes \
+  "$(has "$helm_text" "the API serves no kind Release and no apiVersion helm.sh/v3")"
 check "k8s-helm: the Flux route stays out of the resources_list text other agents see" 0 \
   "$(yq -N 'select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[] | select(.name == "resources_list") | .. | select(tag == "!!str")' <<<"$out" | grep -c 'HelmRelease' || true)"
 

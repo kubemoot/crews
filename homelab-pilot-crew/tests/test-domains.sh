@@ -22,15 +22,15 @@ count() { grep -c . || true; }
 
 # The crew's shape, so an agent added without a decision here fails this test.
 check "toolers in the all-on rendering" 16 "$(agents_of tooler | count)"
-check "analysts in the all-on rendering" 6 "$(agents_of analyst | count)"
+check "analysts in the all-on rendering" 5 "$(agents_of analyst | count)"
 check "researchers in the all-on rendering" 1 "$(agents_of researcher | count)"
 check "coordinators in the all-on rendering" 1 "$(agents_of coordinator | count)"
 
-# The agents that declare no domain, derived from the rendering. Only compute and fact-checker (analysts, generalists
-# that review every discussion) and scheduler-advisor (a tooler, never convened for
+# The agents that declare no domain, derived from the rendering. Only compute (an analyst, a generalist
+# that reviews every discussion) and scheduler-advisor (a tooler, never convened for
 # review) may.
 undeclared="$(for a in $(agents_of tooler) $(agents_of analyst); do if [ -z "$(domains_of "$a")" ]; then echo "$a"; fi; done | sort | paste -sd' ' -)"
-check "only compute, fact-checker and scheduler-advisor declare no domain" "compute fact-checker scheduler-advisor" "$undeclared"
+check "only compute and scheduler-advisor declare no domain" "compute scheduler-advisor" "$undeclared"
 check "compute is an analyst, so it reviews as a generalist" yes "$(agents_of analyst | grep -qx compute && echo yes || echo no)"
 check "scheduler-advisor is a tooler, so it never reviews" yes "$(agents_of tooler | grep -qx scheduler-advisor && echo yes || echo no)"
 
