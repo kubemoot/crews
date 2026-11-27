@@ -76,7 +76,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
       description: |-
         DESCRIPTION Runs a short Python 3 or bash program in an isolated sandbox and returns its stdout, stderr and exit code; a program that runs past the time limit is stopped
         ASSERT Python has the standard library only (json, csv, collections, statistics, math, itertools, re); pandas, numpy and every other third-party package are not installed, and importing one fails
-        ASSERT the sandbox has no network and no cluster access: the values a program works on are written into it, for example rows read from a stored result with the workspace tools
+        ASSERT the sandbox has no network and no cluster access
+        ASSERT a program reads a stored result of this discussion in full: name its key in inputs, for example inputs: ["k8s-config/001-resources_get"], and the program opens the file ./inputs/k8s-config/001-resources_get; a count, filter or total is computed over all of that file, not over rows copied out of a slice
+        ASSERT a stored result may hold a table as text inside a YAML or JSON field (a ConfigMap with a CSV in data), which the program parses itself, and workspace_query cannot split into rows
+        ASSERT only this discussion's stored results can be named; a key of another discussion or one that does not exist is refused
   resources:
     requests:
       cpu: "100m"
