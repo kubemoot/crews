@@ -65,6 +65,7 @@ jobs:
           bash .github/scripts/test-create-github-releases.sh
           bash .github/scripts/test-fitness-scenarios.sh
           bash homelab-pilot-crew/tests/test-domains.sh
+          bash homelab-pilot-crew/tests/test-fact-checker.sh
           bash homelab-pilot-crew/tests/test-placement-policy.sh
           bash homelab-pilot-crew/tests/test-access.sh
           bash homelab-pilot-crew/tests/test-prompt-tools.sh
