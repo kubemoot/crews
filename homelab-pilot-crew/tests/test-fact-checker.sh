@@ -71,5 +71,16 @@ check "workspaceQuery off: the query tools are denied" "workspace_query workspac
 both="$(render --set discussion.factChecker.enabled=true --set discussion.peerVerification.enabled=true)"
 check "with peer-verification: refs" "discussion-protocol,peer-verification,ratify-prompt,response-style,fact-checker-system" "$(agent "$both" '.spec.promptRefs | join(",")')"
 
+# The coordinator answers only from values a finding or a concern holds (the checker's concerns feed it).
+logic="$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$default")"
+check "coordinator: values come from a finding, a concern or a stored result" yes \
+  "$(has "$logic" 'every number, name and status in the answer comes from a finding, a concern, or a stored result')"
+check "coordinator: a concern's correct value replaces the disputed one" yes \
+  "$(has "$logic" "the answer uses the concern's value")"
+check "coordinator: a disputed value with no verified value is reported undetermined" yes \
+  "$(has "$logic" 'the answer says the value could not be determined instead of stating one')"
+check "coordinator: no credit for a check no finding shows was run" yes \
+  "$(has "$logic" 'NEVER credit a check, query or calculation in the answer unless a finding shows it was run')"
+
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo "all passed"
