@@ -232,6 +232,14 @@ The inline guards fail an iteration that names `crew-node` or counts `15 nodes`;
 
 `discussion.peerVerification.enabled` (default `false`) adds the `peer-verification` PromptModule to every agent that uses `discussion-protocol` (all but the coordinator), listed right after it. The module is four short rules: check a peer's number or name against the stored result it came from before agreeing, raise a CONCERN naming a claim that has no stored result behind it, raise a CONCERN with your own value and its source when your data differs from a peer's, and never supply an estimate or illustrative value in place of data no agent retrieved. It is an experiment: run the same fitness scenarios with it off and on (`--set discussion.peerVerification.enabled=true`) and compare. With it off the chart renders exactly as before.
 
+## Fact-checker
+
+`discussion.factChecker.enabled` (default `false`) adds the `fact-checker` agent and its `fact-checker-system` PromptModule. With it off the chart renders exactly as before. The agent is an analyst that declares no domains, so, like `compute`, the coordinator convenes it to review every discussion that gathered data, whatever the domain. It takes part in review and ratification only: in evaluation it replies `NOTHING_TO_ADD`, and its own triage prompt makes it stand aside when no agent gathered data.
+
+In review it lists the factual claims of each finding (numbers, names, counts, states) and checks each against the stored result the finding cites, read by key with the workspace read tools, and against the live source where it has a read tool for it. It replies `CONCERN: <claim, why it is wrong or unverified, the source it checked>`, which the runtime publishes as a concern signal, listing every failing claim in one reply, and agrees only when every claim it checked matched. A claim with no stored result behind it is a concern, and so is a failed read: unverified is never an agree. It supplies no value or estimate of its own. When the coordinator asks the roster to ratify its draft, it traces each name and number of the draft to a finding or stored result and raises a concern for one that has none.
+
+Its tools are read-only: the workspace read tools (`workspace_query` and `workspace_describe` follow `advisors.workspaceQuery`) and, with `discussion.factChecker.liveRead` (default `true`), the read tools of the crew's existing Kubernetes MCP server (`resources_list`, `resources_get`, `pods_list`, `pods_list_in_namespace`, `events_list`). It adds no MCPServer and no RBAC; it reaches only what the server's own read access already allows. `liveRead: false` leaves it the workspace tools. It composes with `discussion.peerVerification.enabled`. `tests/test-fact-checker.sh` renders it off and on and checks the role, the empty domains, the tools, and the CONCERN convention.
+
 ## Placement policy
 
 `crew.placementPolicy` chooses how Kubemoot places this crew's model calls: `algorithm`,
