@@ -1,7 +1,7 @@
 {{- if and .Values.fitness.peerErrors.enabled (include "homelab-pilot-crew.rbacTenant" .) }}
 {{/*
 The opt-in peer-errors tier: scenarios built to make one agent mislead the others, so a
-peer-verification A/B has something to catch, and the test fixtures they read. Off by default.
+measurement of the crew's checking has something to catch, and the test fixtures they read. Off by default.
 Nothing here ships to a user's crew unless fitness.peerErrors.enabled is true.
 
   <crew>-fitness-peer-errors      the scenarios under fitness-peer-errors/, labeled

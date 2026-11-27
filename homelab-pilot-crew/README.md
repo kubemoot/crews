@@ -3,7 +3,7 @@
 The Kubemoot reference crew: a coordinator and up to 22 specialists that answer operational questions about the cluster they run in, across four layers, **Kubernetes**, **observability** (Prometheus and DCGM), **GPU/AI** (NVIDIA accelerators and their model servers), and optionally **physical/hypervisor** (Proxmox VE). Discussions run on the Kubemoot consensus protocol: the coordinator writes an advisory, selects a subcommittee of relevant specialists, and synthesizes their findings into one answer. Each selected specialist gets its own task from the advisory (`memberTasks`). Every prompt is written in ADL.
 
 - **Who it is for:** cluster operators who want to ask their cluster questions in plain language, and anyone learning how a Kubemoot crew is built, since this is the reference for the others.
-- **What it answers:** what is running and whether it is healthy (pods, events, nodes, storage, Helm releases, network policies), resource use and capacity from Prometheus, GPU utilization and history from DCGM, Kubernetes, Prometheus, NVIDIA, and Proxmox concepts from their documentation (RAG), counting and arithmetic over gathered data in a sandbox, and current facts from a web search.
+- **What it answers:** what is running and whether it is healthy (pods, events, nodes, storage, Helm releases, network policies), resource use and capacity from Prometheus, GPU utilization and history from DCGM, counting and arithmetic over gathered data in a sandbox, and current facts from a web search. Four domain advisors check the findings against the stored results, the live source and their documentation (RAG), and ask the agent behind a doubtful finding to recheck it.
 - **What it needs from the cluster:**
   - a chat model with `tool-calling` in the cluster's model catalog (a larger model with `reasoning` for the coordinator helps; the chart ships no Model), and a ModelServer that has the embedding model (`nomic-embed-text`) in its catalog, or a Model that asks for it on one;
   - a pgvector database and a Secret with its credentials in the crew namespace, for the RAG sources and the gateway tool index (or turn RAG off);
@@ -128,17 +128,14 @@ Every tooler that gathers data and every specialist analyst declares `spec.domai
 
 ## Agent descriptions
 
-The coordinator picks agents for a question from what each Agent says about itself. It reads each candidate's `description` and tool names. The resume search that narrows the candidates also embeds the `triageSummary`, the `discussKeywords`, and the agent's prompt.
+The coordinator picks agents for a question from what each Agent says about itself. Its selection step reads each candidate's `description` and tool names; the resume search that narrows the candidates also embeds the `triageSummary` and the `discussKeywords`. So the description says what the agent answers, in the words a question uses, and the summary says the same at more length and never contradicts it.
 
-Each description names the live data its agent fetches, in the words a question uses. Neighbors do not claim the same data:
+- A worker's description opens with what it reads: "Reads", "Measures" or "Finds" (k8s-config: "Reads namespaces and configuration objects: ConfigMap contents (keys and values, such as a setting, a schedule or a policy) ..."). Neighbors do not claim the same data: `k8s-nodes` node capacity and allocatable, `k8s-workloads` each container's requests and limits, `k8s-metrics` usage now and over a window, `obs-metrics` the monitoring stack and its alerts, `proxmox-pve` the hosts and `proxmox-qm` the VMs, `k8s-helm` Helm releases only.
+- An advisor's description opens with "Reviews and fact-checks".
+- `compute` computes with code and fetches nothing, so its description says to select it with the agents that fetch the data.
+- Keywords hold the words unique to an agent: no shared words such as `kubernetes`, `status` or `error` on `k8s-workloads`, no weekdays on `scheduler-advisor`, no `*` on `internet-search`.
 
-- `k8s-nodes`: node CPU and memory capacity and allocatable, roles, conditions.
-- `k8s-workloads`: pods and controllers, and each container's CPU and memory requests and limits.
-- `k8s-metrics`: CPU and memory usage, now and over time.
-- `obs-metrics`: the monitoring stack itself and its alerts.
-- `proxmox-pve`: the hypervisor hosts. `proxmox-qm`: the virtual machines.
-
-An agent that fetches live data opens its description with "Fetches". The compute agent fetches nothing: its sandbox has no cluster API, no kubectl, and no network, so its description says to pick it together with the agents that fetch the data. No description names a particular cluster. `tests/test-prompt-tools.sh` checks these rules.
+No description or prompt names a particular cluster. `tests/test-prompt-tools.sh` checks these rules.
 
 ## Models
 
@@ -167,19 +164,33 @@ homelab-pilot-crew/
   mcp-smoke/                  # MCP tool smoke-test definitions
 ```
 
-## Tools in the prompts
+## Roles and prompts
 
-A module that lists an agent's tools writes `${agent.tools}`, and the Kubemoot agent runtime replaces it with the tools that agent registered from its gateway. Shared modules describe tool kinds ("your list tool") and never name a tool another agent has, because an agent that calls a tool outside its set gets "Unknown tool".
+Each agent's prompt is its role and its purpose, in ADL, and nothing else: about 2,000 characters per agent. What a tool does and how to call it is in the tool's description (see [Tool overrides](#tool-overrides)); recipes a model may lack are in opt-in [Skills](#skills); what a model already knows is in no prompt at all; who reviews and in what order belongs to the crew's consensus archetype.
 
-A runtime that predates the placeholder leaves the text `${agent.tools}` in the prompt: it sits at the end of a sentence that points to the agent's tool definitions, so the prompt still reads.
+| Module | Loaded by | Says |
+|---|---|---|
+| `crew-invariants` | every agent but the coordinator | One agent at a table; the crew reads only (or, with `kubernetesAccess.write.namespaces`, changes a system only when asked and only with a write tool); no Secret contents; no agent creates information; a value that is not a raw tool value says how it was made, `(calculated with code)` or `(inferred from <what>)`; one reply per phase. |
+| `worker` | the 15 Kubernetes, GPU, observability and Proxmox agents, `internet-search`, `scheduler-advisor` | Gather with your tools and report what they returned; read only what the question needs; never count, total or order a result yourself; answer a recheck request by reading again. |
+| `advisor` | `k8s-advisor`, `nvidia-gpu-advisor`, `obs-advisor`, `proxmox-advisor` | The domain's fact-checker (see [Advisors, the fact-checkers](#advisors-the-fact-checkers)). |
+| `<agent>-system` | that agent | Its purpose in one `DESCRIPTION`, and the few behaviors only it has (k8s-config reports a Secret by name and count only; the scheduler never shows a schedule id). |
+| `compute-system` | `compute` | The table's calculator: every number is the output of code it ran, marked `(calculated with code)`; it fetches nothing. |
+| `coordinator-convene`, `coordinator-answer` | `homelab-coordinator` | Select the agents whose description fits; answer only from the findings, a questioned value only after its agent rechecked it, a failed read as unknown, never as zero. |
+| `ratify-prompt` | nobody while ratification is off | Kept as the crew's ratification text. |
 
-`tests/test-prompt-tools.sh` fails when a module names a tool its agent does not have, with the optional tools (`kubernetesAccess.secretRead.namespaces`, `kubernetesAccess.write.namespaces`, `compute.workspaceQuery`, `advisors.workspaceQuery`) on and off.
+### Verdicts: reply words or the signal tool
+
+`discussion.signalTool.enabled` (default `false`) sets how an agent records its verdict. Off, the shared modules teach the reply words today's Kubemoot agent runtime parses: `NOTHING_TO_ADD` (stand aside), `NO_DATA: <what, why>`, `TOOL_GAP: <capability>`, and for an advisor `CONCERN: @<agent>, <clarifying question>? <why>`. On, they say to record each verdict with the signal tool the runtime gives each agent, whose kinds (agree, concern, a question to an agent, stand aside, no data, tool gap, block) the crew's consensus archetype declares, and no module teaches a word. Set it on only with a Kubemoot whose agent runtime offers that tool. Only the PromptModules differ between the two settings.
+
+### The prompt lint
+
+[`scripts/check-prompt-rules.sh`](../scripts/check-prompt-rules.sh) fails a rendering in which a PromptModule line or a relevance hint names a tool one of the crew's MCP servers lists (`tests/server-tools.yaml`) or says "defer to": tool knowledge belongs in the tool's description, and an agent cannot hand a question to another. `tests/test-prompt-lint.sh` runs it with the optional tools and switches on and off, and checks that it catches a planted rule. `tests/test-prompt-tools.sh` also fails when a module names a tool its agent does not have.
 
 The workspace server (`workspace-mcp`, which runs `workspace_query`) takes its memory from `mcpServers.workspace.resources` (request 256Mi, limit 512Mi by default) and caps what one query may add to the process with `mcpServers.workspace.queryMemory` (`WORKSPACE_QUERY_MEMORY`, 128MB). Two queries run at once, so the limit must hold both plus the process; a query over the cap stops with an error and the container stays up. The same two values exist in the O'guide crew chart.
 
 ## Tool overrides
 
-A tool result is as large as what the call asks for. The chart rewrites the descriptions agents see, through the `toolOverrides` on each `MCPServer`, so the narrow form of a call is the obvious one. The descriptions are ADL, like the prompts.
+A tool result is as large as what the call asks for. The chart rewrites the descriptions agents see, through the `toolOverrides` on each `MCPServer`: what the tool returns, how large the result gets, and what each argument does, so the narrow form of a call is the obvious one. This is where the tool knowledge that used to sit in the prompts lives now. A description states facts (`DESCRIPTION` and `ASSERT` lines) and never a rule (no `WHEN`, `THEN`, `ALWAYS` or `NEVER`); a model chooses a call from what the tool does. `tests/test-prompt-tools.sh` checks that.
 
 The Kubernetes MCP server (containers/kubernetes-mcp-server, pinned by digest in `mcpServers.kubernetes.image`) prints every list as a wide table with a `LABELS` column and has no option for fewer columns, so the size of a list is set by the rows a call asks for. The server reads its settings from a TOML file only; the chart renders one in a Secret (`<release>-kubernetes-mcp-config`) that loads the `core` and `helm` toolsets and sets `read_only` unless `kubernetesAccess.writeAccess` is true. Its overrides (`templates/mcpserver-kubernetes.yaml`):
 
@@ -198,6 +209,8 @@ The Prometheus server's overrides (`templates/mcpserver-prometheus.yaml`) make P
 
 The Proxmox server's overrides (`templates/mcpserver-proxmox.yaml`) keep `verbose` off on `list_nodes`, `list_vms`, and `get_cluster_resources` (the compact row carries status, CPU, and memory), point questions about several VMs at one `list_vms` or `get_cluster_resources` call instead of one history call per VM, and give the RRD tools' exact `timeframe` values (`hour`, `day`, `week`, `month`, `year`) and `cf` values (`AVERAGE`, `MAX`), and that they take no `limit`.
 
+The other servers' overrides carry what the prompts used to: `analyze` on k8sgpt lists its filters, and gateway rules refuse `explain` and `backend`, which the server (no language model) cannot use; `execute_code` on the code sandbox says the sandbox has the Python standard library only and no network; `workspace_head`, `workspace_tail` and `workspace_grep` say what a `[CALL key=...]` line in a finding is, that it carries no data, and what an `[EMPTY RESULT]` block and a cut `args=` text mean (`workspace_query`, `workspace_list` and `workspace_describe` keep the server's own descriptions, which name the query engine).
+
 The crew needs the Kubemoot release that carries `rules` on a parameter override (the MCPServer CRD field and the gateway that enforces it). Deploy that release before this chart: on an older CRD the field is dropped and only the descriptions apply, so nothing is enforced. The rules are RE2 patterns, searched anywhere in the argument and checked in order; The patterns walk whole `field=value` terms, so an escaped comma inside a value (`involvedObject.name=a\,b`) is not taken for a term separator. `tests/fixtures/field-selector-rules.json` holds the four patterns and the selectors each must reject or let through; `tests/test-prompt-tools.sh` checks the rendered chart against it, and the Kubemoot gateway runs a copy with its RE2 engine.
 
 Each description restates what the parameter does in the server's own source at the pinned version, and the Kubernetes API's field-selector support. A question that needs every object of a kind, such as a count per namespace, still gets the full table; the overrides only stop a call from asking for more than the question needs. `tests/test-prompt-tools.sh` pins the overrides. `tests/test-server-tools.sh` checks every tool an agent enables, and every tool an override names, against the tools each server lists at its pinned image (`tests/server-tools.yaml`).
@@ -208,7 +221,7 @@ Each description restates what the parameter does in the server's own source at 
 
 The chart deploys the scenarios with the crew as one ConfigMap, `homelab-pilot-fitness`, labeled `kubemoot.ai/crew` and `kubemoot.ai/fitness-kind: scenarios`. CrewForge and the dashboard list them from it; nothing runs until someone starts a run.
 
-An opt-in tier, `fitness-peer-errors/`, holds seven scenarios built to make one agent mislead the others (a planted wrong fact, conflicting sources, an oversized result, a plausible wrong answer, arithmetic), so a peer-verification A/B has something to catch. It is off by default: `--set fitness.peerErrors.enabled=true` renders its scenarios as the ConfigMap `homelab-pilot-fitness-peer-errors` and the deliberately wrong test fixtures (`peer-errors-fixture-*`) they read. The standard and full tiers never include it. See [fitness-peer-errors/README.md](fitness-peer-errors/README.md).
+An opt-in tier, `fitness-peer-errors/`, holds seven scenarios built to make one agent mislead the others (a planted wrong fact, conflicting sources, an oversized result, a plausible wrong answer, arithmetic), so a measurement of the crew's checking has something to catch. It is off by default: `--set fitness.peerErrors.enabled=true` renders its scenarios as the ConfigMap `homelab-pilot-fitness-peer-errors` and the deliberately wrong test fixtures (`peer-errors-fixture-*`) they read. The standard and full tiers never include it. See [fitness-peer-errors/README.md](fitness-peer-errors/README.md).
 
 Run a scenario with `kmctl fitness run`, or apply a `CrewFitness` resource with `kubectl`. To run all of them as one `CrewFitnessSuite`, assemble it with [`scripts/build-suite.py`](../scripts/build-suite.py):
 
@@ -228,17 +241,22 @@ kubectl apply -f /tmp/nodes-grounded.yaml && kmctl fitness run nodes-grounded -n
 
 The inline guards fail an iteration that names `crew-node` or counts `15 nodes`; the deferred judge fails any node name the cluster does not have and any count other than the live one. Compare the fail rate of the two runs, and read the failing iterations' syntheses, not only the score.
 
-## Peer verification
+## Advisors, the fact-checkers
 
-`discussion.peerVerification.enabled` (default `false`) adds the `peer-verification` PromptModule to every agent that uses `discussion-protocol` (all but the coordinator), listed right after it. The module is four short rules: check a peer's number or name against the stored result it came from before agreeing, raise a CONCERN naming a claim that has no stored result behind it, raise a CONCERN with your own value and its source when your data differs from a peer's, and never supply an estimate or illustrative value in place of data no agent retrieved. It is an experiment: run the same fitness scenarios with it off and on (`--set discussion.peerVerification.enabled=true`) and compare. With it off the chart renders exactly as before.
+The four advisors (`k8s-advisor`, `nvidia-gpu-advisor`, `obs-advisor`, `proxmox-advisor`) review their domain's findings before the coordinator answers: trust, and verify. Each checks every number, name, count and state of a finding against the stored result it came from, the live source where its tools read it, and the documentation its RAG sources give it. A number it checks is computed with code from the stored values. It may reword or clarify a finding; it never changes the data or adds data of its own. When it doubts a finding it asks the agent that made it a clarifying question to recheck ("@k8s-nodes, can you recheck the node count? 100 seems high for this cluster"); that agent reads again and answers, and the advisor checks the answer. The coordinator counts a questioned value only after that recheck.
 
-## Fact-checker
+Their tools are read and compute only: `workspace_head`, `workspace_tail`, `workspace_grep`, `execute_code` (the crew's code sandbox), `workspace_query` and `workspace_describe` with `advisors.workspaceQuery` (default `true`), and with `advisors.liveRead` (default `true`) the read tools of their domain's live source: the Kubernetes server's `resources_list`, `resources_get`, `pods_list`, `pods_list_in_namespace` and `events_list` for `k8s-advisor`, Prometheus's `execute_query` for the GPU and observability advisors, and Proxmox's `list_nodes`, `list_vms` and `get_cluster_resources` for `proxmox-advisor` when Proxmox is on. `liveRead` adds no MCPServer, no RBAC and no write tool. The runtime's own analyst triage decides when an advisor takes part; the chart sets no triage prompt. `tests/test-advisors.sh` checks the roles, the tools in each setting, and the modules.
 
-`discussion.factChecker.enabled` (default `true`) adds the `fact-checker` agent and its `fact-checker-system` PromptModule. Set `false` and the chart renders without them, exactly as before the agent existed. The agent is an analyst that declares no domains, so, like `compute`, the coordinator convenes it to review every discussion that gathered data, whatever the domain. It takes part in review and ratification only: in evaluation it replies `NOTHING_TO_ADD`, and its own triage prompt makes it stand aside only when the thread shows no `[CALL ...]` line.
+The separate fact-checker agent is folded into this role. `discussion.factChecker` and `discussion.peerVerification` no longer do anything: a release that still sets them renders the same and prints a `REMOVED:` note in the install notes.
 
-In review it lists the factual claims of each finding (numbers, names, counts, states) and checks each against the stored result the finding cites, read by key with the workspace read tools, and against the live source where it has a read tool for it. It replies `CONCERN: <claim, why it is wrong or unverified, the source it checked>`, which the runtime publishes as a concern signal, listing every failing claim in one reply, and agrees only when every claim it checked matched. A claim with no stored result behind it is a concern, and so is a failed read: unverified is never an agree. It supplies no value or estimate of its own. When the coordinator asks the roster to ratify its draft, it traces each name and number of the draft to a finding or stored result and raises a concern for one that has none.
+## Skills
 
-Its tools are read and compute only: the code execution tool (`execute_code`, the crew's existing code sandbox that `compute` uses), with which it computes every number it checks from the stored values instead of by its own arithmetic, and the workspace read tools (`workspace_query` and `workspace_describe` follow `advisors.workspaceQuery`) and, with `discussion.factChecker.liveRead` (default `true`), the read tools of the crew's existing Kubernetes MCP server (`resources_list`, `resources_get`, `pods_list`, `pods_list_in_namespace`, `events_list`). `liveRead` is the union of the toolers' read tools: it adds no MCPServer, no RBAC and no write tool, and reaches only what the server's own read access allows. It never reads the contents of a Secret, whatever `kubernetesAccess.secretRead` grants the server; a claim about one is unverified. `liveRead: false` leaves it the workspace tools. It describes a stored result (its fields or columns) before it queries it, and a concern about a value gives the correct value and how it was computed, or says the value could not be verified. It composes with `discussion.peerVerification.enabled`. The coordinator's decision logic answers only from values a finding or a concern holds: a concern's correct value replaces the value it disputes, a disputed value no agent holds a verified value for is reported as undetermined, and no check is credited that no finding shows was run. `tests/test-fact-checker.sh` renders it off (set `false`) and on (the default) and checks the role, the empty domains, the tools, and the CONCERN convention.
+Two crew [Skills](https://github.com/kubemoot/kubemoot/blob/main/docs/reference/skill.md) hold recipes a model may lack, so they leave the prompts without being lost. The coordinator selects a skill for a question its description fits, and only then do the agents of that discussion read it. Both are off by default; they are the second arm of the prompt refactor's measurement.
+
+| Value | Skill | Holds |
+|---|---|---|
+| `skills.promqlResourceUsage.enabled` | `promql-resource-usage` | PromQL for CPU, memory, disk and network use of pods, namespaces and nodes, and for naming a host whose series carry only an address. |
+| `skills.dcgmGpuMetrics.enabled` | `dcgm-gpu-metrics` | The DCGM exporter's GPU metric names and units, queries over a window, and scrape health. |
 
 ## Placement policy
 
@@ -252,11 +270,11 @@ scheduler documentation, section "Placement policy".
 
 `compute.workspaceQuery` (default `true`) adds the workspace tools to the compute agent's `enabledTools`: `workspace_query` (read-only SQL over the discussion's stored results, the way to count, filter, sort and total a listing), `workspace_list` (what the discussion has stored, from which tool, with its type, rows and errors) and `workspace_describe` (each stored table's columns, types and example values, read before writing a query). The tool's own description carries its usage and SQL dialect. The workspace read-ops server offers the query tools only when the Kubemoot operator's `workspace.queryEngine` is set to `sqlite` or `duckdb`. With the operator's default `none` the agents do not register them (an agent registers only the tools its gateway offers).
 
-Without `workspace_query`, whether the switch is off or the operator's engine is `none`, compute cannot count, filter or select stored results: it has `workspace_head`, `workspace_tail` and `workspace_grep` and the code sandbox only. Its prompt still describes a query tool in that case.
+Without `workspace_query`, whether the switch is off or the operator's engine is `none`, compute cannot count, filter or select stored results: it has `workspace_head`, `workspace_tail` and `workspace_grep` and the code sandbox only.
 
-`advisors.workspaceQuery` (default `true`) adds `workspace_query` for the four advisors (k8s, nvidia-gpu, obs, proxmox), beside `workspace_head`, `workspace_tail` and `workspace_grep`; compute has the same three read tools. The chart names no `artifact_*` tool: `artifact_head`, `artifact_tail` and `artifact_grep` are the old names of the first three, and `artifact_count`, `artifact_rows`, `artifact_select` and `artifact_jq` are retired in favor of `workspace_query`.
+`advisors.workspaceQuery` (default `true`) adds `workspace_query` and `workspace_describe` for the four advisors (k8s, nvidia-gpu, obs, proxmox), beside `workspace_head`, `workspace_tail`, `workspace_grep` and `execute_code`; compute has the same three read tools. The chart names no `artifact_*` tool: `artifact_head`, `artifact_tail` and `artifact_grep` are the old names of the first three, and `artifact_count`, `artifact_rows`, `artifact_select` and `artifact_jq` are retired in favor of `workspace_query`.
 
-With a switch set `false` and `workspace.declareAccess` on, the agent renders `disabledTools`: the operator grants every workspace tool the declared access allows unless `disabledTools` names it. `compute.workspaceQuery=false` denies `workspace_query`, `workspace_list` and `workspace_describe`; `advisors.workspaceQuery=false` denies `workspace_query`.
+With a switch set `false` and `workspace.declareAccess` on, the agent renders `disabledTools`: the operator grants every workspace tool the declared access allows unless `disabledTools` names it. `compute.workspaceQuery=false` denies `workspace_query`, `workspace_list` and `workspace_describe`; `advisors.workspaceQuery=false` denies `workspace_query` and `workspace_describe`.
 
 Three switches exist so a measurement can turn one thing on at a time. `compute.think` (default `true`, as the agent has always run) set to `false` leaves out the compute agent's reasoning. `compute.groundNumbers` (default `false`) sets `KUBEMOOT_DISCUSS_COMPUTE_GROUNDING` on compute: a figure in its finding that occurs in no tool result it ran and not in its input is sent back once, then withheld as a `NO_DATA` statement. `mcpServers.workspace.nestedColumnHints` (default `false`) sets `KUBEMOOT_QUERY_NESTED_HINTS` on the workspace server, so the error for a column guess inside a nested object names the column and the SQL that reads the field. The last two need a Kubemoot release that reads those variables.
 
