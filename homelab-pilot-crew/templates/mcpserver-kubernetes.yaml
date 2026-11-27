@@ -4,16 +4,10 @@
 {{- $labelSyntax := "kubectl -l syntax: key=value, key!=value, key in (a,b), key, !key; a comma means AND." }}
 {{- $cantSelectStates := "ASSERT container states such as CrashLoopBackOff cannot be selected; they are in the STATUS and RESTARTS columns of the table." }}
 {{- $noWildcard := "ASSERT all and * are not wildcards: as a namespace they match no namespace and return an empty result." }}
-{{- $countRule := "ASSERT with no limit the reply holds every matching row, so the rows of that reply are the count." }}
+{{- $countRule := "ASSERT omitted or 0, limit returns every matching row in one reply, so its rows are the count; a reply over 4 MiB (the server's max_backend_response_bytes) fails with an error and returns no rows, and then limit with continue pages through the list." }}
 {{- $nodeTable := "ASSERT the Node table has no CPU, memory, capacity or allocatable column; a Node's capacity and allocatable are status.capacity and status.allocatable of the Node object resources_get returns (apiVersion v1, kind Node, the node name)." }}
-{{- $limitParam := "ASSERT omitted or 0 returns every matching row. A positive limit is refused, because it returns only that many rows and leaves the rest out, so the list is partial and a count of it is wrong.\nASSERT namespace, labelSelector and fieldSelector make a list smaller." }}
-{{- /* A positive limit cuts a list and delivers no later page, so what an agent reads looks
-     like the whole set and is not. The gateway refuses it before the call (the agent runtime
-     declares every argument as a string, so the text is what the model sent). tests/fixtures/
-     limit-rule.json holds the pattern and the values it must reject or pass. */}}
-{{- $limitRules := list
-     (dict "reject" `^\s*[+-]?0*[1-9]` "message" "ASSERT a limit is not accepted: it returns only that many rows and leaves the rest out, so the list is partial and its count is wrong.\nASSERT a call with no limit returns every row, and namespace, labelSelector or fieldSelector make it smaller.")
-}}
+{{- $limitParam := "ASSERT the most rows one reply returns; omitted or 0 returns every row, which fails when the response exceeds 4 MiB. A reply that holds only part of the list starts with a # continue: <token> line, and with # remainingItemCount: <n> when the API reports how many rows follow." }}
+{{- $continueParam := "ASSERT the token from the # continue: line of the previous reply, sent unchanged with the same limit, namespace and selectors, returns the next page; the last page carries no # continue: line, so a count of a paged list is the rows of every page together." }}
 {{- /* The API server refuses these selector shapes. A term is field=value; a comma inside a
      value is escaped as \, so the patterns walk whole terms and do not treat \, as a separator.
      tests/fixtures/field-selector-rules.json holds these patterns and the selectors each
@@ -119,8 +113,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }} It matches labels only, never fields such as status.phase."
         limit:
           description: {{ $limitParam | toJson }}
-          rules:
-            {{- toYaml $limitRules | nindent 12 }}
+        continue:
+          description: {{ $continueParam | toJson }}
     - name: pods_list_in_namespace
       description: |-
         DESCRIPTION Lists the pods of one namespace as a table, one wide row per pod (NAME, READY, STATUS, RESTARTS, NODE, LABELS)
@@ -137,8 +131,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }}"
         limit:
           description: {{ $limitParam | toJson }}
-          rules:
-            {{- toYaml $limitRules | nindent 12 }}
+        continue:
+          description: {{ $continueParam | toJson }}
     - name: pods_get
       description: |-
         DESCRIPTION Returns one pod in full, by name and namespace: its owner, node, phase and conditions, each container's image, requests and limits, and status.containerStatuses with each container's restartCount, state and last state
@@ -163,8 +157,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
             {{- toYaml $selectorRules | nindent 12 }}
         limit:
           description: {{ $limitParam | toJson }}
-          rules:
-            {{- toYaml $limitRules | nindent 12 }}
+        continue:
+          description: {{ $continueParam | toJson }}
     - name: resources_get
       description: |-
         DESCRIPTION Returns one object of the given apiVersion, kind and name in full, as YAML: its spec and status, and for a ConfigMap its data keys and values
@@ -181,7 +175,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         DESCRIPTION CPU and memory from the Metrics Server, one row per container, not per pod
         ASSERT all_namespaces defaults to true, so a call with no namespace and no name returns every container in the cluster
         ASSERT namespace limits the rows to one namespace; name with namespace gives one pod (name alone fails); label_selector selects pods by label
-        ASSERT the Metrics API ignores limit and continue; only namespace, name and label_selector make the result smaller
+        ASSERT limit and continue page the rows as on the list tools; omitted, every row comes back in one reply
       parameters:
         all_namespaces:
           description: "ASSERT defaults to true: with no namespace, every container of every pod in the cluster is returned; namespace limits the result to that namespace."
@@ -191,6 +185,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
       description: |-
         DESCRIPTION Lists events as YAML, one entry per event with the involved object (kind, name, namespace), type, reason and message, from every namespace unless namespace is given; events come from every kind of object, not only pods
         ASSERT fieldSelector type=Warning leaves out the Normal events, and involvedObject.name=<name> keeps one object's events
+        ASSERT limit and continue page the events as on the list tools; a reply over 4 MiB fails, so a cluster-wide list is narrowed or paged
       parameters:
         namespace:
           description: "ASSERT the exact namespace name; omitted lists every namespace.\n{{ $noWildcard }}"
