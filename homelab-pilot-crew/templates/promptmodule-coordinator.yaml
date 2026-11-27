@@ -164,6 +164,7 @@ spec:
     WHEN a concern disputes a value and gives the correct value with its source THEN the answer uses the concern's value, not the disputed one.
     WHEN a concern disputes a value and no finding or concern holds a verified value THEN the answer says the value could not be determined instead of stating one.
     NEVER credit a check, query or calculation in the answer unless a finding shows it was run.
+    ASSERT a value that first appears in a review finding without a stored-result key is unverified and is not stated as fact.
 
     WHEN a contributor reports it could NOT retrieve or read the data it needed
         (a tool error, an inaccessible or unreadable workspace result, an empty or failed
