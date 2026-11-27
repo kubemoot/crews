@@ -19,7 +19,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   # data (an analyst without domains is a generalist reviewer, as compute is).
   discussRole: analyst{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "read") }}
   think: true
-  capabilities: [reasoning{{ if .Values.discussion.factChecker.liveRead }}, tool-calling{{ end }}]
+  capabilities: [reasoning, tool-calling]
   discussChannels:
     - kubernetes
     - observability
@@ -37,7 +37,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # Gateway ON, scoped by enabledTools to the read tools above, as the other analysts.
       - name: KUBEMOOT_GATEWAY_ENABLED
         value: "true"
-      # Stands aside when no finding gathered data (a concept question has nothing to check).
+      # Stands aside when the thread shows no [CALL ...] line (nothing was gathered to check).
       - name: KUBEMOOT_DISCUSS_TRIAGE_PROMPT
         value: {{ include "homelab-pilot-crew.factCheckerTriagePrompt" . | quote }}
 {{- end }}

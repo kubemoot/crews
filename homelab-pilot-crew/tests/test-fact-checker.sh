@@ -6,7 +6,7 @@
 set -euo pipefail
 chart="$(cd "$(dirname "$0")/.." && pwd)"
 checker="$chart/../scripts/check-module-tools.sh"
-# shellcheck source=SCRIPTDIR/lib.sh
+# shellcheck source=homelab-pilot-crew/tests/lib.sh
 . "$chart/tests/lib.sh"
 
 agent() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"fact-checker\") | $2" <<<"$1"; }
@@ -28,13 +28,20 @@ check "on: lists ratify-prompt, so it traces the draft answer" yes "$(has "$(age
 check "on: sets its own triage prompt" 1 "$(agent "$on" '.spec.deployment.env[] | select(.name == "KUBEMOOT_DISCUSS_TRIAGE_PROMPT") | .name' | count)"
 check "on: its tools" "workspace_head workspace_tail workspace_grep workspace_query workspace_describe resources_list resources_get pods_list pods_list_in_namespace events_list" \
   "$(agent "$on" '.spec.enabledTools | join(" ")')"
-check "on: no write or mutating tool" 0 "$(agent "$on" '.spec.enabledTools[]' | grep -cE 'create|update|delete|patch|apply|exec|execute_code|helm_|workspace_write|workspace_store' || true)"
+allowed='workspace_head workspace_tail workspace_grep workspace_query workspace_describe resources_list resources_get pods_list pods_list_in_namespace events_list'
+check "on: every tool is on the read allow-list" "" "$(for x in $(agent "$on" '.spec.enabledTools[]'); do grep -qwF "$x" <<<"$allowed" || echo "$x"; done)"
+check "on: the module never reads a Secret" yes "$(has "$(module "$on")" 'NEVER read the contents of a Secret; a claim about one is UNVERIFIED')"
+check "on: the override names the NOTHING_TO_ADD invariant" yes "$(has "$(module "$on")" 'NEVER say NOTHING_TO_ADD just because someone else already spoke')"
+check "on: the module reuses the call line notes" yes "$(has "$(module "$on")" 'an [EMPTY RESULT] block after a call line means the call succeeded')"
+check "on: the module never counts by eye" yes "$(has "$(module "$on")" 'never count by eye')"
+check "on: the triage stands aside on no [CALL line" yes "$(has "$(agent "$on" '.spec.deployment.env[] | select(.name == "KUBEMOOT_DISCUSS_TRIAGE_PROMPT") | .value')" 'shows no [CALL ...] line THEN reply NOTHING_TO_ADD')"
 check "on: the module renders" 1 "$(grep -c 'DEFINE DOMAIN fact-checker' <<<"$(module "$on")")"
 check "on: the module carries the CONCERN form" yes "$(has "$(module "$on")" 'CONCERN: <the claim, why it is wrong or unverified, the source you checked>')"
 check "on: the module stands aside in evaluation" yes "$(has "$(module "$on")" 'reply exactly NOTHING_TO_ADD')"
 check "on: the module makes a failed read a concern" yes "$(has "$(module "$on")" 'a failed read is never an agree')"
 check "on: the module makes a claim with no stored result a concern" yes "$(has "$(module "$on")" 'has no stored result behind it THEN it is a concern')"
 check "on: the module never supplies its own value" yes "$(has "$(module "$on")" 'NEVER supply a value')"
+# shellcheck disable=SC2016  # the placeholder is literal text
 check "on: the module lists the tools with the placeholder" 1 "$(grep -c -F '${agent.tools}' <<<"$(module "$on")")"
 check "on: the module has no Markdown headings" 0 "$(grep -c '^#' <<<"$(module "$on")" || true)"
 check "on: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" --set discussion.factChecker.enabled=true >/dev/null 2>&1; echo $?)"
@@ -51,7 +58,7 @@ check "on: the other agents keep their domains" "" \
 # liveRead=false leaves the workspace tools alone.
 nolive="$(render --set discussion.factChecker.enabled=true --set discussion.factChecker.liveRead=false)"
 check "liveRead off: workspace tools only" "workspace_head workspace_tail workspace_grep workspace_query workspace_describe" "$(agent "$nolive" '.spec.enabledTools | join(" ")')"
-check "liveRead off: no tool-calling capability" "reasoning" "$(agent "$nolive" '.spec.capabilities | join(",")')"
+check "liveRead off: still has tool-calling, for the workspace tools" "reasoning,tool-calling" "$(agent "$nolive" '.spec.capabilities | join(",")')"
 
 # advisors.workspaceQuery=false drops the query tools and denies them.
 noq="$(render --set discussion.factChecker.enabled=true --set advisors.workspaceQuery=false)"

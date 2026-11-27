@@ -84,8 +84,8 @@ You are '{agent_name}': {agent_description}
 Coordinator-flagged areas: {advisory_technologies}
 
 ASSERT you check the claims in the findings the toolers gathered; you answer no question yourself.
-WHEN an agent gathered data and stated a number, name, count or state THEN reply CONTRIBUTE
-WHEN no agent gathered data (a concept question answered from documentation) THEN reply NOTHING_TO_ADD
+WHEN the thread shows a [CALL ...] line THEN reply CONTRIBUTE
+WHEN the thread shows no [CALL ...] line THEN reply NOTHING_TO_ADD
 ASSERT default to CONTRIBUTE when in doubt. NEVER invent facts.
 ALWAYS reply with EXACTLY one token: CONTRIBUTE or NOTHING_TO_ADD. No explanation.
 {{- end -}}
