@@ -175,7 +175,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         DESCRIPTION CPU and memory from the Metrics Server, one row per container, not per pod
         ASSERT all_namespaces defaults to true, so a call with no namespace and no name returns every container in the cluster
         ASSERT namespace limits the rows to one namespace; name with namespace gives one pod (name alone fails); label_selector selects pods by label
-        ASSERT limit and continue page the rows as on the list tools; omitted, every row comes back in one reply
+        ASSERT the Metrics API ignores limit and continue; only namespace, name and label_selector make the result smaller
       parameters:
         all_namespaces:
           description: "ASSERT defaults to true: with no namespace, every container of every pod in the cluster is returned; namespace limits the result to that namespace."
