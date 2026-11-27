@@ -35,6 +35,25 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - analysis
     - troubleshooting
     - diagnostics
+  # The server runs with the noopai backend: the analyzers are deterministic and no language
+  # model explains their results, so the gateway refuses explain and backend before the call.
+  toolOverrides:
+    - name: analyze
+      description: |-
+        DESCRIPTION Runs the K8sGPT analyzers over the cluster, or one namespace, and returns each problem found with its object (kind, name, namespace) and the analyzer's error text
+        ASSERT filters limits the run to analyzers by kind: Pod, Service, Ingress, Deployment, StatefulSet, ReplicaSet, PersistentVolumeClaim, Node, CronJob, NetworkPolicy, HorizontalPodAutoscaler
+        ASSERT an empty result means the analyzers found no problem
+      parameters:
+        explain:
+          description: "ASSERT not used by this server: it has no language model, so explain is always false."
+          rules:
+            - reject: '(?i)^\s*true\s*$'
+              message: "ASSERT explain is not available: this server runs the analyzers without a language model.\nASSERT a call without explain returns the analyzers' findings."
+        backend:
+          description: "ASSERT not used by this server: it runs the analyzers without a language model."
+          rules:
+            - reject: '\S'
+              message: "ASSERT backend is not available: this server runs the analyzers without a language model.\nASSERT a call without backend returns the analyzers' findings."
   resources:
     requests:
       cpu: "50m"

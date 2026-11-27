@@ -46,6 +46,22 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
   capabilities:
     - data-access
     - data-analysis
+  # The text tools every reader of stored results has: what a call line in a finding is, said
+  # once here instead of in each reader's prompt. workspace_query, workspace_list and
+  # workspace_describe keep the server's own descriptions, which name the query engine in use.
+  toolOverrides:
+    - name: workspace_head
+      description: |-
+        DESCRIPTION First N lines of a stored result, by its key, ending with a position line that gives its total line count
+        {{- include "homelab-pilot-crew.callLineNotes" . | nindent 8 }}
+    - name: workspace_tail
+      description: |-
+        DESCRIPTION Last N lines of a stored result, by its key
+        {{- include "homelab-pilot-crew.callLineNotes" . | nindent 8 }}
+    - name: workspace_grep
+      description: |-
+        DESCRIPTION Lines of a stored result, by its key, that match an RE2 regular expression; the reply is capped
+        {{- include "homelab-pilot-crew.callLineNotes" . | nindent 8 }}
   securityContext:
     # FROM scratch (uid 0); our trusted binary, still contained by read-only rootfs +
     # drop-ALL caps + no-privilege-escalation. Non-root image is a hardening follow-up.

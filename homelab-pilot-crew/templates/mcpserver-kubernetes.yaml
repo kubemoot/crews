@@ -2,17 +2,17 @@
 {{- if .Values.mcpServers.kubernetes.enabled }}
 {{- $podFields := "metadata.name, metadata.namespace, spec.nodeName, spec.restartPolicy, spec.schedulerName, spec.serviceAccountName, status.phase, status.podIP, status.nominatedNodeName" }}
 {{- $labelSyntax := "kubectl -l syntax: key=value, key!=value, key in (a,b), key, !key; a comma means AND." }}
-{{- $cantSelectStates := "ASSERT container states such as CrashLoopBackOff cannot be selected; read STATUS and RESTARTS in the table." }}
-{{- $noWildcard := "NEVER pass all or * as a namespace: they are not wildcards, match no namespace, and return an empty result." }}
-{{- $countRule := "WHEN the question asks how many THEN list with no limit and count the rows: the reply holds every match." }}
-{{- $nodeTable := "ASSERT the Node table has no CPU, memory, capacity or allocatable column; a Node's capacity and allocatable are in the Node object, so call resources_get with apiVersion v1, kind Node and the node name and read status.capacity and status.allocatable." }}
-{{- $limitParam := "ASSERT omit it or pass 0: every matching row is returned. A positive limit is refused, because it returns only that many rows and leaves the rest out, so the list is partial and a count of it is wrong.\nWHEN the list is too large THEN narrow it with namespace, labelSelector or fieldSelector." }}
+{{- $cantSelectStates := "ASSERT container states such as CrashLoopBackOff cannot be selected; they are in the STATUS and RESTARTS columns of the table." }}
+{{- $noWildcard := "ASSERT all and * are not wildcards: as a namespace they match no namespace and return an empty result." }}
+{{- $countRule := "ASSERT with no limit the reply holds every matching row, so the rows of that reply are the count." }}
+{{- $nodeTable := "ASSERT the Node table has no CPU, memory, capacity or allocatable column; a Node's capacity and allocatable are status.capacity and status.allocatable of the Node object resources_get returns (apiVersion v1, kind Node, the node name)." }}
+{{- $limitParam := "ASSERT omitted or 0 returns every matching row. A positive limit is refused, because it returns only that many rows and leaves the rest out, so the list is partial and a count of it is wrong.\nASSERT namespace, labelSelector and fieldSelector make a list smaller." }}
 {{- /* A positive limit cuts a list and delivers no later page, so what an agent reads looks
      like the whole set and is not. The gateway refuses it before the call (the agent runtime
      declares every argument as a string, so the text is what the model sent). tests/fixtures/
      limit-rule.json holds the pattern and the values it must reject or pass. */}}
 {{- $limitRules := list
-     (dict "reject" `^\s*[+-]?0*[1-9]` "message" "ASSERT a limit is not accepted: it returns only that many rows and leaves the rest out, so the list is partial and its count is wrong.\nWHEN you need every row, or a count, THEN call again with no limit and read the rows of the reply.\nWHEN the list is too large THEN narrow it with namespace, labelSelector or fieldSelector.")
+     (dict "reject" `^\s*[+-]?0*[1-9]` "message" "ASSERT a limit is not accepted: it returns only that many rows and leaves the rest out, so the list is partial and its count is wrong.\nASSERT a call with no limit returns every row, and namespace, labelSelector or fieldSelector make it smaller.")
 }}
 {{- /* The API server refuses these selector shapes. A term is field=value; a comma inside a
      value is escaped as \, so the patterns walk whole terms and do not treat \, as a separator.
@@ -21,10 +21,10 @@
      pattern (RE2, searched anywhere in the text) and answers with the message, so the call never
      reaches the server and the agent is told what to do instead. */}}
 {{- $selectorRules := list
-     (dict "reject" `(?i)^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=!]|\\.)*(memory|cpu|capacity|allocatable)` "message" "ASSERT memory, CPU, capacity and allocatable cannot be selected; no fieldSelector reaches them, and the Node table has no column for them.\nWHEN the question asks for a node's capacity or allocatable resources THEN call resources_get with apiVersion v1, kind Node and the node name, and read status.capacity and status.allocatable; list the nodes with no fieldSelector for their names.\nWHEN the question asks how much memory or CPU is in use THEN use a metrics tool, not resources_list.")
-     (dict "reject" `=~|!~` "message" "ASSERT a fieldSelector term is field=value or field!=value; =~ and !~ are not selector operators, so a pattern cannot be selected.\nWHEN the question needs a pattern match THEN call again with no fieldSelector (or with a labelSelector) and read the matching rows in the table.")
-     (dict "reject" `[<>]` "message" "ASSERT a fieldSelector term is field=value or field!=value; < and > are not selector operators, so a number cannot be compared in a selector.\nWHEN the question compares a value THEN call again with no fieldSelector and read the table.")
-     (dict "reject" `^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=]|\\.)+(,|$)` "message" "ASSERT every fieldSelector term is field=value or field!=value; a field name alone is an error.\nWHEN the question needs a field's value THEN call again with no fieldSelector and read the table.")
+     (dict "reject" `(?i)^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=!]|\\.)*(memory|cpu|capacity|allocatable)` "message" "ASSERT memory, CPU, capacity and allocatable cannot be selected; no fieldSelector reaches them, and the Node table has no column for them.\nASSERT a node's capacity and allocatable are status.capacity and status.allocatable of the Node object: call resources_get with apiVersion v1, kind Node and the node name; a list with no fieldSelector gives the node names.\nASSERT memory or CPU in use comes from a metrics tool, not from resources_list.")
+     (dict "reject" `=~|!~` "message" "ASSERT a fieldSelector term is field=value or field!=value; =~ and !~ are not selector operators, so a pattern cannot be selected.\nASSERT a call with no fieldSelector (or with a labelSelector) returns the table, whose rows show which ones match.")
+     (dict "reject" `[<>]` "message" "ASSERT a fieldSelector term is field=value or field!=value; < and > are not selector operators, so a number cannot be compared in a selector.\nASSERT a call with no fieldSelector returns the table, whose rows hold the values to compare.")
+     (dict "reject" `^((?:[^,\\=]|\\.)*=(?:[^,\\]|\\.)*,)*(?:[^,\\=]|\\.)+(,|$)` "message" "ASSERT every fieldSelector term is field=value or field!=value; a field name alone is an error.\nASSERT a call with no fieldSelector returns the table, whose rows hold the field values.")
 }}
 {{- /* The server takes its settings from a TOML file only (no runtime flags). Without
      port it speaks MCP over stdio, which the operator's bridge sidecar carries. */}}
@@ -81,27 +81,27 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - resources
     - events
     - nodes
-  # The server prints every list as a wide table with a LABELS column and has no option
-  # for fewer columns, so the size of a list is set by the rows a call asks for: the
-  # namespace, the selectors, and limit (a page of rows; limit=1 with no selector also
-  # reports how many rows remain, which answers a count). These descriptions, in ADL, say
-  # which of those the server and the Kubernetes API accept, so agents narrow a list on
-  # the server and do not retry selectors the API rejects. Each restates what the
-  # parameter does in the server's source at the version the image pins.
+  # The server prints every list as a wide table with a LABELS column and has no option for
+  # fewer columns, so the size of a list is set by the rows a call asks for: the namespace and
+  # the selectors. These descriptions say what each tool returns, how large it gets, and what
+  # each argument does, as the server's source at the pinned version does it, so an agent
+  # narrows a list on the server and does not retry selectors the API rejects. They state facts
+  # (DESCRIPTION and ASSERT), never rules: a model chooses a call from what the tool does.
   toolOverrides:
     - name: pods_list
       description: |-
-        DESCRIPTION Lists pods in every namespace as a table, one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS); with no selector the result grows with the number of pods in the cluster
-        WHEN the question names a namespace THEN use the list tool that takes a namespace
+        DESCRIPTION Lists pods in every namespace as a table, one wide row per pod (NAMESPACE, NAME, READY, STATUS, RESTARTS, NODE, LABELS); with no selector the result grows with the number of pods in the cluster
+        ASSERT pods_list_in_namespace lists the pods of one namespace
         {{ $countRule }}
-        WHEN the question names a node, a phase or a label THEN narrow the rows on the server with fieldSelector or labelSelector
+        ASSERT fieldSelector and labelSelector narrow the rows on the server, by node, phase or label
+        ASSERT STATUS is the pod phase or the reason a container is waiting, and RESTARTS is a separate column; each container's restart count, image, requests and limits are in the pod object pods_get returns
         {{ $noWildcard }}
         ASSERT an empty result means no pod matched
       parameters:
         fieldSelector:
           description: |-
             ASSERT a server-side filter on pod fields. Accepted fields: {{ $podFields }}; any other field is an error.
-            WHEN the question is about one node's pods THEN pass spec.nodeName=<node>
+            ASSERT spec.nodeName=<node> selects one node's pods.
             ASSERT status.phase=Running matches nearly every pod, so it does not narrow; status.phase!=Running,status.phase!=Succeeded finds pods outside those phases.
             {{ $cantSelectStates }}
         labelSelector:
@@ -112,7 +112,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
             {{- toYaml $limitRules | nindent 12 }}
     - name: pods_list_in_namespace
       description: |-
-        DESCRIPTION Lists the pods of one namespace as a table, one wide row per pod (READY, STATUS, RESTARTS, NODE, LABELS)
+        DESCRIPTION Lists the pods of one namespace as a table, one wide row per pod (NAME, READY, STATUS, RESTARTS, NODE, LABELS)
         ASSERT namespace is the exact name of one existing namespace
         {{ $noWildcard }}
         {{ $countRule }}
@@ -128,49 +128,55 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: {{ $limitParam | toJson }}
           rules:
             {{- toYaml $limitRules | nindent 12 }}
+    - name: pods_get
+      description: |-
+        DESCRIPTION Returns one pod in full, by name and namespace: its owner, node, phase and conditions, each container's image, requests and limits, and status.containerStatuses with each container's restartCount, state and last state
     - name: resources_list
       description: |-
-        DESCRIPTION Lists objects of one apiVersion and kind as a table, one wide row per object with a LABELS column; with no namespace it lists every namespace (or only the server's own namespace when its account cannot list cluster-wide), so a cluster-wide list of a common kind such as Deployment, ConfigMap, NetworkPolicy, Node or Pod is large
+        DESCRIPTION Lists objects of one apiVersion and kind as a table, one wide row per object: NAMESPACE, NAME, the columns of that kind, and LABELS; one kind per call
+        ASSERT with no namespace it lists every namespace in one call (or only the server's own namespace when its account cannot list cluster-wide), so a cluster-wide list of a common kind such as Deployment, ConfigMap, NetworkPolicy, Node or Pod is large
+        ASSERT there is no names-only or fewer-columns mode; namespace, labelSelector and fieldSelector make the list smaller
+        ASSERT the table holds an object's name and summary columns, never a ConfigMap's data or a Secret's values; resources_get returns one object in full
         {{ $countRule }}
         {{ $nodeTable }}
-        WHEN the question names a namespace THEN pass namespace
-        WHEN the question names labels or a selectable field THEN pass labelSelector or fieldSelector
-        {{ $noWildcard }} Omit namespace to list every namespace.
+        {{ $noWildcard }}
         ASSERT a kind or apiVersion the cluster does not serve is an error, and an empty result means no object matched
       parameters:
         namespace:
-          description: "ASSERT the exact namespace name, for a namespaced kind; cluster-scoped kinds such as Node and Namespace ignore it.\nWHEN the question covers every namespace THEN omit namespace or pass an empty string\n{{ $noWildcard }}"
+          description: "ASSERT the exact namespace name, for a namespaced kind; cluster-scoped kinds such as Node and Namespace ignore it. Omitted or empty lists every namespace.\n{{ $noWildcard }}"
         labelSelector:
-          description: "ASSERT a server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes.\nASSERT a label the objects do not carry matches nothing and returns an empty result; a worker Node usually has no node-role label (its ROLES column shows <none>), so to list every Node pass no selector."
+          description: "ASSERT a server-side filter on object labels, {{ $labelSyntax }} It matches labels only, so node-role.kubernetes.io/control-plane selects control-plane Nodes.\nASSERT a label the objects do not carry matches nothing and returns an empty result; a worker Node usually has no node-role label (its ROLES column shows <none>), so a list of every Node takes no selector."
         fieldSelector:
-          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; read STATUS and READY in the table.\nASSERT each term is field=value or field!=value, never a field name alone.\nASSERT memory, CPU, capacity and allocatable cannot be selected and the Node table has no column for them; read a Node's status.capacity and status.allocatable with resources_get, or use a metrics tool for usage."
+          description: "ASSERT a server-side filter on fields; the API server accepts only a few per kind and rejects any other field with an error. Node: metadata.name, spec.unschedulable. Namespace: metadata.name, status.phase. Pod: {{ $podFields }}. Job: metadata.name, metadata.namespace, status.successful. Most other kinds, including Deployment, DaemonSet, CronJob and ConfigMap: metadata.name and metadata.namespace.\nASSERT conditions, a Node's Ready state and a Deployment's replica counts cannot be selected; they are in the STATUS and READY columns.\nASSERT each term is field=value or field!=value, never a field name alone.\nASSERT memory, CPU, capacity and allocatable cannot be selected and the Node table has no column for them; a Node's status.capacity and status.allocatable are in the object resources_get returns, and usage comes from a metrics tool."
           rules:
             {{- toYaml $selectorRules | nindent 12 }}
         limit:
           description: {{ $limitParam | toJson }}
           rules:
             {{- toYaml $limitRules | nindent 12 }}
+    - name: resources_get
+      description: |-
+        DESCRIPTION Returns one object of the given apiVersion, kind and name in full, as YAML: its spec and status, and for a ConfigMap its data keys and values
+        ASSERT a namespaced kind needs namespace; a cluster-scoped kind such as Node, Namespace or ClusterRole takes none
+        ASSERT a Node's status.capacity and status.allocatable hold its CPU, memory, pods and ephemeral storage
     - name: pods_top
       description: |-
         DESCRIPTION CPU and memory from the Metrics Server, one row per container, not per pod
         ASSERT all_namespaces defaults to true, so a call with no namespace and no name returns every container in the cluster
-        WHEN the question names a namespace THEN pass namespace
-        WHEN the question names one pod THEN pass name and namespace (name alone fails)
-        WHEN the question names a label THEN pass label_selector
+        ASSERT namespace limits the rows to one namespace; name with namespace gives one pod (name alone fails); label_selector selects pods by label
         ASSERT the Metrics API ignores limit and continue; only namespace, name and label_selector make the result smaller
       parameters:
         all_namespaces:
-          description: "ASSERT defaults to true: with no namespace, every container of every pod in the cluster is returned.\nWHEN the question names a namespace THEN pass namespace instead, which limits the result to that namespace"
+          description: "ASSERT defaults to true: with no namespace, every container of every pod in the cluster is returned; namespace limits the result to that namespace."
         label_selector:
           description: "ASSERT a server-side filter on pod labels, {{ $labelSyntax }} Used only when name is not given."
     - name: events_list
       description: |-
-        DESCRIPTION Lists events as YAML, one entry per event with the involved object, reason and message, from every namespace unless namespace is given
-        WHEN the question is about problems or failures THEN pass fieldSelector type=Warning to leave out the Normal events
-        WHEN the question names a namespace or one object THEN pass namespace, or fieldSelector involvedObject.name=<name>
+        DESCRIPTION Lists events as YAML, one entry per event with the involved object (kind, name, namespace), type, reason and message, from every namespace unless namespace is given; events come from every kind of object, not only pods
+        ASSERT fieldSelector type=Warning leaves out the Normal events, and involvedObject.name=<name> keeps one object's events
       parameters:
         namespace:
-          description: "ASSERT the exact namespace name; omit it for every namespace.\n{{ $noWildcard }}"
+          description: "ASSERT the exact namespace name; omitted lists every namespace.\n{{ $noWildcard }}"
         fieldSelector:
           description: "ASSERT a server-side filter on event fields. Accepted fields: type (Normal or Warning), reason, involvedObject.kind, involvedObject.name, involvedObject.namespace, involvedObject.uid, involvedObject.apiVersion, involvedObject.resourceVersion, involvedObject.fieldPath, reportingComponent, source. For example type=Warning,involvedObject.kind=Pod."
     # The server's own helm_list text says it lists all namespaces by default; it lists
@@ -182,15 +188,11 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - name: helm_list
       description: |-
         DESCRIPTION Lists Helm releases as YAML: name, namespace, revision, status, chart, chart and app version, last deployed
-        WHEN the question names no namespace THEN pass all_namespaces=true
-        WHEN the question names one namespace THEN pass namespace
-        ASSERT with neither set it lists only the server's own namespace
+        ASSERT all_namespaces=true lists every namespace, namespace lists one, and with neither set it lists only the server's own namespace
         ASSERT Helm keeps each release in a Secret, so this tool needs Secret read on the server's account; without it every call fails with a forbidden error, which means the cluster did not grant that access, not that there are no releases
-        WHEN this tool fails with a forbidden error THEN list the Flux HelmRelease objects instead: resources_list with apiVersion helm.toolkit.fluxcd.io/v2 and kind HelmRelease, and no namespace to cover every namespace
-        WHEN reading a HelmRelease THEN take the chart name and version from status.history[0] (chartName, chartVersion, status), or from spec.chart.spec (chart, version) when present; status.lastAttemptedRevision is the version Flux last tried
-        ASSERT a HelmRelease list holds only the releases Flux manages; report the answer as Flux-managed releases, not every release in the cluster
-        WHEN resources_list says the HelmRelease kind is not served THEN report that the cluster has no Flux and that Helm releases cannot be listed without Secret read
-        NEVER request kind Release or apiVersion helm.sh/v3: the API does not serve it, because Helm stores releases in Secrets
+        ASSERT on a cluster that runs Flux, the HelmRelease objects (resources_list, apiVersion helm.toolkit.fluxcd.io/v2, kind HelmRelease, no namespace for every namespace) list the releases Flux manages, without Secret read; their chart name and version are in status.history[0] (chartName, chartVersion, status) or spec.chart.spec (chart, version), and status.lastAttemptedRevision is the version Flux last tried
+        ASSERT a HelmRelease list holds only the releases Flux manages, not every release in the cluster, and an error that the HelmRelease kind is not served means the cluster has no Flux
+        ASSERT the API serves no kind Release and no apiVersion helm.sh/v3: Helm stores releases in Secrets
       parameters:
         namespace:
           description: "ASSERT lists only this namespace."
@@ -231,6 +233,15 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
     - name: ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS
       value: "true"
     {{- end }}
+  # The two tools the crew uses from this server, described by what they return.
+  toolOverrides:
+    - name: list_api_resources
+      description: |-
+        DESCRIPTION Lists the resource kinds the cluster's API serves, one row per kind: name, short names, API group and version, whether it is namespaced, and the kind
+        ASSERT custom resources appear beside the built-in kinds, so the rows show which CRDs the cluster serves
+    - name: explain_resource
+      description: |-
+        DESCRIPTION Returns the documentation of a kind, or of one field path such as pods.spec.containers, from the cluster's own API schema: the field's type, its description and its subfields
   resources:
     {{- toYaml .Values.mcpServers.kubernetesLegacy.resources | nindent 4 }}
 {{- end }}
