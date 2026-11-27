@@ -1,0 +1,57 @@
+{{- if include "homelab-pilot-crew.rbacTenant" . }}
+{{- /* Recipes the model may lack, as crew Skills: the coordinator selects one for a question its
+     description fits, and only then do the agents of that discussion read it. Off by default
+     (values.yaml, skills); they are the second arm of the prompt refactor's measurement. */}}
+{{- if .Values.skills.promqlResourceUsage.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: Skill
+metadata:
+  name: promql-resource-usage
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: {{ .Values.crew.name }}
+spec:
+  description: "PromQL for how much CPU, memory, disk and network pods, namespaces and nodes use, now or over a window, and for naming a host whose series carry only an address."
+  order: 100
+  content: |
+    DEFINE COMPONENT promql-resource-usage
+    DESCRIPTION PromQL for resource use, from the node exporter, cAdvisor and kube-state-metrics series
+    ASSERT pod CPU in cores: sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=""}[5m]))
+    ASSERT pod memory in bytes: sum by (namespace, pod) (container_memory_working_set_bytes{container!=""})
+    ASSERT a namespace's total: the same queries summed by (namespace)
+    ASSERT node CPU in use, percent: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+    ASSERT node memory in use, percent: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+    ASSERT root filesystem in use, percent: (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100
+    ASSERT network received, bytes per second: rate(node_network_receive_bytes_total[5m]); sent: rate(node_network_transmit_bytes_total[5m])
+    ASSERT requests against use: kube_pod_container_resource_requests{resource="cpu"} and {resource="memory"} beside the usage series of the same pod
+    ASSERT a series that carries only an address in its instance label is named by node_uname_info (its nodename label) or kube_node_info (node and internal_ip) for the same address
+{{- end }}
+{{- if .Values.skills.dcgmGpuMetrics.enabled }}
+{{- if .Values.skills.promqlResourceUsage.enabled }}
+---
+{{- end }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: Skill
+metadata:
+  name: dcgm-gpu-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: {{ .Values.crew.name }}
+spec:
+  description: "The DCGM exporter's GPU metric names and units, and PromQL for a GPU's readings now, over a window, and whether the exporter is scraped."
+  order: 100
+  content: |
+    DEFINE COMPONENT dcgm-gpu-metrics
+    DESCRIPTION The NVIDIA DCGM exporter's series in Prometheus
+    ASSERT DCGM_FI_DEV_GPU_UTIL is GPU utilization in percent, one series per GPU (label gpu)
+    ASSERT DCGM_FI_DEV_FB_USED and DCGM_FI_DEV_FB_FREE are GPU memory used and free in MiB; used percent is DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100
+    ASSERT DCGM_FI_DEV_GPU_TEMP and DCGM_FI_DEV_MEMORY_TEMP are core and memory temperature in degrees C
+    ASSERT DCGM_FI_DEV_POWER_USAGE is power draw in W
+    ASSERT DCGM_FI_DEV_SM_CLOCK and DCGM_FI_DEV_MEM_CLOCK are clocks in MHz
+    ASSERT over a window: avg_over_time(DCGM_FI_DEV_GPU_UTIL[1h]) for the mean, max_over_time(DCGM_FI_DEV_GPU_TEMP[24h]) for the peak; a spike shows as max_over_time well above avg_over_time over the same window
+    ASSERT the exporter is scraped when up{job=~".*dcgm.*"} is 1 for each of its targets; the job name differs between clusters, so count by (job) (up) shows it
+    ASSERT the labels that tie a GPU to its host (Hostname, instance, a node or namespace label) differ between clusters and are read from the series
+{{- end }}
+{{- end }}
