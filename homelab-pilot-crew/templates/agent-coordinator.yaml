@@ -41,6 +41,12 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # under the domain toolers and they never reach reasoning-select. Always union
       # them into the candidate set so the reasoning LLM can pick them when a
       # question needs them. See B0 in the Crew Evasion note.
+      # How many agents the resume pre-filter hands the selection step. At this crew's
+      # size the whole catalog fits the selection prompt, so a smaller number only
+      # costs recall (a question about ConfigMap contents lost k8s-config in every run
+      # at 10). If the selection step fails, the fallback convenes this many agents.
+      - name: KUBEMOOT_DISCUSS_RESUME_PRE_FILTER_TOP_K
+        value: {{ .Values.discussion.preFilterTopK | quote }}
       - name: KUBEMOOT_DISCUSS_ALWAYS_CANDIDATE_AGENTS
         value: "compute,internet-search"
       # Inventory answers ("list X, describe each") truncate partway on the 32B; the

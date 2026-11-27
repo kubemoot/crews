@@ -27,6 +27,10 @@ crew:
 # PromptModules: crew-invariants for every agent, worker for the agents that gather, advisor for
 # the four domain advisors (the fact-checkers), and each agent's own module for its purpose.
 discussion:
+  # Agents the coordinator's resume pre-filter passes to its selection step. Set at or
+  # above the number of agents so every agent is considered; the selection step then
+  # picks. 10 (the Kubemoot default) dropped the agent that reads ConfigMap contents.
+  preFilterTopK: 30
   # signalTool: how an agent records its verdict. true (the default) makes the shared modules say
   # to record each verdict (agree, a concern, a clarifying question to the agent whose finding is
   # in doubt, stand aside, no data, a tool gap) with the signal tool the Kubemoot agent runtime
