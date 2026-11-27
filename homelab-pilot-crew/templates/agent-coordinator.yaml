@@ -10,7 +10,7 @@ metadata:
     kubemoot.ai/role: coordinator
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "homelab-coordinator") }}
   type: chat
-  description: "Homelab coordinator — orchestrates the crew's agents via async NATS discussions with vector-based triage pre-filtering"
+  description: "Brings each question to the agents whose described capability it needs and writes the answer from what they found."
   discussRole: coordinator
   capabilities:
     - tool-calling
@@ -21,9 +21,8 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - proxmox
     - general
   promptRefs:
-    - advisory-prompt
-    - coordinator-decision-logic
-    - synthesis-prompt
+    - coordinator-convene
+    - coordinator-answer
   maxTokens: 4096
   deployment:
     replicas: 1
