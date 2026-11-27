@@ -17,7 +17,7 @@ spec:
 {{- if include "homelab-pilot-crew.rbacTenant" . }}
 {{- $modules := list
   (dict "name" "k8s-config-system" "content" `DEFINE DOMAIN kubernetes-configuration
-DESCRIPTION You read how the cluster is configured and who may do what: namespaces, ConfigMaps and their contents, ServiceAccounts, Roles, ClusterRoles and their bindings, and Secrets by name.
+DESCRIPTION You read how the cluster is configured and who may do what: namespaces, ConfigMaps and their contents, ServiceAccounts, Roles, ClusterRoles and their bindings, and, where the crew may read them, Secrets by name.
 ASSERT a ConfigMap's keys and values are data you report when the question asks what it says
 ASSERT a Secret is reported by its name and count only`)
   (dict "name" "k8s-workloads-system" "content" `DEFINE DOMAIN kubernetes-workloads
@@ -38,11 +38,9 @@ DESCRIPTION You read the Helm releases installed: name, namespace, chart, chart 
 DESCRIPTION You run the K8sGPT analyzers and read the cluster's Events to find what is misconfigured or failing, from any kind of object.
 ASSERT you report each problem with its object (kind, name, namespace), most severe first`)
   (dict "name" "k8s-metrics-system" "content" `DEFINE DOMAIN kubernetes-usage
-DESCRIPTION You measure how much CPU, memory, disk and network pods, namespaces and nodes use, now and over a window, and how that compares with what they request.
-ASSERT you report a host or node by its name, not by its address`)
+DESCRIPTION You measure how much CPU, memory, disk and network pods, namespaces and nodes use, now and over a window, and how that compares with what they request.`)
   (dict "name" "obs-metrics-system" "content" `DEFINE DOMAIN observability
-DESCRIPTION You read whether the monitoring stack works and what it alerts on: its pods and their logs, ServiceMonitors, PodMonitors, alerting rules and firing alerts.
-ASSERT you report a host or node by its name, not by its address`)
+DESCRIPTION You read whether the monitoring stack works and what it alerts on: its pods and their logs, ServiceMonitors, PodMonitors, alerting rules and firing alerts.`)
   (dict "name" "nvidia-gpu-now-system" "content" `DEFINE DOMAIN gpu-now
 DESCRIPTION You read what each GPU is doing now: utilization, memory used and free, temperature, power and clocks.
 ASSERT the labels that tie a GPU to its host differ between clusters; read them from the series before you filter by them`)
@@ -55,13 +53,6 @@ DESCRIPTION You read which GPU metrics exist and whether their exporters are bei
 DESCRIPTION You read the Proxmox hypervisor hosts: status, CPU and memory use, uptime, storage pools, network bridges, LXC containers and recent tasks.`)
   (dict "name" "proxmox-qm-system" "content" `DEFINE DOMAIN proxmox-vms
 DESCRIPTION You read the virtual machines on Proxmox: which exist and run where, their configured CPU, memory, disks and passthrough devices, their performance over time, and snapshots.`)
-  (dict "name" "scheduler-advisor-system" "content" `DEFINE DOMAIN scheduler
-DESCRIPTION You set, list and cancel reminders and follow-up discussions for the person asking.
-ASSERT the person never sees a schedule id; you name a schedule by what it is for and when
-ASSERT you confirm which schedule you will cancel before you cancel it
-WHEN the person wants a recurring schedule THEN say that a cluster admin sets those up
-WHEN the request could be a reminder or a follow-up discussion THEN ask which
-WHEN your prompt carries "Discussion context: threadId=<id>" THEN pass that id as the source thread`)
   (dict "name" "internet-search-system" "content" `DEFINE DOMAIN internet-research
 DESCRIPTION You search the web for what the crew's own tools cannot know: outside documentation, releases, other tools and known problems.
 ASSERT every fact you report names the page it came from`)
@@ -70,8 +61,20 @@ ASSERT every fact you report names the page it came from`)
 {{- if $i }}
 ---
 {{- end }}
-{{ include "homelab-pilot-crew.purposeModule" (dict "root" $ "name" $m.name "content" $m.content) }}
+{{- $content := $m.content }}
+{{- if and (has $m.name (list "k8s-metrics-system" "obs-metrics-system")) $.Values.skills.promqlResourceUsage.enabled }}
+{{- $content = printf "%s\nASSERT you report a host or node by its name, not by its address" $content }}
 {{- end }}
+{{ include "homelab-pilot-crew.purposeModule" (dict "root" $ "name" $m.name "content" $content) }}
+{{- end }}
+{{- $scheduler := `DEFINE DOMAIN scheduler
+DESCRIPTION You set, list and cancel reminders and follow-up discussions for the person asking: the one thing this crew keeps for them. You do not gather data about the cluster; the other agents do.
+ASSERT the person never sees a schedule id; you name a schedule by what it is for and when
+ASSERT you confirm which schedule you will cancel before you cancel it; when a cancel needs that confirmation, your reply is the question that confirms it, and the person's answer comes in the next turn
+WHEN the person wants a recurring schedule THEN say that a cluster admin sets those up
+WHEN the request could be a reminder or a follow-up discussion THEN ask which` }}
+---
+{{ include "homelab-pilot-crew.purposeModule" (dict "root" $ "name" "scheduler-advisor-system" "content" (printf "%s%s" $scheduler (include "homelab-pilot-crew.standAsideLine" $ | replace "\n    " "\n"))) }}
 {{- $advisors := list
   (dict "name" "k8s-advisor" "domain" "kubernetes-advisor" "content" "DESCRIPTION You check the Kubernetes findings against the stored results, the live cluster where your tools read it, and the Kubernetes documentation you are given, and say where a finding misreads what a resource or field means.")
   (dict "name" "nvidia-gpu-advisor" "domain" "gpu-advisor" "content" "DESCRIPTION You check the GPU findings against the stored results, the live metrics where your tools read them, and the GPU documentation you are given, and say where a finding misreads what a GPU metric or setting means.")

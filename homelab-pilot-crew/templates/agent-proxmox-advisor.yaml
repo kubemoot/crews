@@ -31,18 +31,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussKeywords:
     - proxmox
     - pve
-    - pvesh
-    - qm
-    - pct
-    - vzdump
-    - pvesm
-    - configure
-    - setup
-    - howto
-    - command
-    - cli
-    - guide
-    - tutorial
     - backup
     - restore
     - passthrough
@@ -62,8 +50,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - firewall
     - cluster
     - replication
-    - template
-    - cloudinit
   maxTokens: 4096
   deployment:
     replicas: 1

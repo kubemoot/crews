@@ -13,13 +13,13 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-config") }}
   type: chat
-  description: "Reads namespaces and configuration objects: ConfigMap contents (keys and values, such as a setting, a schedule or a policy), ServiceAccounts, Roles and bindings, and Secret names and counts, never their values."
+  description: "Reads namespaces and configuration objects: ConfigMap contents (keys and values, such as a setting, a schedule or a policy), ServiceAccounts, Roles and bindings{{ if include "homelab-pilot-crew.secretReadOn" $ }}, and Secret names and counts, never their values{{ end }}."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Answers what namespaces exist and what configuration and access they hold. Reads the contents (the data keys and values) of ConfigMaps and other configuration objects, so a question about what a ConfigMap says, such as a setting, a schedule or a freeze window, is answered here. Lists Secrets per namespace (names and counts only, never their values), ServiceAccounts, and the RBAC roles and bindings that grant permissions."
+  triageSummary: "Answers what namespaces exist and what configuration and access they hold. Reads the contents (the data keys and values) of ConfigMaps and other configuration objects, so a question about what a ConfigMap says, such as a setting, a schedule or a freeze window, is answered here. Lists {{ if include "homelab-pilot-crew.secretReadOn" $ }}Secrets per namespace (names and counts only, never their values), {{ end }}ServiceAccounts and the RBAC roles and bindings that grant permissions."
   promptRefs: [crew-invariants, worker, k8s-config-system]
   enabledTools: [resources_list, resources_get, events_list]
   domains:
@@ -28,8 +28,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussKeywords:
     - configmap
     - configmaps
+    {{- if include "homelab-pilot-crew.secretReadOn" $ }}
     - secret
     - secrets
+    {{- end }}
     - namespace
     - namespaces
     - serviceaccount

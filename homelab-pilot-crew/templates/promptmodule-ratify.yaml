@@ -7,9 +7,11 @@ metadata:
   labels:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 spec:
-  # Order 36 - after the analyst review protocol (35), so it composes last. Shared by every
-  # agent that can be on the ratification roster. The runtime names this module (ratify-prompt)
-  # and, when the agent's prompt carries it, asks a ratifier only with the marker [RATIFY].
+  # The crew's ratification text, kept while ratification is off: no agent lists it in promptRefs,
+  # so it reaches no prompt, and the runtime's own instruction applies if ratification is turned
+  # on. To use it, add ratify-prompt to the promptRefs of the agents on the ratification roster;
+  # the runtime then asks a ratifier only with the marker [RATIFY]. Order 36 places it after an
+  # agent's own module (30).
   order: 36
   content: |
     DEFINE COMPONENT ratify-prompt

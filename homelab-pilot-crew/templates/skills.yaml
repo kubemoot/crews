@@ -52,6 +52,5 @@ spec:
     ASSERT DCGM_FI_DEV_SM_CLOCK and DCGM_FI_DEV_MEM_CLOCK are clocks in MHz
     ASSERT over a window: avg_over_time(DCGM_FI_DEV_GPU_UTIL[1h]) for the mean, max_over_time(DCGM_FI_DEV_GPU_TEMP[24h]) for the peak; a spike shows as max_over_time well above avg_over_time over the same window
     ASSERT the exporter is scraped when up{job=~".*dcgm.*"} is 1 for each of its targets; the job name differs between clusters, so count by (job) (up) shows it
-    ASSERT the labels that tie a GPU to its host (Hostname, instance, a node or namespace label) differ between clusters and are read from the series
 {{- end }}
 {{- end }}
