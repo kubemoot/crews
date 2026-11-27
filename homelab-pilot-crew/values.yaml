@@ -28,6 +28,20 @@ discussion:
   # of an A/B measurement.
   peerVerification:
     enabled: false
+  # factChecker adds the fact-checker agent: an analyst that declares no domains, so the
+  # coordinator convenes it to review every discussion that gathered data. In review it lists
+  # the factual claims of each finding (numbers, names, counts, states), checks each against the
+  # stored result the finding cites and, with liveRead, against the live cluster, and replies
+  # CONCERN: <claim, why, source> for a claim that fails or cannot be checked; it agrees only
+  # when every claim it checked matched. When the coordinator asks the roster to ratify its
+  # draft, it traces each name and number of the draft the same way. Off by default; a crew
+  # that wants a doubter at the table switches it on. liveRead gives it the Kubernetes MCP
+  # server's read tools (resources_list, resources_get, pods_list, pods_list_in_namespace,
+  # events_list, the same read-only tools and RBAC the toolers use) beside the workspace read
+  # tools; false leaves it the workspace tools alone. It has no write tool either way.
+  factChecker:
+    enabled: false
+    liveRead: true
 
 # Namespaces whose pods may reach this crew's discussion gateway when the operator
 # generates network policies (Crew spec.network.allowedIngress). Each entry is a
