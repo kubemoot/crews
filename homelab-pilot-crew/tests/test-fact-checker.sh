@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Render tests for the optional fact-checker agent (discussion.factChecker.enabled, on by
 # default): set false it renders no agent and no module; on renders one analyst with no domains, the
-# fact-checker-system module, read-only tools, and the CONCERN reply convention. Needs helm and yq.
+# fact-checker-system module, read and compute tools, and the CONCERN reply convention. Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-fact-checker.sh   (exit 0 = all passed)
 set -euo pipefail
 chart="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,10 +28,10 @@ check "on: workspace access is read" read "$(agent "$on" .spec.workspace.access)
 check "on: lists the module" yes "$(has "$(agent "$on" '.spec.promptRefs | join(",")')" fact-checker-system)"
 check "on: lists ratify-prompt, so it traces the draft answer" yes "$(has "$(agent "$on" '.spec.promptRefs | join(",")')" ratify-prompt)"
 check "on: sets its own triage prompt" 1 "$(agent "$on" '.spec.deployment.env[] | select(.name == "KUBEMOOT_DISCUSS_TRIAGE_PROMPT") | .name' | count)"
-check "on: its tools" "workspace_head workspace_tail workspace_grep workspace_query workspace_describe resources_list resources_get pods_list pods_list_in_namespace events_list" \
+check "on: its tools" "execute_code workspace_head workspace_tail workspace_grep workspace_query workspace_describe resources_list resources_get pods_list pods_list_in_namespace events_list" \
   "$(agent "$on" '.spec.enabledTools | join(" ")')"
-allowed='workspace_head workspace_tail workspace_grep workspace_query workspace_describe resources_list resources_get pods_list pods_list_in_namespace events_list'
-check "on: every tool is on the read allow-list" "" "$(for x in $(agent "$on" '.spec.enabledTools[]'); do grep -qwF "$x" <<<"$allowed" || echo "$x"; done)"
+allowed='execute_code workspace_head workspace_tail workspace_grep workspace_query workspace_describe resources_list resources_get pods_list pods_list_in_namespace events_list'
+check "on: every tool is on the read and compute allow-list" "" "$(for x in $(agent "$on" '.spec.enabledTools[]'); do grep -qwF "$x" <<<"$allowed" || echo "$x"; done)"
 check "on: the module never reads a Secret" yes "$(has "$(module "$on")" 'NEVER read the contents of a Secret; a claim about one is UNVERIFIED')"
 check "on: the override names the NOTHING_TO_ADD invariant" yes "$(has "$(module "$on")" 'NEVER say NOTHING_TO_ADD just because someone else already spoke')"
 check "on: the module reuses the call line notes" yes "$(has "$(module "$on")" 'an [EMPTY RESULT] block after a call line means the call succeeded')"
@@ -43,6 +43,10 @@ check "on: the module stands aside in evaluation" yes "$(has "$(module "$on")" '
 check "on: the module makes a failed read a concern" yes "$(has "$(module "$on")" 'a failed read is never an agree')"
 check "on: the module makes a claim with no stored result a concern" yes "$(has "$(module "$on")" 'has no stored result behind it THEN it is a concern')"
 check "on: the module never supplies its own value" yes "$(has "$(module "$on")" 'NEVER supply a value')"
+check "on: the module has it compute a checked number with a tool" yes "$(has "$(module "$on")" 'is computed with your code execution tool from the stored values, never by your own arithmetic')"
+check "on: the module has it describe a stored result before querying it" yes "$(has "$(module "$on")" 'describe it first (its fields or columns)')"
+check "on: the module has a concern give the value and how it was computed" yes "$(has "$(module "$on")" 'gives the correct value and how it was computed, or says the value could not be verified')"
+check "on: it has no write tool" 0 "$(agent "$on" '.spec.enabledTools[]' | grep -v '^execute_code$' | grep -c -E 'create|delete|patch|apply|install|scale|exec|restart' || true)"
 # shellcheck disable=SC2016  # the placeholder is literal text
 check "on: the module lists the tools with the placeholder" 1 "$(grep -c -F '${agent.tools}' <<<"$(module "$on")")"
 check "on: the module has no Markdown headings" 0 "$(grep -c '^#' <<<"$(module "$on")" || true)"
@@ -59,12 +63,12 @@ check "on: the other agents keep their domains" "" \
 
 # liveRead=false leaves the workspace tools alone.
 nolive="$(render --set discussion.factChecker.enabled=true --set discussion.factChecker.liveRead=false)"
-check "liveRead off: workspace tools only" "workspace_head workspace_tail workspace_grep workspace_query workspace_describe" "$(agent "$nolive" '.spec.enabledTools | join(" ")')"
+check "liveRead off: workspace tools and code execution only" "execute_code workspace_head workspace_tail workspace_grep workspace_query workspace_describe" "$(agent "$nolive" '.spec.enabledTools | join(" ")')"
 check "liveRead off: still has tool-calling, for the workspace tools" "reasoning,tool-calling" "$(agent "$nolive" '.spec.capabilities | join(",")')"
 
 # advisors.workspaceQuery=false drops the query tools and denies them.
 noq="$(render --set discussion.factChecker.enabled=true --set advisors.workspaceQuery=false)"
-check "workspaceQuery off: no query tools" "workspace_head workspace_tail workspace_grep resources_list resources_get pods_list pods_list_in_namespace events_list" "$(agent "$noq" '.spec.enabledTools | join(" ")')"
+check "workspaceQuery off: no query tools" "execute_code workspace_head workspace_tail workspace_grep resources_list resources_get pods_list pods_list_in_namespace events_list" "$(agent "$noq" '.spec.enabledTools | join(" ")')"
 check "workspaceQuery off: the query tools are denied" "workspace_query workspace_describe" "$(agent "$noq" '.spec.disabledTools | join(" ")')"
 
 # It composes with peer verification: both modules listed, peer-verification right after discussion-protocol.
