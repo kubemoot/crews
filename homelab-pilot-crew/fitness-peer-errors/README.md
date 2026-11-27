@@ -1,6 +1,6 @@
 # Peer-errors tier, homelab-pilot-crew
 
-Scenarios built to make one agent mislead the others, so a peer-verification A/B (`discussion.peerVerification.enabled` off against on) has something to catch. The standard tier rarely does: its failures are formatting and judge variance, not one agent's wrong claim reaching the answer.
+Scenarios built to make one agent mislead the others, so a measurement of how the crew checks its own findings (the advisors as fact-checkers, the clarifying-question round) has something to catch. The standard tier rarely does: its failures are formatting and judge variance, not one agent's wrong claim reaching the answer.
 
 This tier is opt-in and kept apart from `fitness/`. The standard, smoke and full tiers never include it, and the chart deploys nothing from here unless `fitness.peerErrors.enabled=true`. The scenarios read test fixtures: ConfigMaps named `peer-errors-fixture-*` that hold deliberately wrong, conflicting or oversized data. They exist only to be tested against and must not run on a crew users depend on.
 
