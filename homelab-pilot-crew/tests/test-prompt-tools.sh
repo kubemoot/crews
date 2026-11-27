@@ -242,6 +242,16 @@ for phrase in 'Cannot fetch data' 'no cluster API' 'no kubectl' 'Select it toget
 done
 check "descriptions: compute's summary says a live-data question needs the fetching agents" yes \
   "$(has "$(agent_field compute triageSummary)" 'also needs the agents that fetch that data')"
+check "descriptions: k8s-config says it reads the contents of ConfigMaps" yes \
+  "$(has "$(agent_field k8s-config description)" 'ConfigMaps (their names and their contents, the data keys and values)')"
+check "descriptions: k8s-config's summary says it reads the contents of ConfigMaps and other configuration objects" yes \
+  "$(has "$(agent_field k8s-config triageSummary)" 'Reads the contents (the data keys and values) of ConfigMaps and other configuration objects')"
+check "descriptions: k8s-config still never reads Secret values" yes \
+  "$(has "$(agent_field k8s-config triageSummary)" 'never their values')"
+for other in k8s-helm k8sgpt; do
+  check "descriptions: $other does not claim ConfigMap contents" 0 \
+    "$({ agent_field "$other" description; agent_field "$other" triageSummary; } | grep -ci 'configmap' || true)"
+done
 check "descriptions: k8s-nodes names capacity and allocatable" yes \
   "$(has "$(agent_field k8s-nodes description)" 'capacity and allocatable')"
 check "descriptions: k8s-workloads names requests and limits" yes \
