@@ -36,7 +36,7 @@ check "no module is left unloaded but ratify-prompt (a template while ratificati
 # Each agent loads its role's contracts and its own module, in that order.
 refs() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | .spec.promptRefs | join(\",\")" <<<"$out_all"; }
 for agent in k8s-config k8s-helm k8s-metrics k8s-nodes k8s-scaling k8s-services k8s-storage k8s-workloads k8sgpt \
-  nvidia-gpu-history nvidia-gpu-meta nvidia-gpu-now proxmox-pve proxmox-qm scheduler-advisor internet-search; do
+  nvidia-gpu-history nvidia-gpu-meta nvidia-gpu-now proxmox-pve proxmox-qm internet-search; do
   check "refs: $agent is a worker" "crew-invariants,worker,$agent-system" "$(refs "$agent")"
 done
 check "refs: obs-metrics is a worker" "crew-invariants,worker,obs-metrics-system" "$(refs obs-metrics)"
@@ -64,21 +64,26 @@ check "no agent's prompt is over 3000 characters" "" \
 
 # The contracts: read only, no invented values, calculated values marked, rechecks answered.
 invariants="$(module crew-invariants)"
-check "invariants: the crew reads only" yes "$(has "$invariants" 'this crew reads only; it never changes a system it reads')"
+check "invariants: the crew never changes the systems it reads" yes "$(has "$invariants" 'this crew reads the systems it answers about and never changes them')"
 check "invariants: no agent creates information" yes "$(has "$invariants" 'no agent creates information')"
 check "invariants: a calculated value says how it was made" yes "$(has "$invariants" '(calculated with code) or (inferred from <what>)')"
 check "invariants: no Secret contents" yes "$(has "$invariants" 'NEVER read or report a credential or the contents of a Secret')"
+check "invariants without the scheduler: no schedules mentioned" no "$(has "$invariants" 'reminders and follow-up discussions')"
+sched="$(render --set mcpServers.scheduling.enabled=true)"
+check "invariants with the scheduler: schedules are the one thing the crew keeps" yes \
+  "$(has "$(module_of crew-invariants "$sched")" "reminders and follow-up discussions are the one thing the crew keeps for them")"
 write_on="$(render --set 'kubernetesAccess.write.namespaces={apps}')"
 check "invariants with write access: changes only on request, with a write tool" yes \
-  "$(has "$(module_of crew-invariants "$write_on")" 'changes a system only with a write tool it has, and only when the person asks')"
-check "invariants with write access: no read-only claim" no "$(has "$(module_of crew-invariants "$write_on")" 'this crew reads only')"
+  "$(has "$(module_of crew-invariants "$write_on")" 'changes a system it reads only with a write tool it has, and only when the person asks')"
+check "invariants with write access: no read-only claim" no "$(has "$(module_of crew-invariants "$write_on")" 'never changes them')"
 check "answer with write access: no decline on principle" no "$(has "$(module_of coordinator-answer "$write_on")" 'decline on principle')"
-check "answer read-only: declines a change on principle" yes "$(has "$(module coordinator-answer)" 'decline on principle')"
-check "signal switch: a null value is off" "$(module crew-invariants)" "$(module_of crew-invariants "$(render --set discussion.signalTool=null)")"
+check "answer read-only: declines a change to a system the crew reads" yes "$(has "$(module coordinator-answer)" 'change a system the crew reads THEN decline on principle')"
+check "answer with the scheduler: a cancelled reminder is not a change to decline" yes \
+  "$(has "$(module_of coordinator-answer "$sched")" "cancelling the person's reminders and follow-ups is the scheduler's work, not a change to a system")"
 worker="$(module worker)"
 check "worker: a finding holds only tool results" yes "$(has "$worker" 'a finding states only what a tool result in this discussion holds')"
+check "worker: an empty result is a finding, not a failure" yes "$(has "$worker" 'an empty result from a call that ran is a finding, none; it is not a failure to retrieve')"
 check "worker: never counts by eye" yes "$(has "$worker" 'NEVER count, total or order a result yourself')"
-check "worker: answers a recheck by reading again" yes "$(has "$worker" 'WHEN an agent asks you to recheck a finding THEN read it again with your tools')"
 advisor="$(module advisor)"
 check "advisor: is the domain's fact-checker" yes "$(has "$advisor" "You are your domain's fact-checker")"
 check "advisor: checks against stored result, live source and documentation" yes \
@@ -91,24 +96,54 @@ check "compute: every number is code output, marked" yes "$(has "$compute" 'the 
 check "compute: fetches nothing" yes "$(has "$compute" 'you fetch nothing')"
 check "compute-system does not differ between the workspace_query arms" "$compute" "$(module_of compute-system "$(render --set compute.workspaceQuery=false)")"
 
-# The verdicts: today's runtime parses reply words; with discussion.signalTool.enabled the same
-# verdicts go through the signal tool and no module teaches a word.
-words='NOTHING_TO_ADD|NO_DATA|TOOL_GAP|CONCERN'
-check "words arm: the worker carries the three reply words" 3 "$(grep -cE "reply ($words)" <<<"$worker" || true)"
-check "words arm: the advisor asks a recheck with CONCERN: @<agent>" yes "$(has "$advisor" 'reply CONCERN: @<the agent that made it>, <your clarifying question>?')"
-check "words arm: compute carries NO_DATA and NOTHING_TO_ADD" 2 "$(grep -cE "reply ($words)" <<<"$compute" || true)"
-check "words arm: no module mentions a signal tool" 0 "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out" | grep -c 'signal tool' || true)"
-sig="$(render --set discussion.signalTool.enabled=true)"
+# The scheduler has its own role: it keeps the person's schedules and gathers nothing.
+check "scheduler: no worker contract" "crew-invariants,scheduler-advisor-system" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "scheduler-advisor") | .spec.promptRefs | join(",")' <<<"$sched")"
+scheduler="$(module_of scheduler-advisor-system "$sched")"
+check "scheduler: a confirmation question is its reply" yes "$(has "$scheduler" 'your reply is the question that confirms it')"
+check "scheduler: stands aside through the signal tool" yes "$(has "$scheduler" 'stand aside with the signal tool')"
+check "scheduler: the threadId rule lives in the tool's own description" 0 "$(grep -c 'threadId' <<<"$scheduler" || true)"
+
+# The verdicts. The signal tool is the default: a Kubemoot whose archetype declares signals offers
+# it, and then no module teaches a reply word and an agent asked a question rechecks. The reply
+# words are for a crew on an older Kubemoot, in the exact forms its runtime parses: compute's bare
+# NO_DATA (the compute contract accepts only that), NO_DATA: and TOOL_GAP: at the start of a
+# worker's reply, CONCERN: at the start of an advisor's, NOTHING_TO_ADD anywhere. There is no
+# recheck round then, so a questioned value is reported as unverified.
+replywords='NOTHING_TO_ADD|NO_DATA|TOOL_GAP|CONCERN'
 for name in crew-invariants worker advisor compute-system coordinator-convene coordinator-answer; do
-  check "signal arm: $name teaches no reply word" 0 "$(module_of "$name" "$sig" | grep -cE "$words" || true)"
+  check "signal arm (default): $name teaches no reply word" 0 "$(module "$name" | grep -cE "$replywords" || true)"
 done
-check "signal arm: the invariants say to record the verdict with the signal tool" yes \
-  "$(has "$(module_of crew-invariants "$sig")" 'you record your verdict with the signal tool')"
-check "signal arm: the advisor asks the agent to recheck through the signal tool" yes \
-  "$(has "$(module_of advisor "$sig")" 'ask the agent that made it, with the signal tool, to recheck it')"
-check "signal arm: the worker stands aside through the signal tool" yes "$(has "$(module_of worker "$sig")" 'stand aside with the signal tool')"
+check "signal arm (default): the scheduler teaches no reply word" 0 "$(grep -cE "$replywords" <<<"$scheduler" || true)"
+check "signal arm: the invariants say to record the verdict with the signal tool" yes "$(has "$invariants" 'you record your verdict with the signal tool')"
+check "signal arm: the advisor asks the agent to recheck through the signal tool" yes "$(has "$advisor" 'ask the agent that made it, with the signal tool, to recheck it')"
+check "signal arm: the worker answers a recheck by reading again" yes "$(has "$worker" 'WHEN an agent asks you to recheck a finding THEN read it again with your tools')"
+check "signal arm: compute answers a recheck by running the code again" yes "$(has "$compute" 'WHEN an agent asks you to recheck a number THEN run the code again')"
+check "signal arm: a questioned value counts only after a recheck" yes "$(has "$(module coordinator-answer)" 'counts only after the agent that reported it rechecked it')"
+old="$(render --set discussion.signalTool.enabled=false)"
+oworker="$(module_of worker "$old")"; oadvisor="$(module_of advisor "$old")"; ocompute="$(module_of compute-system "$old")"
+check "words arm: compute replies with the bare word NO_DATA" yes "$(has "$ocompute" 'reply exactly NO_DATA, with nothing else')"
+check "words arm: compute never writes NO_DATA:" 0 "$(grep -c 'NO_DATA:' <<<"$ocompute" || true)"
+check "words arm: the worker starts its reply with NO_DATA:" yes "$(has "$oworker" 'start your reply with NO_DATA: <what, and why>')"
+check "words arm: the worker starts its reply with TOOL_GAP:" yes "$(has "$oworker" 'start your reply with TOOL_GAP: <the capability>')"
+check "words arm: the advisor starts its reply with CONCERN:" yes "$(has "$oadvisor" 'start your reply with CONCERN: <the claim')"
+check "words arm: the reply words are upper case as the runtime matches them" 0 \
+  "$(printf '%s\n%s\n%s\n' "$oworker" "$oadvisor" "$ocompute" | grep -ciE "$replywords" | awk -v u="$(printf '%s\n%s\n%s\n' "$oworker" "$oadvisor" "$ocompute" | grep -cE "$replywords")" '{print $1 - u}')"
+check "words arm: no recheck line anywhere" 0 "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$old" | grep -ci 'recheck' || true)"
+check "words arm: a questioned value is reported as unverified" yes "$(has "$(module_of coordinator-answer "$old")" 'you report it as unverified')"
+check "words arm: no module mentions the signal tool" 0 "$(yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$old" | grep -c 'signal tool' || true)"
 strip_modules() { yq -N 'select(.kind != "PromptModule")' <<<"$1"; }
-check "signal arm: only the PromptModules change" "$(strip_modules "$out")" "$(strip_modules "$sig")"
+check "the switch changes only the PromptModules" "$(strip_modules "$out")" "$(strip_modules "$old")"
+check "signal switch: a null value is off" "$(module_of crew-invariants "$old")" "$(module_of crew-invariants "$(render --set discussion.signalTool=null)")"
+# The flag and the archetype must agree: the signal tool needs an archetype that declares signals.
+check "archetype: the policy names crew.archetype" consent-3 "$(yq -N 'select(.kind == "CrewSchedulingPolicy") | .spec.archetypeRef' <<<"$out")"
+bad="$(render --set crew.archetype=quorum-2 2>&1 >/dev/null || true)"
+check "archetype: the signal tool with an archetype not known to declare signals fails the render" yes \
+  "$(has "$bad" 'is not in discussion.signalTool.archetypes')"
+check "archetype: the reply words render under any archetype" quorum-2 \
+  "$(yq -N 'select(.kind == "CrewSchedulingPolicy") | .spec.archetypeRef' <<<"$(render --set crew.archetype=quorum-2 --set discussion.signalTool.enabled=false)")"
+check "archetype: a listed archetype renders with the signal tool" quorum-2 \
+  "$(yq -N 'select(.kind == "CrewSchedulingPolicy") | .spec.archetypeRef' <<<"$(render --set crew.archetype=quorum-2 --set 'discussion.signalTool.archetypes={consent-3,quorum-2}')")"
 
 # The coordinator: who to convene, and an answer only from what the agents found.
 convene="$(module coordinator-convene)"
@@ -116,22 +151,28 @@ answer="$(module coordinator-answer)"
 check "convene: selects by described capability" yes "$(has "$convene" 'whose description says they answer this kind of question')"
 check "convene: never says the crew cannot" yes "$(has "$convene" 'NEVER state that the crew cannot do something')"
 check "convene: a member task names no other agent" yes "$(has "$convene" 'names no other agent')"
+check "convene: no skill line without Skills" no "$(has "$convene" 'select a skill')"
+check "convene: a skill line with a Skill on" yes "$(has "$(module_of coordinator-convene "$(render --set skills.dcgmGpuMetrics.enabled=true)")" 'select a skill')"
 check "answer: only from the findings" yes "$(has "$answer" 'you answer only from the findings')"
-check "answer: a questioned value counts only after a recheck" yes "$(has "$answer" 'counts only after the agent that reported it rechecked it')"
 check "answer: a failed listing is not zero" yes "$(has "$answer" 'a failed listing is not zero items')"
 check "answer: never mentions agents or signals" yes "$(has "$answer" 'never mention agents, signals or the discussion')"
 check "coordinator modules name no cluster" 0 "$(printf '%s\n%s\n' "$convene" "$answer" | grep -ciE 'rig[0-9]|talos|proxmox|homelab|gateway' || true)"
+# The host-name line needs the join the PromQL Skill carries.
+for m in k8s-metrics-system obs-metrics-system; do
+  check "$m: no host-name rule without the PromQL Skill" no "$(has "$(module "$m")" 'by its name, not by its address')"
+  check "$m: the host-name rule with the PromQL Skill" yes "$(has "$(module_of "$m" "$(render --set skills.promqlResourceUsage.enabled=true)")" 'by its name, not by its address')"
+done
 
 # No agent's modules name a tool the agent lacks, whichever optional tools are on.
 export VOCAB_ARGS="${all_on[*]}"
 check "default values: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" >/dev/null 2>&1; echo $?)"
 check "optional tools on: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" "${all_on[@]}" >/dev/null 2>&1; echo $?)"
-check "signal arm: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" --set discussion.signalTool.enabled=true >/dev/null 2>&1; echo $?)"
+check "words arm: modules name only the agent's own tools" 0 "$(bash "$checker" "$chart" --set discussion.signalTool.enabled=false >/dev/null 2>&1; echo $?)"
 check "proxmox only: modules name only the agent's own tools" 0 \
   "$(bash "$checker" "$chart" --set mcpServers.proxmox.enabled=true --set mcpServers.proxmox.image=x >/dev/null 2>&1; echo $?)"
 
 # The Kubernetes server's tool overrides: lists get narrowed on the server, so the descriptions
-# agents see name the selectors the server accepts and say that a positive limit is refused.
+# agents see name the selectors the server accepts and how a large list is paged.
 # The server has no option for fewer columns, so its config sets no list_output.
 k8s_mcp() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"t-kubernetes-mcp\") | $1" <<<"$2"; }
 override() { k8s_mcp ".spec.toolOverrides[] | select(.name == \"$1\") | $2" "$out"; }
@@ -183,7 +224,7 @@ first_rule() { # the index of the first rendered rule that rejects the selector,
 }
 check "rules: the rendered patterns equal the fixture's, in order" "$(yq -p=json -o=y -N '.rules[].reject' "$fixture")" "$(rule_patterns)"
 check "rules: resources_list fieldSelector has four rules" 4 "$(rule_patterns | wc -l | tr -d ' ')"
-check "rules: only the list tools' fieldSelector and limit carry rules" "pods_list.limit pods_list_in_namespace.limit resources_list.fieldSelector resources_list.limit" \
+check "rules: only resources_list fieldSelector carries rules" "resources_list.fieldSelector" \
   "$(k8s_mcp '.spec.toolOverrides[] | select(.parameters) | .name as $t | .parameters | to_entries[] | select(.value.rules) | $t + "." + .key' "$out" | tr '\n' ' ' | sed 's/ $//')"
 check "rules: every rule has a pattern and an ASSERT message" 4 \
   "$(override resources_list '.parameters.fieldSelector.rules[] | select(.reject != "" and (.message | test("^ASSERT "))) | .reject' | wc -l | tr -d ' ')"
@@ -207,31 +248,25 @@ check "overrides: events_list fieldSelector gives type=Warning" yes \
 check "overrides: pods_top says one row per container" yes "$(has "$(override pods_top .description)" 'one row per container')"
 check "overrides: pods_top all_namespaces says it defaults to true" yes \
   "$(has "$(override pods_top .parameters.all_namespaces.description)" 'defaults to true')"
-check "overrides: pods_top says the Metrics API ignores limit" yes "$(has "$(override pods_top .description)" 'ignores limit')"
-# A positive limit cuts a list and delivers no later page, so the gateway refuses it; a count is the
-# rows of a list with no limit. One text serves every list tool, so the descriptions cannot drift apart.
-limit_fixture="$chart/tests/fixtures/limit-rule.json"
-limit_pattern="$(yq -p=json -o=y -N '.reject' "$limit_fixture")"
+check "overrides: pods_top pages with limit and continue" yes "$(has "$(override pods_top .description)" 'limit and continue page the rows')"
+# The server pages a large list with limit and continue and caps one response at 4 MiB, so the
+# descriptions say how a count is made and how the next page is asked for. One text serves every
+# list tool, so the descriptions cannot drift apart, and no rule refuses a limit any more.
 for tool in pods_list pods_list_in_namespace resources_list; do
   check "overrides: $tool says a count is the rows of a reply with no limit" yes \
-    "$(has "$(override "$tool" .description)" 'with no limit the reply holds every matching row')"
-  check "overrides: $tool limit says a positive limit is refused" yes \
-    "$(has "$(override "$tool" .parameters.limit.description)" 'A positive limit is refused')"
-  check "rules: $tool limit carries the fixture's one pattern" "$limit_pattern" \
-    "$(override "$tool" '.parameters.limit.rules | map(.reject) | join("|")')"
-  check "rules: $tool limit message names the alternative" yes \
-    "$(has "$(override "$tool" '.parameters.limit.rules[0].message')" 'a call with no limit returns every row')"
+    "$(has "$(override "$tool" .description)" 'limit returns every matching row in one reply, so its rows are the count')"
+  check "overrides: $tool states the 4 MiB cap" yes "$(has "$(override "$tool" .description)" '4 MiB')"
+  check "overrides: $tool limit says a partial reply carries a continue line" yes \
+    "$(has "$(override "$tool" .parameters.limit.description)" '# continue: <token>')"
+  check "overrides: $tool continue says how to get the next page" yes \
+    "$(has "$(override "$tool" .parameters.continue.description)" 'sent unchanged with the same limit, namespace and selectors')"
+  check "rules: $tool limit carries no rule" 0 "$(override "$tool" '.parameters.limit.rules // [] | length')"
 done
 check "overrides: the three limit descriptions are one text" 1 \
   "$(yq ea -N '[select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[].parameters.limit.description | select(. != null)] | unique | length' <<<"$out")"
-while IFS= read -r value; do
-  if grep -qP -- "$limit_pattern" <<<"$value"; then got=rejected; else got=allowed; fi
-  check "rules: limit '$value' is rejected" rejected "$got"
-done < <(yq -p=json -o=y -N '.rejectValues[]' "$limit_fixture")
-while IFS= read -r value; do
-  if [ -n "$value" ] && grep -qP -- "$limit_pattern" <<<"$value"; then got=rejected; else got=allowed; fi
-  check "rules: limit '$value' is allowed" allowed "$got"
-done < <(yq -p=json -o=y -N '.passValues[]' "$limit_fixture")
+check "overrides: the three continue descriptions are one text" 1 \
+  "$(yq ea -N '[select(.kind == "MCPServer" and .metadata.name == "t-kubernetes-mcp") | .spec.toolOverrides[].parameters.continue.description | select(. != null)] | unique | length' <<<"$out")"
+check "overrides: events_list pages too" yes "$(has "$(override events_list .description)" 'limit and continue page the events')"
 check "overrides: resources_list says the Node table has no capacity column" yes \
   "$(has "$(override resources_list .description)" 'the Node table has no CPU, memory, capacity or allocatable column')"
 check "overrides: resources_list labelSelector says an absent label matches nothing" yes \
@@ -337,6 +372,13 @@ check "descriptions: compute's summary says a live-data question needs the fetch
 check "descriptions: k8s-config says it reads ConfigMap contents" yes \
   "$(has "$(agent_field k8s-config description)" 'ConfigMap contents (keys and values, such as a setting, a schedule or a policy)')"
 check "descriptions: k8s-config never reads Secret values" yes "$(has "$(agent_field k8s-config description)" 'never their values')"
+keywords() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | .spec.discussKeywords // [] | .[]" <<<"$out_all"; }
+check "descriptions: without Secret reads k8s-config claims no Secrets" 0 \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-config") | (.spec.description, .spec.triageSummary, (.spec.discussKeywords | join(" ")))' <<<"$out" | grep -ci 'secret' || true)"
+check "keywords: the advisors carry no teaching words" 0 \
+  "$(for a in k8s-advisor proxmox-advisor; do keywords "$a"; done | grep -cxE 'concept|explain|tutorial|howto|cli|guide|setup|configure|recommend|troubleshoot|debug|pvesh|qm|pct' || true)"
+check "keywords: the scheduler does not claim the recheck words" 0 "$(keywords scheduler-advisor | grep -cxE 'recheck|check again' || true)"
+check "nvidia-gpu-now can list the metric names" yes "$(agent_field nvidia-gpu-now 'enabledTools | join(" ")' | grep -qw list_metrics && echo yes || echo no)"
 for other in k8s-helm k8sgpt; do
   check "descriptions: $other does not claim ConfigMap contents" 0 \
     "$({ agent_field "$other" description; agent_field "$other" triageSummary; } | grep -ci 'configmap' || true)"
