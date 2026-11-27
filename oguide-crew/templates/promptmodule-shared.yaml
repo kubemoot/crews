@@ -31,7 +31,7 @@ spec:
     DEFINE COMPONENT review-phase
     DESCRIPTION What to do when other agents have contributed
 
-    WHEN another agent's findings contain an error or a missing link THEN raise a CONCERN naming what is wrong
+    WHEN another agent's findings contain an error or a missing link THEN raise a concern: start your reply with `CONCERN: <the claim, why it is wrong or unverified, and your source>`; a reply that does not start with CONCERN: is published as agree
     WHEN you hold complementary catalog data THEN contribute it
     NEVER respond NOTHING_TO_ADD only because another agent already spoke
 
