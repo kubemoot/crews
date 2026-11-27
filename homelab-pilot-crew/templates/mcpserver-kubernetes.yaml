@@ -28,7 +28,17 @@
 }}
 {{- /* The server takes its settings from a TOML file only (no runtime flags). Without
      port it speaks MCP over stdio, which the operator's bridge sidecar carries. */}}
-{{- $config := printf "toolsets = [\"core\", \"helm\"]\nread_only = %t\n" (not (include "homelab-pilot-crew.writeOn" .)) }}
+{{- /* enabled_tools registers only the tools the agents use; read_only still filters it, so the
+     write tools register only with kubernetesAccess.write.namespaces. denied_resources makes
+     the server's own Kubernetes client refuse Secrets, beside the RBAC that grants none, unless
+     kubernetesAccess.secretRead.namespaces asks for Secret reads (helm_list reads releases from
+     Secrets, and a count of Secrets lists them). */}}
+{{- $tools := list "resources_list" "resources_get" "pods_list" "pods_list_in_namespace" "pods_get" "pods_log" "pods_top" "events_list" "helm_list" "api_resources_list" }}
+{{- if include "homelab-pilot-crew.writeOn" . }}{{ $tools = concat $tools (list "pods_exec" "resources_scale" "helm_install" "helm_uninstall") }}{{ end }}
+{{- $config := printf "toolsets = [\"core\", \"helm\"]\nread_only = %t\nenabled_tools = [%s]\n" (not (include "homelab-pilot-crew.writeOn" .)) (include "homelab-pilot-crew.quotedList" $tools) }}
+{{- if not (include "homelab-pilot-crew.secretReadOn" .) }}
+{{- $config = printf "%s\n[[denied_resources]]\ngroup = \"\"\nversion = \"v1\"\nkind = \"Secret\"\n" $config }}
+{{- end }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -38,9 +48,10 @@ metadata:
     {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  # core: pods, resources, events, nodes and namespaces. helm: helm_list, plus
-  # helm_install and helm_uninstall when read_only is false (kubernetesAccess.write.namespaces).
-  # read_only registers only the tools that do not change the cluster.
+  # core: pods, resources, events and API resource lookup. helm: helm_list, plus helm_install
+  # and helm_uninstall when read_only is false (kubernetesAccess.write.namespaces). read_only
+  # registers only the tools that do not change the cluster, and enabled_tools only the ones
+  # the agents use.
   config.toml: |
     {{- $config | nindent 4 }}
 ---
@@ -159,6 +170,12 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         DESCRIPTION Returns one object of the given apiVersion, kind and name in full, as YAML: its spec and status, and for a ConfigMap its data keys and values
         ASSERT a namespaced kind needs namespace; a cluster-scoped kind such as Node, Namespace or ClusterRole takes none
         ASSERT a Node's status.capacity and status.allocatable hold its CPU, memory, pods and ephemeral storage
+        ASSERT a CustomResourceDefinition (apiVersion apiextensions.k8s.io/v1) holds its custom kind's fields in spec.versions[].schema.openAPIV3Schema, so the object is the documentation of that kind; it is large
+    - name: api_resources_list
+      description: |-
+        DESCRIPTION Looks up the API resource types that serve one kind: for each match its apiVersion (the server's preferred version), plural resource name and whether it is namespaced, as kubectl api-resources shows them for that kind
+        ASSERT kind is required and matched exactly, ignoring case, across every API group; there is no listing of every kind at once, and resources_list on kind CustomResourceDefinition lists the custom kinds the cluster serves
+        ASSERT an empty result means the cluster serves no resource of that kind
     - name: pods_top
       description: |-
         DESCRIPTION CPU and memory from the Metrics Server, one row per container, not per pod
@@ -200,49 +217,5 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
           description: "ASSERT boolean true lists releases in every namespace."
   resources:
     {{- toYaml .Values.mcpServers.kubernetes.resources | nindent 4 }}
-{{- end }}
----
-{{- if .Values.mcpServers.kubernetesLegacy.enabled }}
-apiVersion: kubemoot.ai/v1alpha1
-kind: MCPServer
-metadata:
-  name: {{ .Release.Name }}-kubernetes-legacy-mcp
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
-spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "name" (printf "%s-kubernetes-legacy-mcp" .Release.Name)) }}
-  description: "Runs kubectl and Helm commands through the cluster account. Without write access it registers only the tools the server marks non-destructive."
-  image: {{ .Values.mcpServers.kubernetesLegacy.image }}
-  transport: stdio
-  port: 3000
-  replicas: 1
-  serviceAccountName: {{ .Release.Name }}-kubernetes-mcp
-  securityMode: relaxed
-  command:
-    - "node"
-    - "dist/index.js"
-  capabilities:
-    - kubernetes
-    - kubectl
-    - api-resources
-  env:
-    - name: SPAWN_MAX_BUFFER
-      value: "10485760"
-    {{- if not (include "homelab-pilot-crew.writeOn" .) }}
-    # Registers only tools that do not change the cluster.
-    - name: ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS
-      value: "true"
-    {{- end }}
-  # The two tools the crew uses from this server, described by what they return.
-  toolOverrides:
-    - name: list_api_resources
-      description: |-
-        DESCRIPTION Lists the resource kinds the cluster's API serves, one row per kind: name, short names, API group and version, whether it is namespaced, and the kind
-        ASSERT custom resources appear beside the built-in kinds, so the rows show which CRDs the cluster serves
-    - name: explain_resource
-      description: |-
-        DESCRIPTION Returns the documentation of a kind, or of one field path such as pods.spec.containers, from the cluster's own API schema: the field's type, its description and its subfields
-  resources:
-    {{- toYaml .Values.mcpServers.kubernetesLegacy.resources | nindent 4 }}
 {{- end }}
 {{- end }}

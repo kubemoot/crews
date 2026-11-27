@@ -14,8 +14,6 @@ egress:
       ports: [8006]
     crew-homelab-pilot-homelab-pilot-crew-kubernetes-mcp:
       apiServer: true
-    crew-homelab-pilot-homelab-pilot-crew-kubernetes-legacy-mcp:
-      apiServer: true
     k8sgpt-mcp:
       apiServer: true
     # fetch_content reads any page a search finds, so the internet stays open, but never

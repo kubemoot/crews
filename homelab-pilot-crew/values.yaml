@@ -282,8 +282,8 @@ rbac:
   render: all
   namePrefix: ""
 
-# Access for the Kubernetes MCP servers (kubernetes, kubernetesLegacy, which share one
-# ServiceAccount) and k8sgpt (its own). This chart ships both accounts' roles and binds them, so
+# Access for the Kubernetes MCP server (kubernetes) and k8sgpt (each with its own
+# ServiceAccount). This chart ships both accounts' roles and binds them, so
 # the grant is in the chart's manifests: creating a binding in a namespace is the consent for
 # it, and whoever installs the chart needs the right to create RoleBindings in the namespaces
 # listed below. A listed namespace must exist when the chart is installed.
@@ -329,12 +329,13 @@ nats:
 mcpServers:
   kubernetes:
     enabled: true
-    # containers/kubernetes-mcp-server v0.1.1, pinned by digest. It reports a failed
+    # containers/kubernetes-mcp-server v0.1.3, pinned by digest (the crew's only Kubernetes MCP
+    # server). It reports a failed
     # Kubernetes API call with the MCP isError flag, which the agent runtime maps to a
     # failure signal, and its list tools take limit and continue. It reads its settings
     # from a TOML file only, which the chart renders (templates/mcpserver-kubernetes.yaml),
     # so another version may need a different file.
-    image: "quay.io/containers/kubernetes_mcp_server@sha256:d616331a99184d42f7471eac5ae257192e7065bb684ad115cc95c2e76cfbc2d1"
+    image: "quay.io/containers/kubernetes_mcp_server@sha256:6347155616c49c78512114500688b50d275ddde7597b6a38cefe6f40a8c42c16"
     resources:
       requests:
         cpu: 100m
@@ -342,16 +343,6 @@ mcpServers:
       limits:
         cpu: 500m
         memory: 256Mi
-  kubernetesLegacy:
-    enabled: true
-    image: "mcp/kubernetes@sha256:0de7c3ea2dacf13bba03579a6911a899f8c213c8b86c7ca2bd216359efb79e3a"
-    resources:
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
   prometheus:
     enabled: true
     # Prometheus HTTP API URL (a kube-prometheus-stack release in "monitoring" here).
