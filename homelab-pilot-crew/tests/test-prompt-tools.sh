@@ -316,6 +316,10 @@ check "k8sgpt: explain=false passes" no "$(grep -qP -- "$explain_rule" <<<'false
 check "k8sgpt: any backend is refused" yes "$(grep -qP -- "$(server_override k8sgpt-mcp analyze '.parameters.backend.rules[0].reject')" <<<'openai' && echo yes || echo no)"
 check "code sandbox: execute_code says standard library only" yes \
   "$(has "$(server_override code-sandbox-mcp execute_code .description)" 'Python has the standard library only')"
+check "code sandbox: execute_code says a stored result is read in full by key" yes \
+  "$(has "$(server_override code-sandbox-mcp execute_code .description)" 'name its key in inputs')"
+check "code sandbox: execute_code says only this discussion's results can be named" yes \
+  "$(has "$(server_override code-sandbox-mcp execute_code .description)" "only this discussion's stored results can be named")"
 for tool in workspace_head workspace_tail workspace_grep; do
   check "workspace: $tool says a call line carries no data" yes "$(has "$(server_override workspace-mcp "$tool" .description)" 'the line carries no data')"
   check "workspace: $tool says what [EMPTY RESULT] means" yes \
