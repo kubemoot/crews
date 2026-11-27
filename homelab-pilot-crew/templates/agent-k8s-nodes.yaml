@@ -19,9 +19,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
-  triageSummary: "Answers how big the cluster and each node are and whether the nodes are healthy: total and per-node CPU and memory capacity and allocatable, how much RAM the nodes have, node roles (control plane or worker), Ready, MemoryPressure, DiskPressure, and PIDPressure conditions, labels, taints, cordoned nodes, and kubelet and Kubernetes version. Also discovers installed CustomResourceDefinitions and API resource schemas."
+  triageSummary: "Answers how big the cluster and each node are and whether the nodes are healthy: total and per-node CPU and memory capacity and allocatable, how much RAM the nodes have, node roles (control plane or worker), Ready, MemoryPressure, DiskPressure, and PIDPressure conditions, labels, taints, cordoned nodes, and kubelet and Kubernetes version. Also lists the installed CustomResourceDefinitions, reads a custom kind's schema from its CRD, and looks up which API version serves a kind."
   promptRefs: [crew-invariants, worker, k8s-nodes-system]
-  enabledTools: [list_api_resources, explain_resource, resources_list, resources_get, events_list]
+  enabledTools: [api_resources_list, resources_list, resources_get, events_list]
   domains:
     - kubernetes
     - k8s

@@ -136,7 +136,7 @@ check "proxmox only: modules name only the agent's own tools" 0 \
 k8s_mcp() { yq -N "select(.kind == \"MCPServer\" and .metadata.name == \"t-kubernetes-mcp\") | $1" <<<"$2"; }
 override() { k8s_mcp ".spec.toolOverrides[] | select(.name == \"$1\") | $2" "$out"; }
 names() { k8s_mcp '.spec.toolOverrides[].name' "$1" | sort | tr '\n' ' ' | sed 's/ $//'; }
-check "overrides: the Kubernetes tools" "events_list helm_list pods_get pods_list pods_list_in_namespace pods_top resources_get resources_list" "$(names "$out")"
+check "overrides: the Kubernetes tools" "api_resources_list events_list helm_list pods_get pods_list pods_list_in_namespace pods_top resources_get resources_list" "$(names "$out")"
 check "overrides: helm_list says it lists the server's own namespace by default" yes \
   "$(has "$(override helm_list .description)" "only the server's own namespace")"
 check "overrides: helm_list says a forbidden error means no Secret read" yes \
@@ -154,6 +154,8 @@ check "overrides: resources_list says its table never holds ConfigMap data" yes 
 check "overrides: resources_get returns a ConfigMap's keys and values" yes \
   "$(has "$(override resources_get .description)" 'for a ConfigMap its data keys and values')"
 check "overrides: pods_get holds the restart counts" yes "$(has "$(override pods_get .description)" 'restartCount')"
+check "overrides: resources_get says a CRD holds its kind's schema" yes "$(has "$(override resources_get .description)" 'spec.versions[].schema.openAPIV3Schema')"
+check "overrides: api_resources_list says kind is required and there is no full listing" yes "$(has "$(override api_resources_list .description)" 'there is no listing of every kind at once')"
 check "overrides: resources_list fieldSelector names the Node fields" yes \
   "$(has "$(override resources_list .parameters.fieldSelector.description)" 'Node: metadata.name, spec.unschedulable')"
 check "overrides: resources_list labelSelector gives the label syntax" yes \
@@ -289,7 +291,7 @@ check "workspace: the query tools keep the server's own descriptions" 0 \
 
 # The checks below count offenders, so first make sure there is something to count.
 override_count="$(yq -N 'select(.kind == "MCPServer") | .spec.toolOverrides // [] | .[].name' <<<"$out_all" | count)"
-check "overrides: every server's overrides were rendered (8 + 2 + 4 + 6 + 1 + 1 + 3)" 25 "$override_count"
+check "overrides: every server's overrides were rendered (9 + 4 + 6 + 1 + 1 + 3)" 24 "$override_count"
 # A description states facts: every line is DESCRIPTION or ASSERT, never a rule (WHEN, THEN,
 # ALWAYS, NEVER), and so is every message a rule answers with.
 override_texts() {
@@ -378,6 +380,8 @@ old_notes="$(notes --set discussion.peerVerification.enabled=true --set discussi
 check "removed values: the notes say peerVerification was removed" yes "$(has "$old_notes" 'REMOVED: discussion.peerVerification')"
 check "removed values: the notes say factChecker was removed" yes "$(has "$old_notes" 'REMOVED: discussion.factChecker')"
 check "removed values: no note without them" no "$(has "$(notes)" 'REMOVED:')"
+check "removed values: the notes say kubernetesLegacy was removed" yes "$(has "$(notes --set mcpServers.kubernetesLegacy.enabled=true)" 'REMOVED: mcpServers.kubernetesLegacy')"
+check "removed values: kubernetesLegacy renders no second server" "$out" "$(render --set mcpServers.kubernetesLegacy.enabled=true)"
 
 # The tool names themselves are checked against what each server lists (CI runs this script).
 bash "$chart/tests/test-server-tools.sh" || failures=$((failures + 1))

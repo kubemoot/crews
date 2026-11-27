@@ -10,19 +10,15 @@
 # write: the tools it adds when kubernetesAccess.write.namespaces is not empty.
 servers:
   kubernetes:
-    # containers/kubernetes-mcp-server v0.1.1, toolsets core and helm. From the source at the
-    # v0.1.1 tag (pkg/mcp/testdata/toolsets-core-tools.json and toolsets-helm-tools.json):
-    # tools holds the ones annotated readOnlyHint=true, which are the only ones
-    # read_only = true registers.
+    # containers/kubernetes-mcp-server v0.1.3, toolsets core and helm. From the source at the
+    # v0.1.3 tag (pkg/mcp/testdata/toolsets-core-tools.json and toolsets-helm-tools.json):
+    # tools holds the ones annotated readOnlyHint=true, which are the only ones read_only = true
+    # registers. This is the full read-only set; the chart's enabled_tools narrows what the
+    # server lists to the tools the agents use (test-server-tools.sh checks that list).
     mcpServer: t-kubernetes-mcp
-    image: quay.io/containers/kubernetes_mcp_server@sha256:d616331a99184d42f7471eac5ae257192e7065bb684ad115cc95c2e76cfbc2d1
-    tools: [events_list, namespaces_list, nodes_log, nodes_stats_summary, nodes_top, pods_get, pods_list, pods_list_in_namespace, pods_log, pods_top, projects_list, resources_get, resources_list, helm_list]
+    image: quay.io/containers/kubernetes_mcp_server@sha256:6347155616c49c78512114500688b50d275ddde7597b6a38cefe6f40a8c42c16
+    tools: [api_resources_list, events_list, namespaces_list, nodes_log, nodes_stats_summary, nodes_top, pods_get, pods_list, pods_list_in_namespace, pods_log, pods_top, projects_list, resources_get, resources_list, helm_list]
     write: [pods_delete, pods_exec, pods_run, resources_create_or_update, resources_delete, resources_scale, helm_install, helm_uninstall]
-  kubernetes-legacy:
-    # Flux159/mcp-server-kubernetes with ALLOW_ONLY_NON_DESTRUCTIVE_TOOLS: the image's tools/list.
-    mcpServer: t-kubernetes-legacy-mcp
-    image: mcp/kubernetes@sha256:0de7c3ea2dacf13bba03579a6911a899f8c213c8b86c7ca2bd216359efb79e3a
-    tools: [exec_in_pod, explain_resource, install_helm_chart, kubectl_apply, kubectl_context, kubectl_create, kubectl_describe, kubectl_get, kubectl_logs, kubectl_patch, kubectl_reconnect, kubectl_rollout, kubectl_scale, list_api_resources, ping, port_forward, stop_port_forward, upgrade_helm_chart]
   prometheus:
     # pab1it0/prometheus-mcp-server: the tools in src/prometheus_mcp_server/server.py at
     # v1.6.2, the same names the image lists.

@@ -447,6 +447,9 @@ REMOVED: discussion.peerVerification no longer does anything. The advisor module
 {{- if hasKey $discussion "factChecker" }}
 REMOVED: discussion.factChecker no longer does anything. The four advisors check their domain's findings (the fact-checker role); remove the value. advisors.liveRead replaces discussion.factChecker.liveRead.
 {{- end }}
+{{- if hasKey .Values.mcpServers "kubernetesLegacy" }}
+REMOVED: mcpServers.kubernetesLegacy no longer does anything. The crew runs one Kubernetes MCP server (mcpServers.kubernetes); remove the value.
+{{- end }}
 {{- end }}
 
 {{/* The MCPServer's spec.smokeInputs, read from mcp-smoke/<name>.yaml (run through tpl) and
@@ -474,4 +477,11 @@ Renders the inside of a flow list.
 {{- if .root.Values.advisors.workspaceQuery -}}{{- $tools = concat $tools (list "workspace_query" "workspace_describe") -}}{{- end -}}
 {{- if .root.Values.advisors.liveRead -}}{{- $tools = concat $tools .live -}}{{- end -}}
 {{- join ", " $tools -}}{{ include "homelab-pilot-crew.ragSearchTools" (dict "root" .root "name" .name) }}
+{{- end }}
+
+{{/* A list of strings as a TOML array's contents: "a", "b". */}}
+{{- define "homelab-pilot-crew.quotedList" -}}
+{{- $out := list -}}
+{{- range . }}{{ $out = append $out (quote .) }}{{ end -}}
+{{- join ", " $out -}}
 {{- end }}

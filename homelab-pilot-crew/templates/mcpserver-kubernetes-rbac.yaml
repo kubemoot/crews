@@ -1,5 +1,4 @@
-{{/* RBAC for the Kubernetes MCP servers (kubernetes, kubernetesLegacy), which share one
-ServiceAccount.
+{{/* RBAC for the Kubernetes MCP server (kubernetes) and its ServiceAccount.
 
 This chart grants the access itself, so the grant is visible in the chart's own manifests and
 whoever can create a RoleBinding in a namespace is the one who consents for it:

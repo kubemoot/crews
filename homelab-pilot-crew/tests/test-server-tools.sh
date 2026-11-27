@@ -68,6 +68,20 @@ check "kubernetes: read_only by default" 1 "$(grep -cxF 'read_only = true' <<<"$
 check "kubernetes: read_only off with write namespaces" 1 \
   "$(grep -cxF 'read_only = false' <<<"$(config "$(render --set 'kubernetesAccess.write.namespaces={apps}')")" || true)"
 check "kubernetes: the config sets no port, so the server speaks stdio" 0 "$(grep -c '^port' <<<"$(config "$out")" || true)"
+# enabled_tools registers exactly the Kubernetes tools some agent uses, and the server's own client
+# refuses Secrets unless the Secret read tier is on.
+enabled_list() { config "$1" | sed -n 's/^enabled_tools = \[\(.*\)\]$/\1/p' | tr -d '" ' | tr ',' '\n' | sort | tr '\n' ' ' | sed 's/ $//'; }
+used_k8s() { comm -12 <(agent_tools "$1") <(printf '%s\n' "$k8s_all" | sort -u) | tr '\n' ' ' | sed 's/ $//'; }
+check "kubernetes: enabled_tools is the tools the agents use" "$(used_k8s "$out")" "$(enabled_list "$out")"
+write_render="$(render --set 'kubernetesAccess.write.namespaces={apps}')"
+check "kubernetes: enabled_tools with write namespaces is the tools the agents use" "$(used_k8s "$write_render")" "$(enabled_list "$write_render")"
+check "kubernetes: the config denies Secrets by default" 1 "$(grep -cxF 'kind = "Secret"' <<<"$(config "$out")" || true)"
+check "kubernetes: no Secret denial with secret namespaces" 0 \
+  "$(grep -cxF 'kind = "Secret"' <<<"$(config "$(render --set 'kubernetesAccess.secretRead.namespaces={kube-system}')")" || true)"
+check "kubernetes: one Kubernetes MCP server" "t-kubernetes-mcp" \
+  "$(yq -N 'select(.kind == "MCPServer" and (.metadata.name | test("kubernetes"))) | .metadata.name' <<<"$out_all" | tr '\n' ' ' | sed 's/ $//')"
+check "kubernetes: k8s-nodes looks kinds up with api_resources_list" "api_resources_list resources_list resources_get events_list" \
+  "$(yq -N 'select(.kind == "Agent" and .metadata.name == "k8s-nodes") | .spec.enabledTools | join(" ")' <<<"$out")"
 check "kubernetes: a changed config changes the pod" no \
   "$([ "$(k8s '.spec.env[] | select(.name == "CONFIG_SHA256") | .value' "$out")" = \
       "$(k8s '.spec.env[] | select(.name == "CONFIG_SHA256") | .value' "$(render --set 'kubernetesAccess.write.namespaces={apps}')")" ] && echo yes || echo no)"
@@ -97,7 +111,7 @@ check "nvidia-gpu-meta: list_metrics and execute_query" "list_metrics execute_qu
 
 # The fixture itself: a missing server or an empty list would make every check above pass.
 check "fixture: the kubernetes server lists helm_list read-only" 1 "$(grep -cx helm_list <<<"$k8s_read" || true)"
-check "fixture: nine servers, each with tools" 9 "$(yq -N '[.servers[] | select((.tools // []) | length > 0)] | length' "$fixture")"
+check "fixture: eight servers, each with tools" 8 "$(yq -N '[.servers[] | select((.tools // []) | length > 0)] | length' "$fixture")"
 # The comparison itself reports what it should: a name no server lists, and a write tool.
 check "self-test: a name no server lists is reported" "no_such_tool" "$(missing "$(printf 'pods_list\nno_such_tool')" "$known")"
 check "self-test: pods_exec is not a read-only Kubernetes tool" "pods_exec" "$(missing pods_exec "$k8s_read")"
