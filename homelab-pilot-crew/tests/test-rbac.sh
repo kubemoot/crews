@@ -52,10 +52,11 @@ check "the Kubernetes role names only the reviewed cluster-scoped kinds" \
 check "the Kubernetes role only reads" "get,list,watch" "$(verbs_of "$out" t-kubernetes-mcp)"
 check "the Kubernetes role names only reviewed API groups" "(core),apiextensions.k8s.io,rbac.authorization.k8s.io,storage.k8s.io" "$(groups_of "$out" t-kubernetes-mcp)"
 
-# Every kind the Kubernetes role keeps is one an agent is told to read: the prompt modules and
-# agents name it, so a kind nobody reads cannot stay.
-for kind in 'kind="Node"' 'kind="PersistentVolume"' 'kind="StorageClass"' 'kind="CustomResourceDefinition"' 'ClusterRoleBinding'; do
-  check "an agent reads $kind" "yes" "$(has "$(cat "$chart"/templates/promptmodule-specialists.yaml "$chart"/templates/agent-k8s-*.yaml)" "$kind")"
+# Every kind the Kubernetes role keeps is one an agent says it reads: its description, summary
+# or own module names it, so a kind nobody reads cannot stay.
+read_texts="$(yq -N 'select(.kind == "Agent") | (.spec.description, .spec.triageSummary)' <<<"$out"; yq -N 'select(.kind == "PromptModule") | .spec.content' <<<"$out")"
+for kind in nodes volumes StorageClasses CRDs ClusterRoles namespaces; do
+  check "an agent reads $kind" "yes" "$(has "$read_texts" "$kind")"
 done
 
 # k8sgpt: the cluster-scoped kinds its analyzers read, read-only, and nothing namespaced.
