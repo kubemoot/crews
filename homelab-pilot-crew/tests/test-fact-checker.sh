@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Render tests for the optional fact-checker agent (discussion.factChecker.enabled, off by
-# default): off renders no agent and no module; on renders one analyst with no domains, the
+# Render tests for the optional fact-checker agent (discussion.factChecker.enabled, on by
+# default): set false it renders no agent and no module; on renders one analyst with no domains, the
 # fact-checker-system module, read-only tools, and the CONCERN reply convention. Needs helm and yq.
 # Run from anywhere: homelab-pilot-crew/tests/test-fact-checker.sh   (exit 0 = all passed)
 set -euo pipefail
@@ -13,11 +13,13 @@ agent() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"fact-checker\
 module() { yq -N 'select(.kind == "PromptModule" and .metadata.name == "fact-checker-system") | .spec.content' <<<"$1"; }
 count() { grep -c . || true; }
 
-off="$(render)"
+off="$(render --set discussion.factChecker.enabled=false)"
+default="$(render)"
 check "off: no fact-checker agent" 0 "$(agent "$off" .metadata.name | count)"
 check "off: no fact-checker module" 0 "$(module "$off" | count)"
 check "off: no agent lists the module" 0 "$(yq -N 'select(.kind == "Agent") | .spec.promptRefs[]' <<<"$off" | grep -c fact-checker || true)"
 
+check "default: the fact-checker is on" 1 "$(agent "$default" .metadata.name | count)"
 on="$(render --set discussion.factChecker.enabled=true)"
 check "on: one fact-checker agent" 1 "$(agent "$on" .metadata.name | count)"
 check "on: an analyst, so it reviews and never gathers" analyst "$(agent "$on" .spec.discussRole)"

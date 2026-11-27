@@ -34,13 +34,14 @@ discussion:
   # stored result the finding cites and, with liveRead, against the live cluster, and replies
   # CONCERN: <claim, why, source> for a claim that fails or cannot be checked; it agrees only
   # when every claim it checked matched. When the coordinator asks the roster to ratify its
-  # draft, it traces each name and number of the draft the same way. Off by default; a crew
-  # that wants a doubter at the table switches it on. liveRead gives it the Kubernetes MCP
+  # draft, it traces each name and number of the draft the same way. On by default (the A/B on
+  # the CONCERN fix passed 62 of 70 runs with it against 54 without); false renders the crew
+  # without it. liveRead gives it the Kubernetes MCP
   # server's read tools (resources_list, resources_get, pods_list, pods_list_in_namespace,
   # events_list, the same read-only tools and RBAC the toolers use) beside the workspace read
   # tools; false leaves it the workspace tools alone. It has no write tool either way.
   factChecker:
-    enabled: false
+    enabled: true
     liveRead: true
 
 # Namespaces whose pods may reach this crew's discussion gateway when the operator
