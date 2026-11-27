@@ -13,14 +13,14 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-metrics") }}
   type: chat
-  description: "Fetches live resource usage: how much CPU and memory each pod, namespace, and node is using now and over a time window, from the metrics API and Prometheus, including usage compared with requests."
+  description: "Measures CPU, memory, disk and network use of pods, namespaces and nodes, now and over a window, against their requests."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes, observability]
   discussChannels:
     - kubernetes
   triageSummary: "Answers how much CPU, memory, disk, or network is being used right now or over a time window: top pods by memory or CPU, namespace totals, node utilization, usage trends, and usage against requests. Measures consumption with the metrics API and Prometheus instant and range queries."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-metrics-system]
+  promptRefs: [crew-invariants, worker, k8s-metrics-system]
   enabledTools: [pods_top, resources_list, resources_get, execute_query, execute_range_query, list_metrics]
   domains:
     - kubernetes

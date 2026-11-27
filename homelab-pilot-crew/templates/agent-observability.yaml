@@ -13,14 +13,14 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "obs-metrics") }}
   type: chat
-  description: "Fetches live monitoring-stack data: health of the Prometheus, Grafana, Alertmanager, Loki, and OpenTelemetry pods, ServiceMonitors, PodMonitors, alerting rules, firing alerts, and PromQL queries that investigate an alert or the stack itself."
+  description: "Reads whether monitoring works and what it alerts on: the monitoring stack's pods and logs, monitors, alerting rules and firing alerts."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, observability]
   discussChannels:
     - observability
   triageSummary: "Answers whether monitoring works and what it alerts on: monitoring pods running or restarting and their logs, ServiceMonitors, PodMonitors, PrometheusRules, firing alerts, and PromQL queries that investigate an alert or the stack itself."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, obs-metrics-system]
+  promptRefs: [crew-invariants, worker, obs-metrics-system]
   enabledTools: [pods_list_in_namespace, pods_get, pods_log, resources_list, execute_query, execute_range_query, list_metrics]
   domains:
     - observability
@@ -34,8 +34,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - alertmanager
     - alert
     - alerts
-    - metric
-    - metrics
     - monitoring
     - dashboard
     - promql

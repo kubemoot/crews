@@ -14,7 +14,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "scheduler-advisor") }}
   type: chat
-  description: "Manages scheduled reminders and follow-up discussions via the scheduling-mcp tools."
+  description: "Sets, lists and cancels reminders and follow-up discussions for the person asking."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling]
@@ -22,21 +22,19 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - general
     - scheduler
   triageSummary: "Handles scheduling requests: reminders ('remind me in 30 minutes'), follow-up discussions ('re-check disk usage tomorrow at 9am'), listing pending schedules, and cancellation."
-  # Temporal phrasing is unbounded — "in three minutes", "at the end of
+  # Temporal phrasing is unbounded ("in three minutes", "at the end of
   # the day", "every Monday for a month", "give it a few minutes then
-  # re-look". Keyword-list matching cannot keep up. LLM mode asks the
+  # re-look"). Keyword-list matching cannot keep up. LLM mode asks the
   # triage model whether the user message looks like a scheduling
   # request, with the promptHint biasing toward temporal intent.
   discussRelevance:
     mode: llm
     promptHint: |
-      Say yes if the user wants something done at a future time, after a
-      delay, on a recurring cadence, or wants to re-do an earlier step
-      later. Say yes for phrases like "remind me", "later", "in a few
-      minutes", "at noon", "every Monday", "follow up", "re-check",
-      "ping me when". Say no when the user just wants an immediate
-      answer with no temporal component.
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, scheduler-advisor-system]
+      DEFINE COMPONENT scheduler-relevance
+      DESCRIPTION Whether the message asks for something at a later time
+      WHEN the person wants something done at a future time, after a delay, on a recurring cadence, or an earlier step done again later THEN say yes
+      WHEN the person wants an answer now, with no later time in the request THEN say no
+  promptRefs: [crew-invariants, worker, scheduler-advisor-system]
   discussKeywords:
     - remind
     - reminder
@@ -45,17 +43,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - follow-up
     - followup
     - later
-    - tomorrow
-    - tonight
-    - monday
-    - tuesday
-    - wednesday
-    - thursday
-    - friday
-    - saturday
-    - sunday
-    - daily
-    - weekly
     - "in 30"
     - "in an hour"
     - "in 1 hour"

@@ -24,7 +24,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - observability
   triageSummary: "Answers what GPU metrics are available and whether the DCGM exporter is being scraped: metric discovery and scrape-target health for GPU monitoring. Not metric values, not trends."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, nvidia-gpu-meta-system]
+  promptRefs: [crew-invariants, worker, nvidia-gpu-meta-system]
   # Scrape health comes from the up series through the instant query; a full scrape-target
   # listing has no argument that narrows it and outgrows a tool result.
   enabledTools: [list_metrics, execute_query]

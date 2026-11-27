@@ -13,21 +13,19 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-workloads") }}
   type: chat
-  description: "Fetches live workload data from the Kubernetes API: Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, and CronJobs in any or all namespaces, with pod status, restarts, logs, events, images, and each container's CPU and memory requests and limits."
+  description: "Reads what runs and what it asks for: pods and their controllers, status, restarts, logs, images, and container CPU and memory requests and limits, including databases and other datastores."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
   triageSummary: "Answers what runs in the cluster and what it asks for: pods and their controllers per namespace, pod phase and readiness, restart counts, container logs and images, and the CPU and memory each container requests and is limited to, which is the total requested that a capacity question compares with node allocatable. Includes databases and datastores, which run as StatefulSets."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-workloads-system]
+  promptRefs: [crew-invariants, worker, k8s-workloads-system]
   enabledTools: [pods_list, pods_list_in_namespace, pods_get, pods_log, pods_top{{ if (include "homelab-pilot-crew.writeOn" $) }}, pods_exec{{ end }}, resources_list, resources_get, events_list]
   domains:
     - kubernetes
     - k8s
   discussKeywords:
-    - kubernetes
-    - k8s
     - pod
     - pods
     - deployment
@@ -43,34 +41,15 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - cronjob
     - cronjobs
     - logs
-    - log
-    - restart
     - restarts
     - container
     - containers
-    - replica
-    - replicas
-    - crash
     - crashloop
     - oom
-    - running
-    - status
     - image
     - workload
     - workloads
-    - describe
-    - unhealthy
-    - healthy
-    - failing
-    - failed
-    - error
-    - pending
-    - event
-    - events
-    - request
     - requests
-    - requested
-    - limit
     - limits
     - database
     - datastore
