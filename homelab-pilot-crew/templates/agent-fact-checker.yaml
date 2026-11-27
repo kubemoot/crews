@@ -1,0 +1,43 @@
+{{- if and (include "homelab-pilot-crew.rbacTenant" .) .Values.discussion.factChecker.enabled }}
+apiVersion: kubemoot.ai/v1alpha1
+kind: Agent
+metadata:
+  name: fact-checker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "homelab-pilot-crew.labels" . | nindent 4 }}
+    kubemoot.ai/crew: homelab-pilot
+    kubemoot.ai/role: analyst
+  annotations:
+    kubemoot.ai/discuss-priority: medium
+    kubemoot.ai/scale-to-zero: "true"
+spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "fact-checker") }}
+  type: chat
+  description: "Checks the factual claims of the other agents' findings (numbers, names, counts, states) against the stored results they cite and, where it can read them, the live source. Replies CONCERN for a claim that fails or cannot be verified. Supplies no data and no estimate of its own."
+  # Analyst role: it runs AFTER the toolers, in the review phase, and sees their findings.
+  # It declares no domains, so the coordinator convenes it for every discussion that gathered
+  # data (an analyst without domains is a generalist reviewer, as compute is).
+  discussRole: analyst{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "read") }}
+  think: true
+  capabilities: [reasoning{{ if .Values.discussion.factChecker.liveRead }}, tool-calling{{ end }}]
+  discussChannels:
+    - kubernetes
+    - observability
+    - general
+  triageSummary: "Reviews the findings other agents gathered: checks each number, name, count and state they state against the stored result it cites and the live source, and raises a concern for a claim that does not match or has no result behind it. Fetches no data of its own and answers no question itself."
+  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, fact-checker-system]
+  # Read tools only. The workspace tools read the stored results by key; liveRead adds the
+  # Kubernetes MCP server's read tools to check the live cluster.
+  enabledTools: [workspace_head, workspace_tail, workspace_grep{{ if .Values.advisors.workspaceQuery }}, workspace_query, workspace_describe{{ end }}{{ if .Values.discussion.factChecker.liveRead }}, resources_list, resources_get, pods_list, pods_list_in_namespace, events_list{{ end }}]{{ include "homelab-pilot-crew.workspaceDisabled" (dict "root" $ "on" .Values.advisors.workspaceQuery "tools" (list "workspace_query" "workspace_describe")) }}
+  maxTokens: 4096
+  deployment:
+    replicas: 1
+    port: 8080
+    env:
+      # Gateway ON, scoped by enabledTools to the read tools above, as the other analysts.
+      - name: KUBEMOOT_GATEWAY_ENABLED
+        value: "true"
+      # Stands aside when no finding gathered data (a concept question has nothing to check).
+      - name: KUBEMOOT_DISCUSS_TRIAGE_PROMPT
+        value: {{ include "homelab-pilot-crew.factCheckerTriagePrompt" . | quote }}
+{{- end }}
