@@ -229,8 +229,10 @@ wq_off="$(render --set compute.workspaceQuery=false)"
 wq_on="$(render)"
 [ "$(tools compute <<<"$wq_off")" = "execute_code,validate_code,workspace_head,workspace_tail,workspace_grep" ] || fail "compute.workspaceQuery=false must leave compute the code and text tools"
 [ "$(tools compute <<<"$wq_on")" = "execute_code,validate_code,workspace_head,workspace_tail,workspace_grep,workspace_query,workspace_list,workspace_describe" ] || fail "compute.workspaceQuery must append the workspace tools to compute"
+# workspace_describe is also the fact-checker's (advisors.workspaceQuery), so it is listed twice by default.
 for t in workspace_list workspace_describe; do
-  [ "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$wq_on" | grep -c "^$t$")" = "1" ] || fail "$t must be listed only by the compute agent"
+  want=1; [ "$t" = workspace_describe ] && want=2
+  [ "$(yq -N 'select(.kind == "Agent") | .spec.enabledTools[]' <<<"$wq_on" | grep -c "^$t$")" = "$want" ] || fail "$t must be listed by $want agent(s): compute (and the fact-checker for describe)"
   ! tools compute <<<"$wq_off" | grep -q "$t" || fail "$t listed with compute.workspaceQuery=false"
 done
 # The switch also renders the denial (a declared access would otherwise grant the tools back).
@@ -263,7 +265,7 @@ for a in k8s-advisor nvidia-gpu-advisor obs-advisor proxmox-advisor; do
   [ "$(tools "$a" <<<"$adv_on")" = "workspace_head,workspace_tail,workspace_grep,workspace_query" ] || fail "$a: tools with advisors.workspaceQuery"
   [ "$(tools "$a" <<<"$adv_off")" = "workspace_head,workspace_tail,workspace_grep" ] || fail "$a: tools without advisors.workspaceQuery"
 done
-[ "$(grep -c 'workspace_query' <<<"$adv_on")" = "5" ] || fail "workspace_query must appear on the four advisors and compute only"
+[ "$(grep -c 'workspace_query' <<<"$adv_on")" = "6" ] || fail "workspace_query must appear on the four advisors, compute and the fact-checker only"
 # A declared access grants every workspace tool it allows unless disabledTools names it, so a switch
 # that is off renders the denial; nothing renders with the switch on or with no declaration.
 denied() { yq -N "select(.kind == \"Agent\" and .metadata.name == \"$1\") | (.spec.disabledTools // []) | join(\",\")"; }
