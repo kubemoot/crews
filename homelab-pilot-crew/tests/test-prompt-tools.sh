@@ -248,7 +248,7 @@ check "overrides: events_list fieldSelector gives type=Warning" yes \
 check "overrides: pods_top says one row per container" yes "$(has "$(override pods_top .description)" 'one row per container')"
 check "overrides: pods_top all_namespaces says it defaults to true" yes \
   "$(has "$(override pods_top .parameters.all_namespaces.description)" 'defaults to true')"
-check "overrides: pods_top pages with limit and continue" yes "$(has "$(override pods_top .description)" 'limit and continue page the rows')"
+check "overrides: pods_top says the Metrics API ignores limit and continue" yes "$(has "$(override pods_top .description)" 'ignores limit and continue')"
 # The server pages a large list with limit and continue and caps one response at 4 MiB, so the
 # descriptions say how a count is made and how the next page is asked for. One text serves every
 # list tool, so the descriptions cannot drift apart, and no rule refuses a limit any more.
