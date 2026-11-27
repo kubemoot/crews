@@ -136,6 +136,8 @@ strip_modules() { yq -N 'select(.kind != "PromptModule")' <<<"$1"; }
 check "the switch changes only the PromptModules" "$(strip_modules "$out")" "$(strip_modules "$old")"
 check "signal switch: a null value is off" "$(module_of crew-invariants "$old")" "$(module_of crew-invariants "$(render --set discussion.signalTool=null)")"
 # The flag and the archetype must agree: the signal tool needs an archetype that declares signals.
+check "routing: the coordinator's pre-filter passes every agent (at least the crew's size)" yes \
+  "$(n=$(yq -N 'select(.kind == "Agent" and .spec.discussRole != "coordinator") | .metadata.name' <<<"$out" | grep -c .); k=$(yq -N 'select(.kind == "Agent" and .spec.discussRole == "coordinator") | .spec.deployment.env[] | select(.name == "KUBEMOOT_DISCUSS_RESUME_PRE_FILTER_TOP_K") | .value' <<<"$out"); [ -n "$k" ] && [ "$k" -ge "$n" ] && echo yes || echo "no (agents $n, top-k ${k:-unset})")"
 check "archetype: the policy names crew.archetype" consent-3 "$(yq -N 'select(.kind == "CrewSchedulingPolicy") | .spec.archetypeRef' <<<"$out")"
 bad="$(render --set crew.archetype=quorum-2 2>&1 >/dev/null || true)"
 check "archetype: the signal tool with an archetype not known to declare signals fails the render" yes \
