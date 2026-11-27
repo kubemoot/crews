@@ -13,14 +13,14 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-storage") }}
   type: chat
-  description: "Fetches live storage objects from the Kubernetes API: PersistentVolumes, PersistentVolumeClaims, and StorageClasses, with size, access modes, bound status, reclaim policy, and provisioner."
+  description: "Reads persistent storage: claims and whether they are bound, volumes, StorageClasses and provisioners."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
   triageSummary: "Answers questions about persistent storage: which claims exist and whether they are bound, their requested size, the volumes behind them, access modes, reclaim policies, and the StorageClasses and provisioners that create them."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-storage-system]
+  promptRefs: [crew-invariants, worker, k8s-storage-system]
   enabledTools: [resources_list, resources_get, events_list]
   domains:
     - kubernetes
@@ -38,12 +38,9 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - claims
     - nfs
     - csi
-    - disk
-    - capacity
     - bound
     - provisioner
     - reclaim
-    - access
   maxTokens: 4096
   deployment:
     replicas: 1

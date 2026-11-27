@@ -13,14 +13,14 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8s-config") }}
   type: chat
-  description: "Fetches live configuration objects from the Kubernetes API: Namespaces, ConfigMaps (their names and their contents, the data keys and values), Secret names and counts (never their values), ServiceAccounts, Roles, ClusterRoles, RoleBindings, and ClusterRoleBindings."
+  description: "Reads namespaces and configuration objects: ConfigMap contents (keys and values, such as a setting, a schedule or a policy), ServiceAccounts, Roles and bindings, and Secret names and counts, never their values."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
   triageSummary: "Answers what namespaces exist and what configuration and access they hold. Reads the contents (the data keys and values) of ConfigMaps and other configuration objects, so a question about what a ConfigMap says, such as a setting, a schedule or a freeze window, is answered here. Lists Secrets per namespace (names and counts only, never their values), ServiceAccounts, and the RBAC roles and bindings that grant permissions."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8s-config-system]
+  promptRefs: [crew-invariants, worker, k8s-config-system]
   enabledTools: [resources_list, resources_get, events_list]
   domains:
     - kubernetes
@@ -40,10 +40,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - clusterrole
     - rolebinding
     - clusterrolebinding
-    - label
-    - labels
-    - annotation
-    - annotations
     - permission
     - permissions
   maxTokens: 4096

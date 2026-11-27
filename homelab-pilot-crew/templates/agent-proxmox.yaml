@@ -20,7 +20,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - proxmox
   triageSummary: "Answers questions about the Proxmox hypervisor hosts themselves: each node's status, uptime, and CPU and memory use, cluster-wide totals, storage backends (ZFS, NFS, Ceph, LVM) and free space, network bridges, LXC containers, and recent tasks. Virtual machines and their configuration belong to the VM agent."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, proxmox-pve-system]
+  promptRefs: [crew-invariants, worker, proxmox-pve-system]
   enabledTools: [list_nodes, get_node_status, get_node_rrd_data, list_storage, get_storage_content, get_node_networks, get_node_tasks, get_task_status, get_cluster_resources]
   domains:
     - proxmox
@@ -70,7 +70,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
   discussChannels:
     - proxmox
   triageSummary: "Answers questions about virtual machines on Proxmox: which VMs exist and are running and on which node, their configured cores, memory, disks, and passthrough devices, recent CPU, memory, disk, and network performance, and snapshots."
-  promptRefs: [discussion-protocol, ratify-prompt, response-style, tooler-discipline, proxmox-qm-system]
+  promptRefs: [crew-invariants, worker, proxmox-qm-system]
   enabledTools: [list_vms, get_vm_config, get_vm_rrd_data, list_vm_snapshots]
   domains:
     - proxmox
@@ -90,8 +90,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - snapshot
     - vfio
     - pcie
-    - gpu
-    - hardware
   maxTokens: 4096
   think: false
   deployment:

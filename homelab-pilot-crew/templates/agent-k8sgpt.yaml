@@ -13,14 +13,14 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "k8sgpt") }}
   type: chat
-  description: "Fetches live cluster diagnostics: runs K8sGPT analyzers that find misconfigured or failing Pods, Services, Ingresses, Deployments, StatefulSets, PVCs, and NetworkPolicies, and lists Kubernetes Events and warnings from any object."
+  description: "Finds what is misconfigured or failing with the K8sGPT analyzers, and reads Events from any object."
   discussRole: tooler{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   think: false
   capabilities: [tool-calling, kubernetes]
   discussChannels:
     - kubernetes
   triageSummary: "Cluster-wide diagnostics: runs K8sGPT deterministic analyzers to detect misconfigurations (Pods, Services, Ingresses, Deployments, StatefulSets, PVCs, NetworkPolicies) AND surfaces Kubernetes Events/warnings from any object (kubelet, scheduler, nodes, storage, controllers)."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, k8sgpt-system]
+  promptRefs: [crew-invariants, worker, k8sgpt-system]
   enabledTools: [analyze, cluster-info, events_list]
   domains:
     - kubernetes

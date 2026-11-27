@@ -13,7 +13,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "internet-search") }}
   type: chat
-  description: "Searches the web for documentation, tool recommendations, best practices, and comparisons. Has search and fetch_content tools. Cannot access the cluster or any internal systems."
+  description: "Searches the web for outside documentation, releases and tools the crew's own systems cannot tell."
   discussRole: researcher{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "write") }}
   capabilities: [tool-calling]
   discussChannels:
@@ -21,10 +21,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - observability
     - proxmox
     - general
-  triageSummary: "Searches the internet for external documentation, MCP server recommendations, CLI tool discovery, and best practices for technologies not managed by other agents."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, tooler-discipline, internet-search-system]
+  triageSummary: "Searches the internet for outside documentation, release notes, other tools and known problems, for technologies the crew's own agents cannot read."
+  promptRefs: [crew-invariants, worker, internet-search-system]
   enabledTools: [search, fetch_content]
-  discussKeywords: ["*"]
+  discussKeywords: [documentation, docs, release, releases, latest, upstream, alternative, alternatives, compare, web, internet]
   maxTokens: 4096
   deployment:
     replicas: 1

@@ -13,7 +13,7 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "compute") }}
   type: chat
-  description: "Runs short Python or bash programs that compute exact totals, sums, percentages, unit conversions, counts, sorts, and top-N over data other agents already fetched in this discussion. Cannot fetch data itself: no cluster API, no kubectl, no network. Select it together with the agents that fetch the data."
+  description: "Computes exact counts, totals, means, orderings, top-N and unit conversions with code, over data other agents fetched or the question states; it fetches nothing, so select it with the agents that fetch the data."
   # Analyst role so it runs AFTER the toolers and receives their forwarded data,
   # but - unlike the reasoning-only analysts - it has ONE tool (execute_code) to
   # compute deterministically instead of tallying in its head.
@@ -25,7 +25,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - observability
     - general
   triageSummary: "Calculator for numbers other agents fetched: exact totals, sums, averages, percentages, unit conversions such as bytes to GiB, rounding, counts, sorts, top-N, group-by, dedup, min and max, for any domain. Works only on numbers stated in the question or stored in this discussion by the agents that fetched them. Its sandbox has no cluster API, no kubectl, no Prometheus, and no network, so a question about live data also needs the agents that fetch that data."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, analyst-review-protocol, compute-system]
+  promptRefs: [crew-invariants, compute-system]
   # execute_code/validate_code run the math. The workspace tools read the stored results of
   # the other agents server-side by key, so a key goes to the workspace server instead of
   # into open('/kubemoot/workspace/<key>') in sandbox code. The query tools need compute.workspaceQuery.
