@@ -28,24 +28,10 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - k8s
     - helm
   discussKeywords:
-    - concept
-    - explain
-    - difference
-    - compare
-    - best-practice
-    - bestpractice
-    - pattern
-    - architecture
-    - recommend
-    - recommendation
-    - troubleshoot
-    - debug
-    - tutorial
     - kubernetes
     - k8s
     - helm
     - rbac
-    - operator
   maxTokens: 4096
   deployment:
     replicas: 1

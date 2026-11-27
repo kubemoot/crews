@@ -34,7 +34,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       DESCRIPTION Whether the message asks for something at a later time
       WHEN the person wants something done at a future time, after a delay, on a recurring cadence, or an earlier step done again later THEN say yes
       WHEN the person wants an answer now, with no later time in the request THEN say no
-  promptRefs: [crew-invariants, worker, scheduler-advisor-system]
+  promptRefs: [crew-invariants, scheduler-advisor-system]
   discussKeywords:
     - remind
     - reminder
@@ -53,8 +53,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     - delete reminder
     - re-ask
     - reask
-    - check again
-    - recheck
   enabledTools:
     - set_reminder
     - schedule_followup
