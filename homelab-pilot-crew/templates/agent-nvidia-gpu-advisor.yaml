@@ -13,16 +13,16 @@ metadata:
     kubemoot.ai/scale-to-zero: "true"
 spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name" "nvidia-gpu-advisor") }}{{ include "homelab-pilot-crew.ragSources" (dict "root" $ "name" "nvidia-gpu-advisor") }}
   type: chat
-  description: "Answers conceptual NVIDIA GPU and CUDA questions from documentation (RAG). Has NO live tools."
+  description: "Reviews and fact-checks the GPU findings against the stored results, the live GPU metrics and the NVIDIA GPU documentation, and asks the agent behind a doubtful finding to recheck it."
   discussRole: analyst{{ include "homelab-pilot-crew.workspaceAccess" (dict "root" $ "access" "read") }}
-  capabilities: [reasoning]
+  capabilities: [reasoning, tool-calling]
   think: true
   discussChannels:
     - observability
     - general
-  triageSummary: "Reviews the GPU data other agents fetched (cross-checks utilization, VRAM, and temperature readings, correlates them) and answers conceptual NVIDIA GPU, CUDA, passthrough, and MIG questions from documentation. Fetches no live data."
-  promptRefs: [discussion-protocol, {{ include "homelab-pilot-crew.peerVerificationRef" . }}ratify-prompt, response-style, nvidia-gpu-advisor-system, analyst-review-protocol]
-  enabledTools: [workspace_head, workspace_tail, workspace_grep{{ if .Values.advisors.workspaceQuery }}, workspace_query{{ end }}{{ include "homelab-pilot-crew.ragSearchTools" (dict "root" $ "name" "nvidia-gpu-advisor") }}]{{ include "homelab-pilot-crew.workspaceDisabled" (dict "root" $ "on" .Values.advisors.workspaceQuery "tools" (list "workspace_query")) }}
+  triageSummary: "Checks the GPU facts other agents reported (utilization, memory, temperature, power and clock readings) against the stored results, the live metrics and the NVIDIA GPU and DCGM documentation, says where a finding misreads what a GPU metric means, and asks the agent that reported a doubtful fact to recheck it. Adds no data of its own."
+  promptRefs: [crew-invariants, advisor, nvidia-gpu-advisor-system]
+  enabledTools: [{{ include "homelab-pilot-crew.advisorTools" (dict "root" $ "name" "nvidia-gpu-advisor" "live" (ternary (list "execute_query") list .Values.mcpServers.prometheus.enabled)) }}]{{ include "homelab-pilot-crew.workspaceDisabled" (dict "root" $ "on" .Values.advisors.workspaceQuery "tools" (list "workspace_query" "workspace_describe")) }}
   domains:
     - gpu
     - nvidia
@@ -58,13 +58,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
     replicas: 1
     port: 8080
     env:
-      # Analyst reasoner: gateway ON but enabledTools (spec) scopes it to exactly the
-      # workspace read tools, so triage sees ONLY those, not the full 176-tool
-      # catalog that made it CONTRIBUTE to everything. Those tools READ the discussion workspace
-      # data under marker-only posting; they are NOT domain tools.
+      # Gateway ON, scoped by enabledTools to the read and compute tools above.
       - name: KUBEMOOT_GATEWAY_ENABLED
         value: "true"
-      # Domain-strict triage: out-of-domain analysts stand aside (DRY via helper).
-      - name: KUBEMOOT_DISCUSS_TRIAGE_PROMPT
-        value: {{ include "homelab-pilot-crew.analystTriagePrompt" . | quote }}
 {{- end }}
