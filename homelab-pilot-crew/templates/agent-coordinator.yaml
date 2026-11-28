@@ -49,12 +49,6 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
         value: {{ .Values.discussion.preFilterTopK | quote }}
       - name: KUBEMOOT_DISCUSS_ALWAYS_CANDIDATE_AGENTS
         value: "compute,internet-search"
-      # Inventory answers ("list X, describe each") truncate partway on the 32B; the
-      # runtime counts the entities the gathered data holds and re-prompts naming the
-      # omitted ones until the list is complete. Opt-in per coordinator (default 0);
-      # see B2 in the Crew Evasion note.
-      - name: KUBEMOOT_DISCUSS_SYNTHESIS_COMPLETENESS_RETRIES
-        value: "2"
       # Synthesis on qwen3:32b takes 90-150s with multiple contributions.
       - name: KUBEMOOT_DISCUSS_SYNTHESIS_TIMEOUT_SECONDS
         value: "180"
