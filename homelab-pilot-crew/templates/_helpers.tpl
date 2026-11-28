@@ -443,7 +443,8 @@ What a workspace call line in a finding is, for the descriptions of the workspac
 the tool, and no prompt repeats it.
 */}}
 {{- define "homelab-pilot-crew.callLineNotes" -}}
-ASSERT a finding names each stored result in a call line, [CALL key=<key> tool=<tool> args=... bytes=<n> rows=<n> error=...]; the line carries no data, and the key is what this tool reads
+ASSERT a finding names each stored result in a call line, [CALL key=<key> tool=<tool> call=<key>.call args=... bytes=<n> rows=<n> error=...]; the line carries no data, and the key is what this tool reads
+ASSERT the call= key holds the call itself, the program, query or parameters it ran with, in full; this tool reads it like any stored result
 ASSERT a [RESULT] block after a call line holds the same data as the stored result under its key, and an [EMPTY RESULT] block after a call line means the call succeeded and returned nothing
 ASSERT args= may end with "(args cut at <n> of <m> chars)": the call ran with the full arguments
 {{- end }}

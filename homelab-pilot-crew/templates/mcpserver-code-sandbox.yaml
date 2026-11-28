@@ -78,7 +78,7 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "mcpServers" "
         ASSERT Python has the standard library only (json, csv, collections, statistics, math, itertools, re); pandas, numpy and every other third-party package are not installed, and importing one fails
         ASSERT the sandbox has no network and no cluster access
         ASSERT a program reads a stored result of this discussion in full: name its key in inputs, for example inputs: ["k8s-config/001-resources_get"], and the program opens the file ./inputs/k8s-config/001-resources_get; a count, filter or total is computed over all of that file, not over rows copied out of a slice
-        ASSERT a stored result may hold a table as text inside a YAML or JSON field (a ConfigMap with a CSV in data), which the program parses itself, and workspace_query cannot split into rows
+        ASSERT a call's own working (its program, query or parameters) is stored under its result key followed by .call, and a program can name it in inputs like any stored result
         ASSERT only this discussion's stored results can be named; a key of another discussion or one that does not exist is refused
   resources:
     requests:
