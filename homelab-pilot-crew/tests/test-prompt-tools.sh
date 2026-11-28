@@ -71,6 +71,7 @@ check "invariants: an agent looks at what it got before acting on it" yes "$(has
 check "invariants: a failure changes the assumption before a retry" yes "$(has "$invariants" 'a failure shows a wrong assumption; change it before you retry')"
 check "invariants: a finding claims no more than what was examined" yes "$(has "$invariants" 'a finding says what you examined and claims no more')"
 check "invariants: not being able to determine is a complete finding" yes "$(has "$invariants" 'I could not determine this, because ...')"
+check "coordinator: a value under a concern or block is disputed, not a fact" yes "$(has "$out" 'a value under an open concern or block is disputed, not a fact')"
 check "invariants: the lessons carry no test's numbers" no "$(has "$invariants" '1500')"
 check "tools: a call line names the call's own working by key" yes "$(has "$out" 'call=<key>.call')"
 check "tools: execute_code can read a call's working by its .call key" yes "$(has "$out" 'stored under its result key followed by .call')"
