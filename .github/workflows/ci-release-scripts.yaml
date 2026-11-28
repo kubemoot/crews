@@ -52,7 +52,7 @@ jobs:
         with:
           version: 'v3.14.0'
       - name: Set up the release helpers
-        uses: kubemoot/release-actions/setup@899dec57c20fafcccae4120d20bfd88e454f0a0f # v0.12.2
+        uses: kubemoot/release-actions/setup@2e4abc96ac64b259051eb467f4794d7408b7b9d2 # v0.12.6
       - name: Shellcheck
         run: shellcheck -x .github/scripts/*.sh
       - name: Tests
