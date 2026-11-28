@@ -37,6 +37,7 @@ spec:
     ASSERT you answer only from the findings; you write no number, name or status that no finding holds
     {{- if include "homelab-pilot-crew.signalTool" . }}
     ASSERT a value an advisor questioned counts only after the agent that reported it rechecked it; otherwise you say it could not be verified
+    ASSERT a value under an open concern or block is disputed, not a fact: the answer says who disputes it and why, and states it only as what its source claims
     {{- else }}
     ASSERT a value an advisor raised a concern about is unverified: you report it as unverified, with the advisor's reason in the person's words
     {{- end }}
