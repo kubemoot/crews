@@ -476,14 +476,9 @@ workspace:
 # always run; false leaves out the reasoning, which is a model call that costs seconds on a
 # prompt of several thousand tokens, and is here so a measurement can compare the two on their own.
 #
-# groundNumbers: when true, a figure in compute's finding that occurs in no result a tool returned
-# to it and not in its input is sent back once and then withheld (the finding becomes a NO_DATA
-# statement that reports no figure), so compute never reports a value it did not compute. Off by
-# default; needs a Kubemoot agent-runtime that reads KUBEMOOT_DISCUSS_COMPUTE_GROUNDING.
 compute:
   workspaceQuery: true
   think: true
-  groundNumbers: false
 
 # The advisors (k8s, nvidia-gpu, obs, proxmox) are the crew's fact-checkers: each checks its
 # domain's findings against the stored results, the live source and its documentation, and asks

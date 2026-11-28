@@ -279,7 +279,7 @@ Without `workspace_query`, whether the switch is off or the operator's engine is
 
 With a switch set `false` and `workspace.declareAccess` on, the agent renders `disabledTools`: the operator grants every workspace tool the declared access allows unless `disabledTools` names it. `compute.workspaceQuery=false` denies `workspace_query`, `workspace_list` and `workspace_describe`; `advisors.workspaceQuery=false` denies `workspace_query` and `workspace_describe`.
 
-Three switches exist so a measurement can turn one thing on at a time. `compute.think` (default `true`, as the agent has always run) set to `false` leaves out the compute agent's reasoning. `compute.groundNumbers` (default `false`) sets `KUBEMOOT_DISCUSS_COMPUTE_GROUNDING` on compute: a figure in its finding that occurs in no tool result it ran and not in its input is sent back once, then withheld as a `NO_DATA` statement. `mcpServers.workspace.nestedColumnHints` (default `false`) sets `KUBEMOOT_QUERY_NESTED_HINTS` on the workspace server, so the error for a column guess inside a nested object names the column and the SQL that reads the field. The last two need a Kubemoot release that reads those variables.
+Two switches exist so a measurement can turn one thing on at a time. `compute.think` (default `true`, as the agent has always run) set to `false` leaves out the compute agent's reasoning. `mcpServers.workspace.nestedColumnHints` (default `false`) sets `KUBEMOOT_QUERY_NESTED_HINTS` on the workspace server, so the error for a column guess inside a nested object names the column and the SQL that reads the field. The last needs a Kubemoot release that reads that variable.
 
 ## Workspace access
 

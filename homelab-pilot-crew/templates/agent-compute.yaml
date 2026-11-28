@@ -62,14 +62,4 @@ spec:{{ include "homelab-pilot-crew.egress" (dict "root" $ "kind" "agents" "name
       # tool-free does not apply at this scope.
       - name: KUBEMOOT_GATEWAY_ENABLED
         value: "true"
-      # Mandatory-execute_code contract: the runtime rejects + re-prompts a
-      # no-tool-call answer and fails rather than letting this agent count the
-      # inline preview in its head. Forces deterministic compute via execute_code.
-      - name: KUBEMOOT_DISCUSS_COMPUTE_CONTRACT
-        value: "true"
-{{- if .Values.compute.groundNumbers }}
-      # Grounded figures: a figure no tool result holds is sent back once, then withheld.
-      - name: KUBEMOOT_DISCUSS_COMPUTE_GROUNDING
-        value: "true"
-{{- end }}
 {{- end }}
